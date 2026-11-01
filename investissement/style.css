@@ -1,0 +1,123 @@
+/* Styles propres à Investissement ; le reste est dans ../commun/base.css. */
+
+/* Palette : bleu au lieu du vert-bleu de Voyage. */
+:root {
+	--accent: #24477a;
+	--accent-fonce: #1a355c;
+	--entete: #24477a;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--accent: #8fb3e8;
+		--accent-fonce: #b5cdf0;
+		--entete: #172c4b;
+	}
+}
+
+:root[data-theme="dark"] {
+	--accent: #8fb3e8;
+	--accent-fonce: #b5cdf0;
+	--entete: #172c4b;
+}
+
+/* Chiffres clés, sous l'en-tête, visibles pendant la saisie. */
+
+.chiffres-cles {
+	position: sticky;
+	top: calc(env(safe-area-inset-top) + 56px);
+	z-index: 5;
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 8px;
+	padding: 10px 16px;
+	background: var(--surface);
+	border-bottom: 1px solid var(--bord);
+	box-shadow: var(--ombre);
+	text-align: center;
+}
+
+.chiffres-cles > div {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.chiffres-cles .libelle,
+.chiffres-cles .unite {
+	color: var(--texte-doux);
+	font-size: 12px;
+}
+
+.chiffres-cles strong {
+	font-size: 20px;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.positif {
+	color: var(--vert);
+}
+
+.negatif {
+	color: var(--danger);
+}
+
+/* Blocs de saisie et détail */
+
+.formulaire.formulaire {
+	gap: 12px;
+}
+
+.bloc {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 16px;
+	margin-bottom: 12px;
+}
+
+.bloc h2 {
+	font-size: 18px;
+}
+
+.detail {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	column-gap: 12px;
+	row-gap: 6px;
+	margin: 4px 0 0;
+}
+
+.detail dt {
+	color: var(--texte-doux);
+}
+
+.detail dd {
+	margin: 0;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+.detail .titre-detail {
+	grid-column: 1 / -1;
+	margin-top: 12px;
+	color: var(--texte);
+	font-weight: 600;
+}
+
+.detail .titre-detail:first-child {
+	margin-top: 0;
+}
+
+.detail .total {
+	color: var(--texte);
+	font-weight: 600;
+}
+
+.detail .precision {
+	display: block;
+	color: var(--texte-doux);
+	font-size: 12px;
+	font-weight: 400;
+}
