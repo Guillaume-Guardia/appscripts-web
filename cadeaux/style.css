@@ -320,6 +320,17 @@ button:focus-visible {
 	right: 0;
 	top: 48px;
 	min-width: 220px;
+	/* Accroché à l'en-tête, qui ne défile pas : plus haut que l'écran, il défile lui-même, au-dessus
+	   des onglets du bas. */
+	max-height: calc(
+		100dvh -
+		env(safe-area-inset-top) -
+		env(safe-area-inset-bottom) -
+		var(--nav-h) -
+		80px
+	);
+	overflow-y: auto;
+	overscroll-behavior: contain;
 	background: var(--surface);
 	color: var(--texte);
 	border: 1px solid var(--bord);

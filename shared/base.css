@@ -231,6 +231,10 @@ h3 {
 	display: flex;
 	flex-direction: column;
 	min-width: 240px;
+	/* Accroché à l'en-tête, qui ne défile pas : plus haut que l'écran, il défile lui-même. */
+	max-height: calc(100dvh - env(safe-area-inset-top) - 72px);
+	overflow-y: auto;
+	overscroll-behavior: contain;
 	padding: 6px;
 	background: var(--surface);
 	color: var(--texte);
