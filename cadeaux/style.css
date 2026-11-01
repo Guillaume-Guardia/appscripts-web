@@ -984,8 +984,8 @@ input[type="date"] {
 	width: 100%;
 }
 
-/* Fenêtres de web/commun (« Suggestion ou bug » : commun/signalement.js), écrites avec les classes
-   de commun/base.css, que cadeaux ne charge pas. */
+/* Fenêtres de web/shared (« Suggestion ou bug » : shared/signalement.js), écrites avec les classes
+   de shared/base.css, que cadeaux ne charge pas. */
 .formulaire {
 	display: flex;
 	flex-direction: column;

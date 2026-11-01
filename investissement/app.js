@@ -1,11 +1,11 @@
-import { $, el, remplacerContenu } from "../commun/dom.js";
+import { $, el, remplacerContenu } from "../shared/dom.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
 	enregistrerServiceWorker,
-} from "../commun/pwa.js";
-import { ouvrirSignalement } from "../commun/signalement.js";
-import { ecrireStockage, lireStockageJson } from "../commun/stockage.js";
+} from "../shared/pwa.js";
+import { ouvrirSignalement } from "../shared/signalement.js";
+import { ecrireStockage, lireStockageJson } from "../shared/stockage.js";
 import { PARAMETRES_DEFAUT, simuler } from "./calcul.js";
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 // Fenêtre « Suggestion ou bug » : le message devient une issue GitHub du dépôt, créée par l'API du
-// projet droits (action creer-issue), même sans compte. La page charge ../commun/config.js
+// projet droits (action creer-issue), même sans compte. La page charge ../shared/config.js
 // (window.API_DROITS).
 
 import { creerApi } from "./api.js";
@@ -178,7 +178,7 @@ export function ouvrirSignalement({
 	);
 	if (!window.API_DROITS) {
 		erreur.textContent =
-			"L'adresse de l'API n'est pas configurée (commun/config.js).";
+			"L'adresse de l'API n'est pas configurée (shared/config.js).";
 		envoyer.disabled = true;
 	}
 	document.body.append(dialogue);

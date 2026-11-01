@@ -1,6 +1,6 @@
 // Fenêtre qui montre un lien en QR code (à scanner avec l'appareil photo d'un autre téléphone),
 // avec « Envoyer le lien » (partage du téléphone, sinon copie). La page charge
-// ../commun/vendor/qrcode.min.js (qrcode-generator) avant ses modules.
+// ../shared/vendor/qrcode.min.js (qrcode-generator) avant ses modules.
 
 import { el, notifier } from "./dom.js";
 

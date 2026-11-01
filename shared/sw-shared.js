@@ -2,7 +2,7 @@
 // version.js. Les fichiers de l'app restent disponibles hors ligne.
 //
 // version.js donne VERSION_APP (à la main) et, une fois publié (scripts/publier-web.mjs),
-// EMPREINTE_APP (empreinte des fichiers de l'app et de commun/) et FICHIERS_APP (fichiers à mettre
+// EMPREINTE_APP (empreinte des fichiers de l'app et de shared/) et FICHIERS_APP (fichiers à mettre
 // en cache dès l'installation). Toute modification change donc version.js : le navigateur, qui
 // compare aussi les scripts importés par sw.js, propose la mise à jour aux téléphones.
 

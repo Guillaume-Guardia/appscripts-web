@@ -1,11 +1,11 @@
-import { creerApi, ErreurReseau } from "../commun/api.js";
+import { creerApi, ErreurReseau } from "../shared/api.js";
 import {
 	aujourdhui,
 	joursEntre,
 	pluriel,
 	versChampDate,
 	versDate,
-} from "../commun/dates.js";
+} from "../shared/dates.js";
 import {
 	$,
 	afficherBandeau,
@@ -14,18 +14,18 @@ import {
 	normaliser,
 	notifier,
 	remplacerContenu,
-} from "../commun/dom.js";
+} from "../shared/dom.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
 	enregistrerServiceWorker,
-} from "../commun/pwa.js";
-import { ouvrirSignalement } from "../commun/signalement.js";
+} from "../shared/pwa.js";
+import { ouvrirSignalement } from "../shared/signalement.js";
 import {
 	ecrireStockage,
 	lireStockage,
 	lireStockageJson,
-} from "../commun/stockage.js";
+} from "../shared/stockage.js";
 import { courbePoids, histogrammeKcal } from "./graphiques.js";
 import {
 	additionner,
@@ -1577,7 +1577,7 @@ function validerLien(evenement) {
 
 function afficherQr() {
 	fermerMenu();
-	// qrcode : bibliothèque qrcode-generator (../commun/vendor), chargée par la page.
+	// qrcode : bibliothèque qrcode-generator (../shared/vendor), chargée par la page.
 	const qr = window.qrcode(0, "M");
 	qr.addData(lienDeConnexion());
 	qr.make();

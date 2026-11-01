@@ -1,7 +1,7 @@
 // Graphiques de l'app : kcal des 7 derniers jours (boutons HTML, un par jour) et courbe du poids
 // (SVG). Les couleurs viennent de style.css (variables du thème clair ou sombre).
 
-import { el } from "../commun/dom.js";
+import { el } from "../shared/dom.js";
 import { nombre } from "./nutrition.js";
 
 /**

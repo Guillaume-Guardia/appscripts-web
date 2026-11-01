@@ -1,5 +1,5 @@
-import { creerApi, ErreurReseau } from "../commun/api.js";
-import { aujourdhui, joursEntre, versChampDate } from "../commun/dates.js";
+import { creerApi, ErreurReseau } from "../shared/api.js";
+import { aujourdhui, joursEntre, versChampDate } from "../shared/dates.js";
 import {
 	$,
 	afficherBandeau,
@@ -7,18 +7,18 @@ import {
 	masquerBandeau,
 	notifier,
 	remplacerContenu,
-} from "../commun/dom.js";
+} from "../shared/dom.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
 	enregistrerServiceWorker,
-} from "../commun/pwa.js";
-import { ouvrirSignalement } from "../commun/signalement.js";
+} from "../shared/pwa.js";
+import { ouvrirSignalement } from "../shared/signalement.js";
 import {
 	ecrireStockage,
 	lireStockage,
 	lireStockageJson,
-} from "../commun/stockage.js";
+} from "../shared/stockage.js";
 
 // ---------------------------------------------------------------------------
 // Stockage local (préférences de ce navigateur : clé, dernier état)
@@ -2306,7 +2306,7 @@ function brancherEvenements() {
 	$("#menu-profil").addEventListener("click", ouvrirProfil);
 	$("#menu-rejoindre").addEventListener("click", ouvrirRejoindre);
 	$("#menu-creer").addEventListener("click", ouvrirCreer);
-	// L'installation elle-même est branchée par brancherInstallation (commun/pwa.js).
+	// L'installation elle-même est branchée par brancherInstallation (shared/pwa.js).
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	$("#menu-qr").addEventListener("click", afficherMonQr);
 	$("#menu-revoquer").addEventListener("click", revoquer);

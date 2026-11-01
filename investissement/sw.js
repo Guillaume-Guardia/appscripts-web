@@ -1,4 +1,4 @@
-// Service worker d'Investissement : voir ../commun/sw-commun.js.
-importScripts("version.js", "../commun/sw-commun.js");
+// Service worker d'Investissement : voir ../shared/sw-shared.js.
+importScripts("version.js", "../shared/sw-shared.js");
 
 installerServiceWorker("investissement");

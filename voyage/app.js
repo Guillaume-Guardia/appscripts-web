@@ -1,4 +1,4 @@
-import { creerApi, ErreurReseau } from "../commun/api.js";
+import { creerApi, ErreurReseau } from "../shared/api.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	compteConnecte,
@@ -10,8 +10,8 @@ import {
 	lireSession,
 	modifierPrenom,
 	oublierConnexion,
-} from "../commun/connexion.js";
-import { aujourdhui, joursEntre, pluriel, versDate } from "../commun/dates.js";
+} from "../shared/connexion.js";
+import { aujourdhui, joursEntre, pluriel, versDate } from "../shared/dates.js";
 import {
 	$,
 	afficherBandeau,
@@ -20,19 +20,19 @@ import {
 	normaliser,
 	notifier,
 	remplacerContenu,
-} from "../commun/dom.js";
+} from "../shared/dom.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
 	enregistrerServiceWorker,
-} from "../commun/pwa.js";
-import { ouvrirQr } from "../commun/qr.js";
-import { ouvrirSignalement } from "../commun/signalement.js";
+} from "../shared/pwa.js";
+import { ouvrirQr } from "../shared/qr.js";
+import { ouvrirSignalement } from "../shared/signalement.js";
 import {
 	ecrireStockage,
 	lireStockage,
 	lireStockageJson,
-} from "../commun/stockage.js";
+} from "../shared/stockage.js";
 
 // ---------------------------------------------------------------------------
 // État de l'app
@@ -1002,7 +1002,7 @@ async function enregistrerVoyage(evenement) {
 }
 
 // ---------------------------------------------------------------------------
-// Connexion : compte par e-mail (commun/connexion.js, projet droits)
+// Connexion : compte par e-mail (shared/connexion.js, projet droits)
 // ---------------------------------------------------------------------------
 
 function afficherEcran(nom) {

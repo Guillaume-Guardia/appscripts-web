@@ -1,4 +1,4 @@
-/* Styles propres à Voyage ; le reste est dans ../commun/base.css. */
+/* Styles propres à Voyage ; le reste est dans ../shared/base.css. */
 
 #duree-voyage:empty {
 	display: none;

@@ -1,4 +1,4 @@
-// Service worker de Cuisine : voir ../commun/sw-commun.js.
-importScripts("version.js", "../commun/sw-commun.js");
+// Service worker de Cuisine : voir ../shared/sw-shared.js.
+importScripts("version.js", "../shared/sw-shared.js");
 
 installerServiceWorker("cuisine");

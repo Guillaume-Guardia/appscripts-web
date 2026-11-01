@@ -33,7 +33,7 @@ export function oublierConnexion() {
 export const estSessionRefusee = (erreur) =>
 	/Session expirée/.test(erreur?.message ?? "");
 
-/** API du projet droits (adresse dans commun/config.js). */
+/** API du projet droits (adresse dans shared/config.js). */
 const appelerDroits = creerApi({
 	url: window.API_DROITS,
 	identifiants: () => ({ session: lireSession() }),
@@ -200,7 +200,7 @@ export function afficherConnexion(
 	);
 	if (!window.API_DROITS) {
 		erreur.textContent =
-			"L'adresse de l'API de connexion n'est pas configurée (commun/config.js).";
+			"L'adresse de l'API de connexion n'est pas configurée (shared/config.js).";
 	} else if (invitation) {
 		erreur.textContent = "Connexion…";
 		connecter(null, "utiliser-invitation", { invitation });

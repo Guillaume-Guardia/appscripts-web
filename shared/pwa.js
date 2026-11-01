@@ -1,5 +1,5 @@
 // Installation et mises à jour d'une app (PWA) : service worker (sw.js de l'app, qui s'appuie sur
-// commun/sw-commun.js), bandeau « Nouvelle version disponible », bouton d'installation.
+// shared/sw-shared.js), bandeau « Nouvelle version disponible », bouton d'installation.
 
 import { afficherBandeau, notifier } from "./dom.js";
 

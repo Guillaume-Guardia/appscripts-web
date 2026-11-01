@@ -3,5 +3,5 @@
 self.VERSION_APP = "1.1.0";
 
 // Ajouté à la publication (scripts/publier-web.mjs).
-self.EMPREINTE_APP = "0c751c0a71ee";
-self.FICHIERS_APP = ["./","app.js","config.js","graphiques.js","icons/apple-touch-icon.png","icons/icon-192.png","icons/icon-512.png","icons/icon-maskable-512.png","icons/icon.svg","index.html","manifest.webmanifest","nutrition.js","scanner.js","style.css","version.js","../commun/api.js","../commun/base.css","../commun/config.js","../commun/connexion.js","../commun/dates.js","../commun/dom.js","../commun/pwa.js","../commun/qr.js","../commun/signalement.js","../commun/stockage.js","../commun/vendor/qrcode.min.js"];
+self.EMPREINTE_APP = "95980af4c3ea";
+self.FICHIERS_APP = ["./","app.js","config.js","graphiques.js","icons/apple-touch-icon.png","icons/icon-192.png","icons/icon-512.png","icons/icon-maskable-512.png","icons/icon.svg","index.html","manifest.webmanifest","nutrition.js","scanner.js","style.css","version.js","../shared/api.js","../shared/base.css","../shared/config.js","../shared/connexion.js","../shared/dates.js","../shared/dom.js","../shared/pwa.js","../shared/qr.js","../shared/signalement.js","../shared/stockage.js","../shared/vendor/qrcode.min.js"];
