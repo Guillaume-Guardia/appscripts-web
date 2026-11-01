@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="theme-color" content="#0f5f66" />
+		<title>Mes apps</title>
+		<link rel="icon" href="voyage/icons/icon.svg" type="image/svg+xml" />
+		<link rel="stylesheet" href="commun/base.css" />
+		<style>
+			.apps { display: grid; gap: 12px; }
+			.app { display: flex; align-items: center; gap: 16px; padding: 14px 16px; color: inherit; text-decoration: none; }
+			.app img { width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0; }
+			.app h2 { font-size: 18px; }
+			.app p { margin: 2px 0 0; color: var(--texte-doux); font-size: 14px; }
+		</style>
+	</head>
+	<body>
+		<header class="entete">
+			<h1>Mes apps</h1>
+		</header>
+		<main>
+			<!-- Une carte par app ; chacune s'installe séparément sur le téléphone, depuis sa page. -->
+			<div class="apps">
+				<a class="carte app" href="voyage/">
+					<img src="voyage/icons/icon-192.png" alt="" />
+					<div>
+						<h2>Voyage</h2>
+						<p>Les listes de bagages, selon la destination, la durée et le transport.</p>
+					</div>
+				</a>
+				<a class="carte app" href="../cadeaux/">
+					<img src="../cadeaux/icons/icon-192.png" alt="" />
+					<div>
+						<h2>Cadeaux</h2>
+						<p>Les listes de cadeaux de Noël de la famille.</p>
+					</div>
+				</a>
+			</div>
+		</main>
+	</body>
+</html>
