@@ -1,4 +1,16 @@
 import { creerApi, ErreurReseau } from "../commun/api.js";
+import {
+	afficherConnexion as afficherFormulaireConnexion,
+	compteConnecte,
+	connecterUnAutreAppareil,
+	deconnecter as deconnecterAppareil,
+	deconnecterPartout,
+	estSessionRefusee,
+	invitationDuLien,
+	lireSession,
+	modifierPrenom,
+	oublierConnexion,
+} from "../commun/connexion.js";
 import { aujourdhui, joursEntre, pluriel, versDate } from "../commun/dates.js";
 import {
 	$,
@@ -14,6 +26,7 @@ import {
 	chercherMiseAJour,
 	enregistrerServiceWorker,
 } from "../commun/pwa.js";
+import { ouvrirQr } from "../commun/qr.js";
 import {
 	ecrireStockage,
 	lireStockage,
@@ -25,16 +38,15 @@ import {
 // ---------------------------------------------------------------------------
 
 const CLES = {
-	cle: "voyage.cle",
 	etat: "voyage.etat",
+	/** Lien de partage ouvert avant d'être connecté : { voyageId, code }. */
+	rejoindre: "voyage.rejoindre",
 	masquerPris: "voyage.masquerPris",
 	versionApi: "voyage.versionApi",
 };
 
 const app = {
-	/** Clé du lien de connexion : la seule chose qui donne accès à l'API. */
-	cle: lireStockage(CLES.cle),
-	/** { voyages, options } renvoyé par l'API. */
+	/** { moi, voyages, options } renvoyé par l'API. */
 	etat: null,
 	/** Id du voyage affiché, ou null pour la liste des voyages. */
 	voyageId: null,
@@ -47,8 +59,13 @@ const app = {
 	versionApi: lireStockage(CLES.versionApi),
 };
 
+// État en cache : seulement celui du compte connecté sur l'appareil.
 const etatEnCache = lireStockageJson(CLES.etat);
-if (app.cle && Array.isArray(etatEnCache?.voyages) && etatEnCache.options) {
+if (
+	lireSession() &&
+	etatEnCache?.moi?.id === compteConnecte()?.id &&
+	Array.isArray(etatEnCache.voyages)
+) {
 	app.etat = etatEnCache;
 }
 
@@ -58,7 +75,7 @@ if (app.cle && Array.isArray(etatEnCache?.voyages) && etatEnCache.options) {
 
 const appelerApi = creerApi({
 	url: window.API_URL,
-	identifiants: () => ({ cle: app.cle }),
+	identifiants: () => ({ session: lireSession() }),
 	surVersion: (version) => {
 		if (version === app.versionApi) return;
 		app.versionApi = version;
@@ -66,9 +83,6 @@ const appelerApi = creerApi({
 		afficherVersions();
 	},
 });
-
-const estConnexionRefusee = (erreur) =>
-	/Connexion plus valable/.test(erreur.message);
 
 function enregistrerEtat() {
 	ecrireStockage(CLES.etat, JSON.stringify(app.etat));
@@ -88,7 +102,7 @@ function appliquerEtat(etat) {
 }
 
 async function actualiser({ silencieux = false } = {}) {
-	if (!app.cle) return;
+	if (!lireSession()) return;
 	const bouton = $("#bouton-actualiser");
 	bouton.classList.add("tourne");
 	try {
@@ -97,7 +111,7 @@ async function actualiser({ silencieux = false } = {}) {
 		if (erreur instanceof ErreurReseau) {
 			passerHorsLigne();
 			if (!silencieux) notifier(erreur.message, true);
-		} else if (estConnexionRefusee(erreur)) {
+		} else if (estSessionRefusee(erreur)) {
 			deconnecter(erreur.message);
 		} else {
 			notifier(erreur.message, true);
@@ -131,7 +145,7 @@ async function modifier(
 		if (messageSucces) notifier(messageSucces);
 		return resultat ?? true;
 	} catch (erreur) {
-		if (estConnexionRefusee(erreur)) {
+		if (estSessionRefusee(erreur)) {
 			deconnecter(erreur.message);
 			return null;
 		}
@@ -253,6 +267,9 @@ function carteVoyage(voyage) {
 			el("span", { class: `etiquette ${classe}` }, libelle),
 		),
 		el("p", { class: "quand" }, periode(voyage)),
+		voyage.participants.length > 1
+			? el("p", { class: "avec" }, avecQui(voyage))
+			: null,
 		barreProgression(liste.filter((b) => b.pris).length, liste.length),
 	);
 }
@@ -386,6 +403,18 @@ function rendreDetail() {
 					criteres.map((c) => el("span", { class: "critere" }, avecIcone(c))),
 				)
 			: null,
+		el(
+			"div",
+			{ class: "participants-voyage" },
+			el("span", {}, avecQui(voyage) || "Rien que toi"),
+			voyage.estProprietaire
+				? el(
+						"button",
+						{ type: "button", onclick: () => ouvrirPartage(voyage) },
+						"Partager",
+					)
+				: null,
+		),
 		barreProgression(pris, liste.length),
 		el(
 			"label",
@@ -499,15 +528,25 @@ function rendreDetail() {
 				},
 				"Tout décocher (retour)",
 			),
-			el(
-				"button",
-				{
-					type: "button",
-					class: "danger",
-					onclick: () => supprimerVoyage(voyage),
-				},
-				"Supprimer",
-			),
+			voyage.estProprietaire
+				? el(
+						"button",
+						{
+							type: "button",
+							class: "danger",
+							onclick: () => supprimerVoyage(voyage),
+						},
+						"Supprimer",
+					)
+				: el(
+						"button",
+						{
+							type: "button",
+							class: "danger",
+							onclick: () => quitterVoyage(voyage),
+						},
+						"Quitter ce voyage",
+					),
 		),
 	);
 }
@@ -558,6 +597,145 @@ window.addEventListener("popstate", (e) => {
 });
 
 // ---------------------------------------------------------------------------
+// Partage d'un voyage
+// ---------------------------------------------------------------------------
+
+/** Nom d'un participant. */
+const nomDe = (participant) => participant.prenom || "Quelqu'un";
+
+/** « Avec Tom, Zoé » (créateur) ou « Partagé par Léa » (participant) ; "" sans partage. */
+function avecQui(voyage) {
+	const moi = app.etat.moi.id;
+	if (!voyage.estProprietaire) {
+		return `Partagé par ${nomDe(voyage.participants[0])}`;
+	}
+	const autres = voyage.participants.filter((p) => p.id !== moi);
+	return autres.length ? `Avec ${autres.map(nomDe).join(", ")}` : "";
+}
+
+/** Lien de partage : l'app, avec l'Id du voyage et son code après « # » (pas envoyés au site). */
+const lienDePartage = (voyage, code) =>
+	`${location.origin}${location.pathname}#rejoindre=${encodeURIComponent(voyage.id)}:${code}`;
+
+/** Voyage et code d'un lien de partage (…#rejoindre=<Id>:<code>), ou null. */
+function rejoindreDuLien(texte) {
+	const trouve = /#rejoindre=([^:&]+):([0-9a-f]+)/i.exec(String(texte));
+	return trouve
+		? { voyageId: decodeURIComponent(trouve[1]), code: trouve[2] }
+		: null;
+}
+
+/**
+ * Fenêtre de partage (créateur) : QR code et lien qui font rejoindre le voyage, participants à
+ * retirer, et « Changer le lien ».
+ * @param nouveau Vrai pour changer le lien : l'ancien ne fait plus rejoindre le voyage
+ */
+async function ouvrirPartage(voyage, nouveau = false) {
+	let code = voyage.codePartage;
+	if (!code || nouveau) {
+		code = await modifier(
+			"lien-partage",
+			{ voyageId: voyage.id, nouveau },
+			nouveau
+				? "Nouveau lien : l'ancien ne fait plus rejoindre le voyage."
+				: null,
+		);
+		if (!code) return;
+	}
+	const actuel = voyageAffiche() ?? voyage;
+	const autres = actuel.participants.slice(1);
+	const dialogue = ouvrirQr({
+		titre: `Partager ${actuel.destination}`,
+		aide: "À scanner avec l'appareil photo, ou envoie le lien : la personne qui l'ouvre rejoint le voyage et coche la même liste (elle crée son compte si besoin).",
+		lien: lienDePartage(actuel, code),
+		texteEnvoi: `Rejoins le voyage ${actuel.destination} :`,
+		enPlus: el(
+			"ul",
+			{ class: "participants" },
+			autres.length
+				? autres.map((p) =>
+						el(
+							"li",
+							{},
+							el("span", {}, nomDe(p)),
+							el(
+								"button",
+								{
+									type: "button",
+									onclick: async () => {
+										if (!(await retirerParticipant(actuel, p))) return;
+										dialogue.close();
+										ouvrirPartage(voyageAffiche() ?? actuel);
+									},
+								},
+								"Retirer",
+							),
+						),
+					)
+				: el("li", { class: "aide" }, "Personne n'a encore rejoint ce voyage."),
+		),
+		actions: [
+			{
+				libelle: "Changer le lien",
+				faire: () => {
+					if (
+						!confirm(
+							"Changer le lien ? L'ancien ne fera plus rejoindre le voyage (les participants restent).",
+						)
+					) {
+						return;
+					}
+					dialogue.close();
+					ouvrirPartage(actuel, true);
+				},
+			},
+		],
+	});
+}
+
+/** @return Vrai si la personne a été retirée */
+async function retirerParticipant(voyage, participant) {
+	if (!confirm(`Retirer ${nomDe(participant)} de ce voyage ?`)) return false;
+	return Boolean(
+		await modifier(
+			"retirer-partage",
+			{ voyageId: voyage.id, compteId: participant.id },
+			`${nomDe(participant)} ne voit plus ce voyage.`,
+		),
+	);
+}
+
+/**
+ * Lien de partage ouvert avant d'être connecté : gardé jusqu'à la connexion, puis utilisé pour
+ * rejoindre le voyage.
+ */
+async function rejoindreEnAttente() {
+	const lien = lireStockageJson(CLES.rejoindre);
+	if (!lien) return;
+	ecrireStockage(CLES.rejoindre, null);
+	const voyageId = await modifier(
+		"rejoindre-voyage",
+		lien,
+		"Tu as rejoint le voyage.",
+	);
+	if (voyageId) ouvrirVoyage(voyageId);
+}
+
+async function quitterVoyage(voyage) {
+	if (
+		!confirm(`Quitter le voyage ${voyage.destination} ? Tu ne le verras plus.`)
+	) {
+		return;
+	}
+	const fait = await modifier(
+		"retirer-partage",
+		{ voyageId: voyage.id, compteId: app.etat.moi.id },
+		"Tu as quitté le voyage.",
+	);
+	if (fait) fermerVoyage();
+}
+
+// ---------------------------------------------------------------------------
 // Actions sur la liste
 // ---------------------------------------------------------------------------
 
@@ -584,7 +762,7 @@ async function cocher(bagage, pris) {
 	try {
 		await appelerApi("cocher", { bagageId: bagage.id, pris });
 	} catch (erreur) {
-		if (estConnexionRefusee(erreur)) {
+		if (estSessionRefusee(erreur)) {
 			deconnecter(erreur.message);
 			return;
 		}
@@ -823,7 +1001,7 @@ async function enregistrerVoyage(evenement) {
 }
 
 // ---------------------------------------------------------------------------
-// Connexion : lien avec la clé (QR code du classeur ou d'un autre téléphone)
+// Connexion : compte par e-mail (commun/connexion.js, projet droits)
 // ---------------------------------------------------------------------------
 
 function afficherEcran(nom) {
@@ -833,6 +1011,7 @@ function afficherEcran(nom) {
 		$(id).hidden = !connecte;
 	}
 	if (connecte) {
+		afficherCompte();
 		rendre();
 	} else {
 		$("#ecran-voyages").hidden = true;
@@ -842,105 +1021,90 @@ function afficherEcran(nom) {
 	}
 }
 
-function afficherConnexion(message = "") {
+/**
+ * Écran de connexion : nouveau compte (prénom), ou appareil à connecter à un compte existant.
+ * @param message Message à afficher (ex : session expirée)
+ * @param invitation Code d'un lien de connexion (QR code d'un autre appareil), utilisé aussitôt
+ */
+function afficherConnexion(message = "", invitation = null) {
 	afficherEcran("connexion");
-	$("#erreur-connexion").textContent = message;
+	afficherFormulaireConnexion($("#connexion"), {
+		nomApp: "Voyage",
+		message,
+		invitation,
+		surConnecte: (compte) => {
+			notifier(`Bienvenue ${compte.prenom} !`);
+			chargerApresConnexion();
+		},
+	});
 }
 
-/** Clé contenue dans un lien de connexion (…/#cle=…), ou null. */
-function cleDuLien(texte) {
-	const trouve = /[#&]cle=([A-Za-z0-9]+)/.exec(String(texte));
-	return trouve ? trouve[1] : null;
-}
-
-/** Lien de connexion : l'app, avec la clé après « # » (jamais envoyée au serveur web). */
-const lienDeConnexion = () =>
-	`${location.origin}${location.pathname}#cle=${app.cle}`;
-
-async function connecterAvecCle(cle) {
-	app.cle = cle;
-	ecrireStockage(CLES.cle, cle);
+/** Premier chargement des voyages du compte qui vient de se connecter. */
+async function chargerApresConnexion() {
 	app.etat = null;
 	ecrireStockage(CLES.etat, null);
-	afficherConnexion("Connexion…");
 	try {
-		app.etat = await appelerApi("etat");
-		enregistrerEtat();
-		afficherConnexion();
+		appliquerEtat(await appelerApi("etat"));
 		afficherEcran("app");
 	} catch (erreur) {
 		deconnecter(erreur.message);
-	}
-}
-
-function validerLien(evenement) {
-	evenement.preventDefault();
-	const cle = cleDuLien($("#champ-lien").value);
-	if (!cle) {
-		$("#erreur-connexion").textContent =
-			"Ce n'est pas un lien de connexion à l'app Voyage.";
 		return;
 	}
-	$("#champ-lien").value = "";
-	connecterAvecCle(cle);
+	rejoindreEnAttente();
 }
 
-function afficherQr() {
-	fermerMenu();
-	// qrcode : bibliothèque qrcode-generator (../commun/vendor), chargée par la page.
-	const qr = window.qrcode(0, "M");
-	qr.addData(lienDeConnexion());
-	qr.make();
-	$("#qr-image").innerHTML = qr.createSvgTag({
-		cellSize: 6,
-		margin: 4,
-		scalable: true,
-	});
-	$("#dialogue-qr").showModal();
+/** Prénom et e-mail du compte, en tête du menu. */
+function afficherCompte() {
+	const compte = app.etat?.moi ?? compteConnecte();
+	$("#menu-compte").textContent = compte ? `Connecté : ${compte.prenom}` : "";
 }
 
-/** Envoie le lien de connexion : partage du téléphone (SMS, messagerie…), sinon copie. */
-async function envoyerLien() {
-	const lien = lienDeConnexion();
-	if (navigator.share) {
-		try {
-			await navigator.share({
-				title: "Voyage",
-				text: "Le lien de connexion à l'app Voyage :",
-				url: lien,
-			});
-			return;
-		} catch (erreur) {
-			if (erreur?.name === "AbortError") return;
-		}
-	}
-	try {
-		await navigator.clipboard.writeText(lien);
-		notifier("Lien copié.");
-	} catch {
-		notifier("Impossible de copier le lien.", true);
-	}
-}
-
+/** Oublie la connexion de l'appareil et ses données, puis affiche la connexion. */
 function deconnecter(message = "") {
 	fermerMenu();
-	app.cle = null;
+	oublierConnexion();
 	app.etat = null;
 	app.voyageId = null;
-	for (const cle of [CLES.cle, CLES.etat]) ecrireStockage(cle, null);
+	ecrireStockage(CLES.etat, null);
 	afficherConnexion(message);
 }
 
-function seDeconnecter() {
+async function seDeconnecter() {
+	fermerMenu();
+	if (!confirm("Te déconnecter de cet appareil ?")) return;
+	await deconnecterAppareil();
+	deconnecter();
+}
+
+async function deconnecterTousLesAppareils() {
 	fermerMenu();
 	if (
 		!confirm(
-			"Te déconnecter de cet appareil ? Pour revenir, il faudra le lien de connexion (QR code du classeur ou d'un autre téléphone).",
+			"Déconnecter tous tes appareils, celui-ci compris (téléphone perdu) ? Il faudra se reconnecter avec un code par e-mail.",
 		)
 	) {
 		return;
 	}
-	deconnecter();
+	try {
+		await deconnecterPartout();
+		deconnecter("Tous tes appareils sont déconnectés.");
+	} catch (erreur) {
+		notifier(erreur.message, true);
+	}
+}
+
+async function changerPrenom() {
+	fermerMenu();
+	const prenom = prompt("Ton prénom :", app.etat?.moi?.prenom ?? "");
+	if (prenom === null) return;
+	try {
+		await modifierPrenom(prenom);
+		await actualiser();
+		afficherCompte();
+		notifier("Prénom changé.");
+	} catch (erreur) {
+		notifier(erreur.message, true);
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -983,7 +1147,6 @@ function afficherVersions() {
 // ---------------------------------------------------------------------------
 
 function brancherEvenements() {
-	$("#form-lien").addEventListener("submit", validerLien);
 	$("#form-voyage").addEventListener("submit", enregistrerVoyage);
 	$("#form-objet").addEventListener("submit", enregistrerObjet);
 	$("#bouton-nouveau-voyage").addEventListener("click", () =>
@@ -1006,7 +1169,6 @@ function brancherEvenements() {
 		afficherDuree();
 	});
 	$("#champ-retour").addEventListener("change", afficherDuree);
-	$("#bouton-envoyer-lien").addEventListener("click", envoyerLien);
 	for (const bouton of document.querySelectorAll("[data-fermer]")) {
 		bouton.addEventListener("click", () => bouton.closest("dialog").close());
 	}
@@ -1021,7 +1183,19 @@ function brancherEvenements() {
 	document.addEventListener("keydown", (e) => {
 		if (e.key === "Escape") fermerMenu();
 	});
-	$("#menu-qr").addEventListener("click", afficherQr);
+	$("#menu-prenom").addEventListener("click", changerPrenom);
+	$("#menu-autre-appareil").addEventListener("click", async () => {
+		fermerMenu();
+		try {
+			await connecterUnAutreAppareil("Voyage");
+		} catch (erreur) {
+			notifier(erreur.message, true);
+		}
+	});
+	$("#menu-deconnecter-partout").addEventListener(
+		"click",
+		deconnecterTousLesAppareils,
+	);
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), $("#dialogue-ios"));
 	$("#menu-maj").addEventListener("click", () => {
@@ -1042,25 +1216,32 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
-	// Lien de connexion (…/#cle=…) : connexion avec cette clé, retirée aussitôt de l'adresse.
-	const cleLien = cleDuLien(location.hash);
+	// Liens ouverts dans l'app, retirés aussitôt de l'adresse : connexion d'un appareil
+	// (…#invitation=<code>), ou partage d'un voyage (…#rejoindre=<Id>:<code>), gardé jusqu'à la
+	// connexion.
+	const invitation = invitationDuLien(location.hash);
+	const rejoindre = rejoindreDuLien(location.hash);
+	if (rejoindre) ecrireStockage(CLES.rejoindre, JSON.stringify(rejoindre));
 	history.replaceState(null, "", location.pathname);
 	if (!window.API_URL) {
-		afficherConnexion("L'adresse de l'API n'est pas configurée (config.js).");
+		afficherEcran("connexion");
+		$("#connexion").textContent =
+			"L'adresse de l'API n'est pas configurée (config.js).";
 		return;
 	}
-	if (cleLien) {
-		connecterAvecCle(cleLien);
-		return;
-	}
-	if (!app.cle) {
-		afficherConnexion();
+	if (invitation || !lireSession()) {
+		afficherConnexion(
+			rejoindre ? "Connecte-toi pour rejoindre le voyage." : "",
+			invitation,
+		);
 		return;
 	}
 	if (app.etat) afficherEcran("app");
 	actualiser({ silencieux: true }).then(() => {
-		if (app.etat) afficherEcran("app");
-		else if (app.cle) {
+		if (app.etat) {
+			afficherEcran("app");
+			rejoindreEnAttente();
+		} else if (lireSession()) {
 			afficherConnexion(
 				"Impossible de charger les voyages. Vérifie ta connexion.",
 			);

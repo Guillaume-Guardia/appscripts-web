@@ -554,3 +554,11 @@ main {
 	background: var(--danger);
 	color: #fff;
 }
+
+/* Compte connecté, en tête du menu */
+.menu .compte {
+	margin: 6px 12px 8px;
+	font-size: 14px;
+	color: var(--texte-doux);
+	overflow-wrap: anywhere;
+}

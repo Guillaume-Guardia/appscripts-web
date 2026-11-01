@@ -239,3 +239,52 @@
 	font-weight: 600;
 	padding: 16px;
 }
+
+/* Partage */
+
+.carte-voyage .avec {
+	margin: -4px 0 8px;
+	font-size: 13px;
+	color: var(--accent);
+}
+
+.participants-voyage {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 12px;
+	font-size: 14px;
+	color: var(--texte-doux);
+}
+
+.participants-voyage button {
+	min-height: 34px;
+	padding: 4px 14px;
+	font-size: 14px;
+	flex-shrink: 0;
+}
+
+.participants {
+	list-style: none;
+	margin: 4px 0 8px;
+	padding: 0;
+}
+
+.participants li {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 6px 0;
+	border-bottom: 1px solid var(--bord);
+	font-size: 14px;
+	overflow-wrap: anywhere;
+}
+
+.participants button {
+	min-height: 34px;
+	padding: 4px 12px;
+	font-size: 14px;
+	flex-shrink: 0;
+}
