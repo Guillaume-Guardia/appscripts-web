@@ -360,6 +360,17 @@ button:focus-visible {
 .menu button:hover {
 	background: var(--surface-2);
 }
+/* Titre d'un groupe d'actions, séparé du groupe précédent */
+.menu-titre {
+	border-top: 1px solid var(--bord);
+	margin-top: 4px;
+	padding: 10px 12px 2px;
+	font-size: 0.75rem;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--texte-doux);
+}
 
 .contenu {
 	max-width: 720px;
@@ -723,28 +734,25 @@ button:focus-visible {
 	}
 }
 
-/* Familles : sélecteur dans l'en-tête, codes dans le menu */
+/* Familles : sélecteur dans l'en-tête, codes dans le profil */
 .entete-titre {
 	display: flex;
 	flex-direction: column;
 	min-width: 0;
 }
-.menu-familles {
-	display: flex;
-	flex-direction: column;
-	border-bottom: 1px solid var(--bord);
-	margin-bottom: 4px;
-	padding-bottom: 4px;
-}
-.menu-familles:empty {
-	display: none;
-}
-.menu .menu-code {
+.code-famille {
 	display: flex;
 	justify-content: space-between;
 	gap: 12px;
+	font: inherit;
+	color: inherit;
+	background: var(--surface-2);
+	border: 0;
+	border-radius: 8px;
+	padding: 10px 12px;
+	cursor: pointer;
 }
-.menu-code strong {
+.code-famille strong {
 	font-family: ui-monospace, monospace;
 	color: var(--rouge);
 }

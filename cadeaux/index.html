@@ -83,21 +83,20 @@
 				<button type="button" id="bouton-menu" class="icone-bouton avatar" aria-label="Menu" aria-haspopup="menu" aria-expanded="false"></button>
 				<div id="menu" class="menu" role="menu" hidden>
 					<p id="menu-nom" class="menu-nom"></p>
-					<div id="menu-familles" class="menu-familles"></div>
 					<button type="button" role="menuitem" id="menu-profil">Mon profil</button>
+					<p class="menu-titre">Connexion</p>
 					<button type="button" role="menuitem" id="menu-qr">Mon QR code</button>
-					<button type="button" role="menuitem" id="menu-rejoindre">Rejoindre une famille</button>
-					<button type="button" role="menuitem" id="menu-creer">Créer une famille</button>
-					<button type="button" role="menuitem" id="menu-installer" hidden>Installer l'app</button>
 					<button type="button" role="menuitem" id="menu-revoquer">Déconnecter mes autres appareils</button>
 					<button type="button" role="menuitem" id="menu-deconnecter">Se déconnecter</button>
+					<p class="menu-titre">Application</p>
+					<button type="button" role="menuitem" id="menu-installer" hidden>Installer l'app</button>
 					<button type="button" role="menuitem" id="menu-signalement">Suggestion ou bug</button>
 					<button type="button" role="menuitem" id="menu-maj">Rechercher une mise à jour</button>
 					<p class="version menu-version"></p>
 				</div>
 			</div>
 			<!-- biome-ignore lint/a11y/useSemanticElements: des pastilles dans l'en-tête, pas un champ de formulaire. -->
-			<div id="familles-entete" class="puces puces-entete" role="group" aria-label="Familles affichées" hidden></div>
+			<div id="familles-entete" class="puces puces-entete" role="group" aria-label="Familles affichées"></div>
 		</header>
 
 		<main id="contenu" class="contenu" aria-live="polite"></main>
@@ -253,6 +252,18 @@
 			<div class="ligne fin">
 				<button type="button" class="bouton" data-fermer>Annuler</button>
 				<button type="submit" class="bouton principal">Tirer au sort</button>
+			</div>
+		</form>
+	</dialog>
+
+	<!-- « + » des familles de l'en-tête : rejoindre ou créer -->
+	<dialog id="dialogue-ajout-famille" class="dialogue">
+		<form method="dialog" class="pile">
+			<h2>Ajouter une famille</h2>
+			<button type="button" class="bouton" id="ajout-rejoindre">Rejoindre une famille</button>
+			<button type="button" class="bouton" id="ajout-creer">Créer une famille</button>
+			<div class="ligne fin">
+				<button type="button" class="bouton" data-fermer>Annuler</button>
 			</div>
 		</form>
 	</dialog>

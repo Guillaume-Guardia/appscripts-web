@@ -650,7 +650,7 @@ function rendreFamille() {
 	if (autres.length === 0) {
 		return [
 			vide(
-				`Personne d'autre dans ${nomsFamilles(famillesActives())} pour l'instant. Partage le code (menu en haut à droite), ou ajoute un proche qui n'utilisera pas l'app (enfant, grands-parents…).`,
+				`Personne d'autre dans ${nomsFamilles(famillesActives())} pour l'instant. Partage le code (menu en haut à droite, Mon profil), ou ajoute un proche qui n'utilisera pas l'app (enfant, grands-parents…).`,
 				el(
 					"button",
 					{ type: "button", class: "bouton", onclick: ouvrirAjoutPersonne },
@@ -1282,7 +1282,8 @@ function rendreEntete() {
 	$("#menu-nom").textContent = `Connecté en tant que ${membre.prenom}`;
 
 	// Plusieurs familles : des pastilles dans l'en-tête, chacune s'active ou se désactive (plusieurs
-	// à la fois). Une seule : son nom au-dessus du titre.
+	// à la fois). Une seule : son nom au-dessus du titre. Dans tous les cas, « + » pour en rejoindre
+	// ou en créer une.
 	const actives = new Set(famillesActives().map((f) => f.id));
 	const plusieurs = familles.length > 1;
 	$("#libelle-famille").textContent = plusieurs
@@ -1290,9 +1291,7 @@ function rendreEntete() {
 		: familles[0]
 			? `Famille ${familles[0].nom}`
 			: "Cadeaux de Noël";
-	const pastilles = $("#familles-entete");
-	pastilles.hidden = !plusieurs;
-	pastilles.replaceChildren(
+	$("#familles-entete").replaceChildren(
 		...(plusieurs
 			? familles.map((f) =>
 					el(
@@ -1306,21 +1305,15 @@ function rendreEntete() {
 					),
 				)
 			: []),
-	);
-
-	$("#menu-familles").replaceChildren(
-		...familles.map((f) =>
-			el(
-				"button",
-				{
-					type: "button",
-					role: "menuitem",
-					class: "menu-code",
-					onclick: () => copierCode(f),
-				},
-				el("span", {}, `Code ${f.nom}`),
-				el("strong", {}, f.code),
-			),
+		el(
+			"button",
+			{
+				type: "button",
+				class: "puce-ajout",
+				"aria-label": "Rejoindre ou créer une famille",
+				onclick: () => $("#dialogue-ajout-famille").showModal(),
+			},
+			"+",
 		),
 	);
 }
@@ -1755,11 +1748,13 @@ async function supprimerSecretSanta(s) {
  * @param champs [{ nom, libelle, type?, valeur?, maxlength?, requis?, options? }] : avec `options`
  * ([{ valeur, libelle }]), une liste de choix au lieu d'un texte
  * @param valider (valeurs, afficherErreur) => Promise<boolean> : vrai pour fermer
+ * @param bas éléments affichés sous les champs
  */
 function ouvrirDialogueSimple({
 	titre,
 	aide = "",
 	champs,
+	bas = [],
 	bouton = "Valider",
 	valider,
 }) {
@@ -1788,6 +1783,7 @@ function ouvrirDialogueSimple({
 						autocomplete: "off",
 					}),
 		]),
+		...bas,
 	);
 	const form = $("#form-simple");
 	form.onsubmit = async (evenement) => {
@@ -1898,6 +1894,12 @@ function ouvrirAjoutPersonne() {
 
 function ouvrirProfil() {
 	const membre = app.etat.moi;
+	// Ferme le profil avant une autre action : le petit formulaire ne s'ouvre pas deux fois, et la
+	// notification du code copié serait cachée derrière.
+	const puis = (action) => () => {
+		$("#dialogue-simple").close();
+		action();
+	};
 	ouvrirDialogueSimple({
 		titre: `Mon profil : ${membre.prenom}`,
 		aide: "Ton anniversaire s'affiche sur ta fiche, pour les membres de tes familles.",
@@ -1916,6 +1918,36 @@ function ouvrirProfil() {
 				requis: false,
 				valeur: versChamp(membre.naissance),
 			},
+		],
+		bas: [
+			el("p", { class: "sous-titre" }, "Mes familles"),
+			...app.etat.familles.map((f) =>
+				el(
+					"button",
+					{
+						type: "button",
+						class: "code-famille",
+						"aria-label": `Copier le code de la famille ${f.nom}`,
+						onclick: puis(() => copierCode(f)),
+					},
+					el("span", {}, f.nom),
+					el("strong", {}, f.code),
+				),
+			),
+			el(
+				"div",
+				{ class: "ligne deux" },
+				el(
+					"button",
+					{ type: "button", class: "bouton", onclick: puis(ouvrirRejoindre) },
+					"Rejoindre",
+				),
+				el(
+					"button",
+					{ type: "button", class: "bouton", onclick: puis(ouvrirCreer) },
+					"Créer",
+				),
+			),
 		],
 		bouton: "Enregistrer",
 		valider: async (profil, erreur) =>
@@ -2304,8 +2336,14 @@ function brancherEvenements() {
 		if (e.key === "Escape") fermerMenu();
 	});
 	$("#menu-profil").addEventListener("click", ouvrirProfil);
-	$("#menu-rejoindre").addEventListener("click", ouvrirRejoindre);
-	$("#menu-creer").addEventListener("click", ouvrirCreer);
+	$("#ajout-rejoindre").addEventListener("click", () => {
+		$("#dialogue-ajout-famille").close();
+		ouvrirRejoindre();
+	});
+	$("#ajout-creer").addEventListener("click", () => {
+		$("#dialogue-ajout-famille").close();
+		ouvrirCreer();
+	});
 	// L'installation elle-même est branchée par brancherInstallation (shared/pwa.js).
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	$("#menu-qr").addEventListener("click", afficherMonQr);
