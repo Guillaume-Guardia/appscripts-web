@@ -89,7 +89,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
 	font: inherit;
 	color: inherit;
 }
@@ -113,7 +115,9 @@ button:disabled {
 	outline-offset: 2px;
 }
 
-input:not([type="checkbox"]) {
+input:not([type="checkbox"]),
+select,
+textarea {
 	width: 100%;
 	padding: 10px 12px;
 	border: 1px solid var(--bord);
@@ -408,6 +412,20 @@ main {
 	background: var(--accent);
 	border-color: var(--accent);
 	color: var(--sur-accent);
+}
+
+textarea {
+	resize: vertical;
+}
+
+/* Lien discret vers « Suggestion ou bug » (écran de connexion, portail). */
+.lien-signalement {
+	border: 0;
+	background: none;
+	color: var(--texte-doux);
+	text-decoration: underline;
+	margin: 16px auto 0;
+	display: block;
 }
 
 .boutons {

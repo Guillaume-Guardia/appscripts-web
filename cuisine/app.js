@@ -20,6 +20,7 @@ import {
 	chercherMiseAJour,
 	enregistrerServiceWorker,
 } from "../commun/pwa.js";
+import { ouvrirSignalement } from "../commun/signalement.js";
 import {
 	ecrireStockage,
 	lireStockage,
@@ -1768,6 +1769,10 @@ function brancherEvenements() {
 	$("#menu-qr").addEventListener("click", afficherQr);
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), $("#dialogue-ios"));
+	$("#menu-signalement").addEventListener("click", () => {
+		fermerMenu();
+		ouvrirSignalement({ app: "Cuisine", prenom: profilActif()?.nom });
+	});
 	$("#menu-maj").addEventListener("click", () => {
 		fermerMenu();
 		chercherMiseAJour();

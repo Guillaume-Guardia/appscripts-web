@@ -13,6 +13,7 @@ import {
 	chercherMiseAJour,
 	enregistrerServiceWorker,
 } from "../commun/pwa.js";
+import { ouvrirSignalement } from "../commun/signalement.js";
 import {
 	ecrireStockage,
 	lireStockage,
@@ -2323,6 +2324,10 @@ function brancherEvenements() {
 		if (document.visibilityState !== "visible") return;
 		actualiser({ silencieux: true });
 		chercherMiseAJour({ silencieux: true });
+	});
+	$("#menu-signalement").addEventListener("click", () => {
+		fermerMenu();
+		ouvrirSignalement({ app: "Cadeaux", prenom: app.etat?.moi.prenom });
 	});
 	$("#menu-maj").addEventListener("click", () => {
 		fermerMenu();

@@ -7,6 +7,7 @@
 import { creerApi } from "./api.js";
 import { el, remplacerContenu } from "./dom.js";
 import { ouvrirQr } from "./qr.js";
+import { ouvrirSignalement } from "./signalement.js";
 import { ecrireStockage, lireStockage, lireStockageJson } from "./stockage.js";
 
 const CLES = { session: "appscripts.session", compte: "appscripts.compte" };
@@ -186,6 +187,16 @@ export function afficherConnexion(
 			el("button", { type: "submit" }, "Connecter cet appareil"),
 		),
 		erreur,
+		// Pas encore de compte, ou la connexion ne marche pas : le dire quand même.
+		el(
+			"button",
+			{
+				type: "button",
+				class: "lien-signalement",
+				onclick: () => ouvrirSignalement({ app: nomApp }),
+			},
+			"Une suggestion ou un bug ?",
+		),
 	);
 	if (!window.API_DROITS) {
 		erreur.textContent =

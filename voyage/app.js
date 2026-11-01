@@ -27,6 +27,7 @@ import {
 	enregistrerServiceWorker,
 } from "../commun/pwa.js";
 import { ouvrirQr } from "../commun/qr.js";
+import { ouvrirSignalement } from "../commun/signalement.js";
 import {
 	ecrireStockage,
 	lireStockage,
@@ -1198,6 +1199,10 @@ function brancherEvenements() {
 	);
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), $("#dialogue-ios"));
+	$("#menu-signalement").addEventListener("click", () => {
+		fermerMenu();
+		ouvrirSignalement({ app: "Voyage", prenom: compteConnecte()?.prenom });
+	});
 	$("#menu-maj").addEventListener("click", () => {
 		fermerMenu();
 		chercherMiseAJour();

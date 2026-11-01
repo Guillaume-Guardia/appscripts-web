@@ -51,6 +51,19 @@
 					</div>
 				</a>
 			</div>
+			<button type="button" id="signalement" class="lien-signalement">Une suggestion ou un bug ?</button>
 		</main>
+		<script src="commun/config.js"></script>
+		<script type="module">
+			import { ouvrirSignalement } from "./commun/signalement.js";
+
+			document.querySelector("#signalement").addEventListener("click", () =>
+				ouvrirSignalement({
+					app: "Portail",
+					version: "",
+					projets: ["Voyage", "Cuisine", "Investissement", "Cadeaux"],
+				}),
+			);
+		</script>
 	</body>
 </html>

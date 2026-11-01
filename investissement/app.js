@@ -4,6 +4,7 @@ import {
 	chercherMiseAJour,
 	enregistrerServiceWorker,
 } from "../commun/pwa.js";
+import { ouvrirSignalement } from "../commun/signalement.js";
 import { ecrireStockage, lireStockageJson } from "../commun/stockage.js";
 import { PARAMETRES_DEFAUT, simuler } from "./calcul.js";
 
@@ -313,6 +314,10 @@ function brancherEvenements() {
 	$("#menu-effacer").addEventListener("click", effacerSimulation);
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), $("#dialogue-ios"));
+	$("#menu-signalement").addEventListener("click", () => {
+		fermerMenu();
+		ouvrirSignalement({ app: "Investissement" });
+	});
 	$("#menu-maj").addEventListener("click", () => {
 		fermerMenu();
 		chercherMiseAJour();
