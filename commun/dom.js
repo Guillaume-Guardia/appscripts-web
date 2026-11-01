@@ -72,6 +72,15 @@ export function masquerBandeau() {
 	if ($("#bandeau").dataset.type !== "maj") $("#bandeau").hidden = true;
 }
 
-/** Normalise un texte pour le comparer : sans accents, en minuscules, sans espaces autour. */
+/**
+ * Normalise un texte pour le comparer : sans accents, en minuscules, sans espaces autour, ligatures
+ * en deux lettres (« Œuf » = « oeuf »).
+ */
 export const normaliser = (texte) =>
-	String(texte).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+	String(texte)
+		.normalize("NFD")
+		.replace(/[̀-ͯ]/g, "")
+		.toLowerCase()
+		.replace(/œ/g, "oe")
+		.replace(/æ/g, "ae")
+		.trim();

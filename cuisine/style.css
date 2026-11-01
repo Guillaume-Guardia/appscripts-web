@@ -1,0 +1,628 @@
+/* Styles propres à Cuisine ; le reste est dans ../commun/base.css. */
+
+:root {
+	--accent: #a4471a;
+	--accent-fonce: #7d3510;
+	--entete: #8f3d15;
+	--c-proteines: #2b7a4b;
+	--c-glucides: #b7791f;
+	--c-lipides: #3d6fb5;
+	--hauteur-onglets: 64px;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--accent: #f0a27a;
+		--accent-fonce: #f6c3a6;
+		--sur-accent: #2a1206;
+		--entete: #4a2210;
+		--c-proteines: #7fcf9f;
+		--c-glucides: #e5b45c;
+		--c-lipides: #8db4ec;
+	}
+}
+
+:root[data-theme="dark"] {
+	--accent: #f0a27a;
+	--accent-fonce: #f6c3a6;
+	--sur-accent: #2a1206;
+	--entete: #4a2210;
+	--c-proteines: #7fcf9f;
+	--c-glucides: #e5b45c;
+	--c-lipides: #8db4ec;
+}
+
+main {
+	padding-bottom: calc(
+		env(safe-area-inset-bottom) +
+		var(--hauteur-onglets) +
+		32px
+	);
+}
+
+select {
+	width: 100%;
+	min-height: 44px;
+	padding: 10px 12px;
+	border: 1px solid var(--bord);
+	border-radius: 10px;
+	background: var(--surface);
+	color: inherit;
+	font: inherit;
+}
+
+.large {
+	width: 100%;
+	margin-bottom: 12px;
+}
+
+.alerte {
+	color: var(--danger);
+	font-size: 13px;
+}
+
+/* Onglets en bas de l'écran */
+
+.onglets {
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 10;
+	display: flex;
+	justify-content: center;
+	gap: 4px;
+	padding: 6px 8px calc(env(safe-area-inset-bottom) + 6px);
+	background: var(--surface);
+	border-top: 1px solid var(--bord);
+}
+
+.onglets button {
+	flex: 1;
+	max-width: 160px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	min-height: 52px;
+	padding: 4px;
+	border: 0;
+	border-radius: 12px;
+	background: transparent;
+	color: var(--texte-doux);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.onglets button[aria-pressed="true"] {
+	color: var(--accent);
+	background: var(--surface-2);
+}
+
+.onglets svg {
+	width: 24px;
+	height: 24px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.toasts {
+	bottom: calc(env(safe-area-inset-bottom) + var(--hauteur-onglets) + 24px);
+}
+
+/* Profils et jour */
+
+.choix-profil {
+	margin-bottom: 12px;
+}
+
+.navigation-jour {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-bottom: 12px;
+}
+
+.navigation-jour .bouton-icone svg {
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	width: 24px;
+	height: 24px;
+}
+
+.jour {
+	position: relative;
+	flex: 1;
+	text-align: center;
+	font-weight: 700;
+	font-size: 17px;
+	padding: 8px;
+	border-radius: 10px;
+	cursor: pointer;
+}
+
+/* Le champ date couvre le libellé : le toucher ouvre le calendrier du téléphone. */
+.jour input {
+	position: absolute;
+	inset: 0;
+	opacity: 0;
+	cursor: pointer;
+	min-height: 0;
+}
+
+/* Totaux du jour */
+
+.totaux {
+	padding: 16px;
+	margin-bottom: 12px;
+}
+
+.totaux .kcal {
+	margin: 0 0 6px;
+	font-size: 18px;
+	color: var(--texte-doux);
+}
+
+.totaux .kcal strong {
+	font-size: 32px;
+	color: var(--texte);
+}
+
+.totaux > .aide {
+	margin: 6px 0 10px;
+}
+
+.barre.depasse > span {
+	background: var(--danger);
+}
+
+.nutriments {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px 16px;
+}
+
+.nutriment {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 0 6px;
+	font-size: 14px;
+	min-width: 0;
+}
+
+.nutriment .valeur {
+	color: var(--texte-doux);
+	font-size: 13px;
+}
+
+.nutriment .barre {
+	flex-basis: 100%;
+	margin-top: 4px;
+}
+
+.repartition {
+	margin-top: 14px;
+}
+
+.barre-repartition {
+	display: flex;
+	height: 8px;
+	border-radius: 999px;
+	overflow: hidden;
+	background: var(--surface-2);
+}
+
+.repartition .proteines {
+	--couleur: var(--c-proteines);
+}
+
+.repartition .glucides {
+	--couleur: var(--c-glucides);
+}
+
+.repartition .lipides {
+	--couleur: var(--c-lipides);
+}
+
+.barre-repartition span {
+	background: var(--couleur);
+}
+
+.legende {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 14px;
+	margin: 6px 0 0;
+	font-size: 13px;
+	color: var(--texte-doux);
+}
+
+.legende span::before {
+	content: "";
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	margin-right: 5px;
+	border-radius: 3px;
+	background: var(--couleur);
+}
+
+/* Repas */
+
+.repas,
+.carte-semaine,
+.carte-courbe,
+.liste-pesees,
+.form-poids {
+	margin-bottom: 12px;
+	overflow: hidden;
+}
+
+.carte h3 {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 8px;
+	padding: 12px 16px 6px;
+	font-size: 15px;
+}
+
+.carte h3 .compte {
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--texte-doux);
+}
+
+.entrees,
+.resultats,
+.liste-pesees ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.entrees li + li,
+.resultats li + li,
+.liste-pesees li + li {
+	border-top: 1px solid var(--bord);
+}
+
+.entree,
+.resultat {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	width: 100%;
+	min-height: 52px;
+	padding: 8px 16px;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	text-align: left;
+}
+
+.entree .texte {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.entree .nom,
+.resultat .nom {
+	overflow-wrap: anywhere;
+}
+
+.entree .detail,
+.resultat .detail {
+	color: var(--texte-doux);
+	font-size: 13px;
+}
+
+.entree .kcal {
+	flex-shrink: 0;
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.actions-repas {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding: 6px 16px 12px;
+}
+
+.actions-repas button {
+	min-height: 36px;
+	padding: 4px 14px;
+	font-size: 14px;
+}
+
+/* 7 derniers jours */
+
+.semaine {
+	position: relative;
+	display: flex;
+	gap: 6px;
+	height: 140px;
+	padding: 4px 12px 12px;
+}
+
+/* Même hauteur que les colonnes : entre le libellé des jours (34 px du bas) et le haut (4 px). */
+.ligne-objectif {
+	position: absolute;
+	left: 12px;
+	right: 12px;
+	bottom: calc(34px + (100% - 38px) * var(--part));
+	border-top: 2px dashed var(--texte-doux);
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+.jour-semaine {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	min-height: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	border-radius: 8px;
+}
+
+.jour-semaine .colonne {
+	flex: 1;
+	width: 100%;
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+}
+
+.barre-kcal {
+	width: min(28px, 70%);
+	min-height: 2px;
+	border-radius: 6px 6px 2px 2px;
+	background: var(--accent);
+	opacity: 0.55;
+}
+
+.jour-semaine.choisi .barre-kcal {
+	opacity: 1;
+}
+
+.jour-semaine.au-dessus .barre-kcal {
+	background: var(--danger);
+}
+
+.jour-semaine .court {
+	font-size: 12px;
+	color: var(--texte-doux);
+	height: 18px;
+}
+
+.jour-semaine.choisi .court {
+	color: var(--texte);
+	font-weight: 700;
+}
+
+/* Dialogue d'ajout */
+
+.resultats {
+	max-height: min(50dvh, 420px);
+	overflow-y: auto;
+	margin: 0 -20px;
+	border-top: 1px solid var(--bord);
+	border-bottom: 1px solid var(--bord);
+}
+
+.resultats:empty {
+	display: none;
+}
+
+.resultat {
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0;
+	padding: 8px 20px;
+}
+
+.resultats li.aide {
+	padding: 12px 20px;
+}
+
+.resultats li.aide button {
+	margin-top: 8px;
+}
+
+.boutons-recherche {
+	justify-content: flex-start;
+}
+
+#titre-resultats {
+	margin: 4px 0;
+}
+
+#detail-choisi {
+	margin: 0;
+}
+
+#quantites-rapides {
+	margin-top: 10px;
+}
+
+.apercu {
+	margin-top: 12px;
+	padding: 10px 12px;
+	border-radius: 10px;
+	background: var(--surface-2);
+	font-size: 14px;
+}
+
+.apercu:empty {
+	display: none;
+}
+
+.ligne-recherche {
+	display: flex;
+	gap: 8px;
+}
+
+.ligne-recherche button {
+	flex-shrink: 0;
+}
+
+.video-scanner {
+	display: block;
+	width: 100%;
+	max-height: 50dvh;
+	margin-top: 8px;
+	border-radius: 10px;
+	background: #000;
+	object-fit: cover;
+}
+
+/* Formulaires à plusieurs valeurs */
+
+.grille-valeurs {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px 12px;
+}
+
+.formulaire .grille-valeurs label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-top: 4px;
+	font-weight: 500;
+}
+
+.nom-portions {
+	grid-template-columns: 1fr 96px;
+}
+
+.ingredients {
+	list-style: none;
+	margin: 0 0 8px;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.ingredients li {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+.ingredients .ingredient-quantite {
+	width: 90px;
+	flex-shrink: 0;
+}
+
+.retirer {
+	width: 40px;
+	height: 40px;
+	min-height: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--texte-doux);
+	font-size: 20px;
+	line-height: 1;
+	flex-shrink: 0;
+}
+
+/* Recettes */
+
+.carte-recette {
+	display: block;
+	width: 100%;
+	text-align: left;
+	padding: 14px 16px;
+	margin-bottom: 10px;
+	border-radius: var(--rayon);
+}
+
+.carte-recette h3 {
+	padding: 0;
+	font-size: 17px;
+}
+
+.carte-recette p {
+	margin: 4px 0 0;
+	font-size: 14px;
+}
+
+/* Poids */
+
+.form-poids {
+	padding: 0 16px 16px;
+}
+
+.form-poids h3 {
+	padding: 12px 0 0;
+}
+
+.courbe {
+	display: block;
+	width: 100%;
+	height: auto;
+	padding: 0 8px 8px;
+}
+
+.courbe .trace {
+	fill: none;
+	stroke: var(--accent);
+	stroke-width: 2.5;
+	stroke-linejoin: round;
+}
+
+.courbe .point {
+	fill: var(--accent);
+}
+
+.courbe .grille {
+	stroke: var(--bord);
+}
+
+.courbe .cible {
+	stroke: var(--vert);
+	stroke-width: 2;
+	stroke-dasharray: 6 4;
+}
+
+.courbe .axe {
+	fill: var(--texte-doux);
+	font-size: 11px;
+}
+
+.liste-pesees li {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 4px 4px 4px 16px;
+	font-size: 14px;
+}
+
+.liste-pesees li span {
+	flex: 1;
+}
+
+@media (max-width: 360px) {
+	.nutriments,
+	.grille-valeurs {
+		grid-template-columns: 1fr;
+	}
+}
