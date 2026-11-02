@@ -1,6 +1,6 @@
 // Stockage local du navigateur. Toutes les apps partagent l'origine guillaume-guardia.github.io,
 // donc le même stockage : chaque app préfixe ses clés par son nom (ex : « voyage.etat »). Les fronts
-// de review (sous review/, REVIEW défini par version.js ou shared/config.js) préfixent en plus
+// de review (sous review-<numéro>/, REVIEW défini par version.js ou shared/config.js) préfixent en plus
 // toutes leurs clés : ni la session ni les données de la production ne sont touchées.
 
 const PREFIXE = globalThis.REVIEW ? "review:" : "";
