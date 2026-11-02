@@ -1,0 +1,16 @@
+{
+	"name": "Droits",
+	"short_name": "Droits",
+	"description": "Les comptes des apps et les apps ouvertes à chacun.",
+	"lang": "fr",
+	"id": "./",
+	"start_url": "./",
+	"scope": "./",
+	"display": "standalone",
+	"orientation": "portrait",
+	"background_color": "#f4f1ea",
+	"theme_color": "#0f5f66",
+	"icons": [
+		{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+	]
+}
