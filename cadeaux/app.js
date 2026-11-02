@@ -288,6 +288,21 @@ function dansFamillesAffichees(ids) {
 	return ids.some((id) => id !== moi() && membres.has(id));
 }
 
+/**
+ * Vrai pour une idée que son auteur a limitée à des familles dont aucune n'est affichée ; jamais
+ * sans filtre.
+ */
+function horsFamillesAffichees(cadeau) {
+	if (!filtreFamilles() || !cadeau.familleIds?.length) return false;
+	return !famillesActives().some((f) => cadeau.familleIds.includes(f.id));
+}
+
+/** Ses familles qui peuvent voir une idée pour ces personnes : celles qui comptent l'une d'elles. */
+const famillesPossibles = (pourIds) =>
+	app.etat.familles.filter((f) =>
+		f.membreIds.some((id) => pourIds.includes(id)),
+	);
+
 /** Secret Santa d'au moins une des familles affichées. */
 function secretSantasAffiches() {
 	const actives = new Set(famillesActives().map((f) => f.id));
@@ -530,6 +545,16 @@ function carteCadeau(cadeau, { pour, selectionnable = false }) {
 						: `Pour ${prenoms(cadeau.pourIds)}`,
 				)
 			: null;
+	const famillesVisibles = app.etat.familles.filter((f) =>
+		cadeau.familleIds?.includes(f.id),
+	);
+	const visiblePar = famillesVisibles.length
+		? el(
+				"p",
+				{ class: "carte-note" },
+				`Visible par ${nomsFamilles(famillesVisibles)}`,
+			)
+		: null;
 	const part =
 		pour === "reservation" &&
 		offreurs(cadeau).length > 1 &&
@@ -573,6 +598,7 @@ function carteCadeau(cadeau, { pour, selectionnable = false }) {
 			lienCadeau(cadeau),
 			commun,
 			suggestion,
+			visiblePar,
 			part,
 			el("div", { class: "carte-bas" }, etiquette, actions),
 			partage,
@@ -598,9 +624,14 @@ const TITRES = {
 
 function rendreMaListe() {
 	const tous = app.etat.cadeaux.filter(estPourMoi);
-	// Ses idées à soi seul sont vues de toutes ses familles ; une idée commune suit le filtre.
+	// Ses idées à soi seul sont vues de toutes ses familles (sauf celles qu'on a limitées à
+	// certaines) ; une idée commune suit le filtre.
 	const miens = tous
-		.filter((c) => c.pourIds.length === 1 || dansFamillesAffichees(c.pourIds))
+		.filter(
+			(c) =>
+				(c.pourIds.length === 1 || dansFamillesAffichees(c.pourIds)) &&
+				!horsFamillesAffichees(c),
+		)
 		.sort(parPriorite);
 	const masques = tous.length - miens.length;
 	const ajouter = el(
@@ -630,7 +661,7 @@ function rendreMaListe() {
 			? el(
 					"p",
 					{ class: "discret" },
-					`${masques} idée(s) commune(s) avec d'autres familles, masquée(s) par le filtre.`,
+					`${masques} idée(s) pour d'autres familles, masquée(s) par le filtre.`,
 				)
 			: null,
 		...miens.map((c) => carteCadeau(c, { pour: "moi" })),
@@ -737,7 +768,8 @@ function rendreFamille() {
 			(c) =>
 				c.pourIds.some((id) => selection.has(id)) &&
 				!estPourMoi(c) &&
-				c.statut !== "retiré",
+				c.statut !== "retiré" &&
+				!horsFamillesAffichees(c),
 		)
 		.sort(parPriorite);
 	const libres = leursCadeaux.filter((c) => offreurs(c).length === 0).length;
@@ -843,6 +875,7 @@ function rendreDisponibles() {
 			c.pourIds.some((id) => ids.has(id)) &&
 			!estPourMoi(c) &&
 			c.statut !== "retiré" &&
+			!horsFamillesAffichees(c) &&
 			offreurs(c).length === 0,
 	);
 	if (app.filtreDisponibles)
@@ -913,6 +946,7 @@ function rendreDisponibles() {
 			c.pourIds.some((id) => ids.has(id)) &&
 			!estPourMoi(c) &&
 			c.statut !== "retiré" &&
+			!horsFamillesAffichees(c) &&
 			c.partage &&
 			offreurs(c).length > 0 &&
 			!offreurs(c).includes(moi()),
@@ -1497,6 +1531,27 @@ function ouvrirFormulaireCadeau(cadeau, pourIds = cadeau?.pourIds ?? [moi()]) {
 				: "Personne sans compte : l'idée rejoint sa liste.";
 	$("#erreur-cadeau").textContent = "";
 	$("#bouton-supprimer-cadeau").hidden = !cadeau;
+	// Seul l'auteur choisit les familles qui voient l'idée, parmi les siennes qui comptent un
+	// destinataire (toutes cochées quand il n'en a limité aucune).
+	const possibles =
+		!cadeau || cadeau.ajouteParId === moi() ? famillesPossibles(pourIds) : [];
+	const choisies = cadeau?.familleIds ?? [];
+	$("#champ-visible-par").hidden = possibles.length < 2;
+	$("#cadeau-familles").replaceChildren(
+		...possibles.map((f) =>
+			el(
+				"label",
+				{ class: "case-texte" },
+				el("input", {
+					type: "checkbox",
+					name: "famille-cadeau",
+					value: f.id,
+					checked: choisies.length === 0 || choisies.includes(f.id),
+				}),
+				f.nom,
+			),
+		),
+	);
 	if (cadeau) {
 		form.titre.value = cadeau.titre;
 		form.description.value = cadeau.description;
@@ -1518,6 +1573,15 @@ async function enregistrerCadeau(evenement) {
 		prix: form.prix.value,
 		priorite: Number(form.priorite.value),
 	};
+	if (!$("#champ-visible-par").hidden) {
+		cadeau.familleIds = [
+			...form.querySelectorAll("input[name=famille-cadeau]:checked"),
+		].map((c) => c.value);
+		if (cadeau.familleIds.length === 0) {
+			$("#erreur-cadeau").textContent = "Choisis au moins une famille.";
+			return;
+		}
+	}
 	const { cadeau: existant, pourIds } = app.edition;
 	$("#erreur-cadeau").textContent = "";
 	const reussi = await modifier(
