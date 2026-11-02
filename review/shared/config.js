@@ -1,6 +1,6 @@
 // Généré par scripts/publier-web.mjs : adresse de l'API de connexion (projet droits).
 window.API_DROITS = "https://script.google.com/macros/s/AKfycbwYlPLC6LTfWJJrQvnAszjxsactOUaTCkj0cVrzR-0avPOv_o-yQGkzVJ8NGX5xpAt7/exec";
-self.REVIEW = "PR #128 @ f8518a4";
+self.REVIEW = "PR #124 @ 3f505a0";
 if (self.document && !self.BANDEAU_REVIEW) {
 	self.BANDEAU_REVIEW = true;
 	document.addEventListener("DOMContentLoaded", () => {
