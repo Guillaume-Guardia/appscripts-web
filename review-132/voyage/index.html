@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="theme-color" content="#0f5f66" />
+		<meta name="description" content="Les listes de bagages des voyages, selon la destination, la durée et le transport." />
+		<title>Voyage</title>
+		<link rel="manifest" href="manifest.webmanifest" />
+		<link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="Voyage" />
+		<link rel="stylesheet" href="../shared/base.css" />
+		<link rel="stylesheet" href="style.css" />
+	</head>
+	<body>
+		<header class="entete">
+			<button type="button" id="bouton-retour" class="bouton-icone" aria-label="Retour aux voyages" hidden>
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+			</button>
+			<h1 id="titre">Voyages</h1>
+			<button type="button" id="bouton-actualiser" class="bouton-icone" aria-label="Actualiser" hidden>
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" /></svg>
+			</button>
+			<button type="button" id="bouton-menu" class="bouton-icone" aria-label="Menu" aria-expanded="false" aria-controls="menu" hidden>
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+			</button>
+			<nav id="menu" class="menu" hidden>
+				<p id="menu-compte" class="compte"></p>
+				<button type="button" id="menu-autre-appareil">Connecter un autre appareil</button>
+				<button type="button" id="menu-prenom">Changer mon prénom</button>
+				<button type="button" id="menu-installer" hidden>Installer l'app</button>
+				<button type="button" id="menu-signalement">Suggestion ou bug</button>
+				<button type="button" id="menu-maj">Rechercher une mise à jour</button>
+				<button type="button" id="menu-deconnecter">Se déconnecter</button>
+				<button type="button" id="menu-deconnecter-partout" class="danger">Déconnecter tous mes appareils</button>
+				<p class="version"></p>
+			</nav>
+		</header>
+		<div id="chargement" class="chargement" hidden></div>
+		<div id="bandeau" class="bandeau" hidden></div>
+
+		<main>
+			<section id="ecran-connexion" class="ecran-connexion" hidden>
+				<svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><use href="#valise" /></svg>
+				<h2>Voyage</h2>
+				<p>Les listes de bagages selon la destination, la durée et le transport.</p>
+				<p class="aide">Crée ton compte avec ton prénom, ou connecte cet appareil à ton compte.</p>
+				<div id="connexion"></div>
+				<p class="version"></p>
+			</section>
+
+			<section id="ecran-voyages" hidden>
+				<div id="liste-voyages"></div>
+				<button type="button" id="bouton-nouveau-voyage" class="bouton-flottant">
+					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+					Nouveau voyage
+				</button>
+			</section>
+
+			<section id="ecran-voyage" hidden>
+				<div id="detail-voyage"></div>
+			</section>
+		</main>
+
+		<dialog id="dialogue-voyage" class="dialogue" aria-labelledby="titre-dialogue-voyage">
+			<form id="form-voyage" class="formulaire">
+				<h2 id="titre-dialogue-voyage">Nouveau voyage</h2>
+				<label for="champ-destination">Destination</label>
+				<input id="champ-destination" maxlength="80" autocomplete="off" required />
+				<div class="dates">
+					<div>
+						<label for="champ-depart">Départ</label>
+						<input id="champ-depart" type="date" required />
+					</div>
+					<div>
+						<label for="champ-retour">Retour</label>
+						<input id="champ-retour" type="date" required />
+					</div>
+				</div>
+				<p id="duree-voyage" class="aide"></p>
+				<fieldset>
+					<legend>Climat</legend>
+					<div id="choix-climats" class="puces"></div>
+				</fieldset>
+				<fieldset>
+					<legend>Transport</legend>
+					<div id="choix-transports" class="puces"></div>
+				</fieldset>
+				<fieldset>
+					<legend>Activités</legend>
+					<div id="choix-activites" class="puces"></div>
+					<div class="ajout-activite">
+						<input id="champ-activite" maxlength="40" placeholder="Autre activité" autocomplete="off" aria-label="Autre activité" />
+						<button type="button" id="bouton-ajouter-activite">Ajouter</button>
+					</div>
+				</fieldset>
+				<label class="case">
+					<input id="champ-etranger" type="checkbox" />
+					À l'étranger <span class="aide">(passeport, adaptateur…)</span>
+				</label>
+				<p class="erreur" role="alert"></p>
+				<div class="boutons">
+					<button type="button" data-fermer>Annuler</button>
+					<button type="submit" class="bouton-principal">Enregistrer</button>
+				</div>
+			</form>
+		</dialog>
+
+		<dialog id="dialogue-objet" class="dialogue" aria-labelledby="titre-dialogue-objet">
+			<form id="form-objet" class="formulaire">
+				<h2 id="titre-dialogue-objet">Ajouter un objet</h2>
+				<label for="champ-objet">Objet</label>
+				<input id="champ-objet" maxlength="80" autocomplete="off" required />
+				<div class="dates">
+					<div>
+						<label for="champ-categorie">Catégorie</label>
+						<input id="champ-categorie" list="liste-categories" maxlength="40" placeholder="Divers" autocomplete="off" />
+					</div>
+					<div class="quantite">
+						<label for="champ-quantite">Quantité</label>
+						<input id="champ-quantite" type="number" inputmode="numeric" min="1" max="99" step="1" value="1" required />
+					</div>
+				</div>
+				<label class="case">
+					<input id="champ-catalogue" type="checkbox" />
+					L'ajouter au catalogue <span class="aide">(à chaque voyage)</span>
+				</label>
+				<p class="erreur" role="alert"></p>
+				<div class="boutons">
+					<button type="button" data-fermer>Annuler</button>
+					<button type="submit" class="bouton-principal">Ajouter</button>
+				</div>
+			</form>
+		</dialog>
+
+		<dialog id="dialogue-ios" class="dialogue">
+			<h2>Installer l'app</h2>
+			<p>Dans Safari : bouton <strong>Partager</strong>, puis <strong>Sur l'écran d'accueil</strong>.</p>
+			<p class="aide">L'app installée ne partage pas la connexion de Safari : il faudra t'y reconnecter (code par e-mail) au premier lancement.</p>
+			<div class="boutons">
+				<button type="button" data-fermer class="bouton-principal">Compris</button>
+			</div>
+		</dialog>
+
+		<datalist id="liste-categories"></datalist>
+		<div id="toasts" class="toasts" aria-live="polite"></div>
+
+		<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+			<symbol id="valise" viewBox="0 0 64 64">
+				<rect x="10" y="18" width="44" height="36" rx="7" fill="currentColor" />
+				<path d="M24 18v-5a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v5" fill="none" stroke="currentColor" stroke-width="4" />
+				<path d="M22 18v36M42 18v36" stroke="var(--fond, #fff)" stroke-width="3" opacity=".5" />
+			</symbol>
+		</svg>
+
+		<script src="../shared/config.js"></script>
+		<script src="config.js"></script>
+		<script src="version.js"></script>
+		<script src="../shared/vendor/qrcode.min.js"></script>
+		<script type="module" src="app.js"></script>
+	</body>
+</html>
