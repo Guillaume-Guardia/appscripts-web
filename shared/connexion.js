@@ -65,6 +65,14 @@ export async function deconnecterPartout() {
 	oublierConnexion();
 }
 
+/**
+ * Clés des apps ouvertes au compte connecté (onglet Droits du projet droits, ex : « voyage »).
+ * @throws Si l'API refuse (hors ligne, session fermée)
+ */
+export async function appsOuvertes() {
+	return (await appelerDroits("moi")).apps;
+}
+
 /** Change le prénom du compte connecté. @return Le compte à jour */
 export async function modifierPrenom(prenom) {
 	const compte = await appelerDroits("modifier-profil", { prenom });
