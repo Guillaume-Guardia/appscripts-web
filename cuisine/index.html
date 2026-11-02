@@ -26,7 +26,7 @@
 			<nav id="menu" class="menu" hidden>
 				<button type="button" id="menu-objectifs">Mes objectifs</button>
 				<button type="button" id="menu-nouveau-profil">Ajouter une personne</button>
-				<button type="button" id="menu-qr">Connecter un autre téléphone</button>
+				<button type="button" id="menu-autre-appareil">Connecter un autre appareil</button>
 				<button type="button" id="menu-installer" hidden>Installer l'app</button>
 				<button type="button" id="menu-signalement">Suggestion ou bug</button>
 				<button type="button" id="menu-maj">Rechercher une mise à jour</button>
@@ -42,15 +42,11 @@
 				<svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><use href="#bol" /></svg>
 				<h2>Cuisine</h2>
 				<p>Le journal alimentaire de la maison : calories, macros, recettes et poids.</p>
-				<p class="aide">
-					Pour te connecter, scanne avec l'appareil photo le QR code du classeur (Extensions → Cuisine → Lien de connexion de l'app) ou d'un téléphone déjà connecté.
-				</p>
-				<form id="form-lien" class="carte formulaire">
-					<label for="champ-lien">J'ai reçu un lien</label>
-					<input id="champ-lien" type="url" inputmode="url" autocomplete="off" placeholder="https://…#cle=…" required />
-					<button type="submit" class="bouton-principal">Me connecter</button>
-				</form>
-				<p id="erreur-connexion" class="erreur" role="alert"></p>
+				<div id="connexion"></div>
+				<div id="refus" hidden>
+					<p id="message-refus" class="erreur" role="alert"></p>
+					<button type="button" id="bouton-autre-compte">Se connecter avec un autre compte</button>
+				</div>
 				<p class="version"></p>
 			</section>
 
@@ -281,20 +277,10 @@
 			</form>
 		</dialog>
 
-		<dialog id="dialogue-qr" class="dialogue">
-			<h2>Connecter un autre téléphone</h2>
-			<p class="aide">À scanner avec l'appareil photo de l'autre téléphone : l'app s'y ouvre, connectée. Ne le montre qu'aux personnes de la maison.</p>
-			<div id="qr-image" class="qr"></div>
-			<div class="boutons">
-				<button type="button" id="bouton-envoyer-lien">Envoyer le lien</button>
-				<button type="button" data-fermer class="bouton-principal">Fermer</button>
-			</div>
-		</dialog>
-
 		<dialog id="dialogue-ios" class="dialogue">
 			<h2>Installer l'app</h2>
 			<p>Dans Safari : bouton <strong>Partager</strong>, puis <strong>Sur l'écran d'accueil</strong>.</p>
-			<p class="aide">L'app installée ne partage pas la connexion de Safari : il faudra coller le lien de connexion au premier lancement (« J'ai reçu un lien »).</p>
+			<p class="aide">L'app installée ne partage pas la connexion de Safari : il faudra t'y reconnecter au premier lancement (QR code depuis un appareil connecté).</p>
 			<div class="boutons">
 				<button type="button" data-fermer class="bouton-principal">Compris</button>
 			</div>

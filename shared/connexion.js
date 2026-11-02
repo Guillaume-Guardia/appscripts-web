@@ -33,6 +33,13 @@ export function oublierConnexion() {
 export const estSessionRefusee = (erreur) =>
 	/Session expirée/.test(erreur?.message ?? "");
 
+/**
+ * Le compte connecté n'a pas accès à l'app (onglet Droits du projet droits) : l'app le dit, sans
+ * déconnecter l'appareil (la session sert aux autres apps).
+ */
+export const estAccesRefuse = (erreur) =>
+	/Pas encore accès/.test(erreur?.message ?? "");
+
 /** API du projet droits (adresse dans shared/config.js). */
 const appelerDroits = creerApi({
 	url: window.API_DROITS,

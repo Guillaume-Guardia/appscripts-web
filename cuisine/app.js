@@ -1,5 +1,16 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
 import {
+	afficherConnexion as afficherFormulaireConnexion,
+	compteConnecte,
+	connecterUnAutreAppareil,
+	deconnecter as deconnecterAppareil,
+	estAccesRefuse,
+	estSessionRefusee,
+	invitationDuLien,
+	lireSession,
+	oublierConnexion,
+} from "../shared/connexion.js";
+import {
 	aujourdhui,
 	joursEntre,
 	pluriel,
@@ -44,7 +55,10 @@ import { scannerCodeBarres, scannerDisponible } from "./scanner.js";
 // ---------------------------------------------------------------------------
 
 const CLES = {
-	cle: "cuisine.cle",
+	/** Clé du lien de connexion d'avant les comptes : effacée au démarrage. */
+	ancienneCle: "cuisine.cle",
+	/** Compte dont l'état est en cache. */
+	compte: "cuisine.compte",
 	etat: "cuisine.etat",
 	profil: "cuisine.profil",
 	vue: "cuisine.vue",
@@ -54,8 +68,6 @@ const CLES = {
 const VUES = ["journal", "poids", "recettes"];
 
 const app = {
-	/** Clé du lien de connexion : la seule chose qui donne accès à l'API. */
-	cle: lireStockage(CLES.cle),
 	/** { profils, aliments, recettes, journal, journalDepuis, poids, options } renvoyé par l'API. */
 	etat: null,
 	/** Nom du profil suivi sur cet appareil. */
@@ -82,7 +94,13 @@ const app = {
 };
 
 const etatEnCache = lireStockageJson(CLES.etat);
-if (app.cle && Array.isArray(etatEnCache?.journal) && etatEnCache.options) {
+// État en cache : seulement celui du compte connecté sur l'appareil.
+if (
+	lireSession() &&
+	lireStockage(CLES.compte) === compteConnecte()?.id &&
+	Array.isArray(etatEnCache?.journal) &&
+	etatEnCache.options
+) {
 	app.etat = etatEnCache;
 }
 
@@ -92,7 +110,7 @@ if (app.cle && Array.isArray(etatEnCache?.journal) && etatEnCache.options) {
 
 const appelerApi = creerApi({
 	url: window.API_URL,
-	identifiants: () => ({ cle: app.cle }),
+	identifiants: () => ({ session: lireSession() }),
 	surVersion: (version) => {
 		if (version === app.versionApi) return;
 		app.versionApi = version;
@@ -101,11 +119,9 @@ const appelerApi = creerApi({
 	},
 });
 
-const estConnexionRefusee = (erreur) =>
-	/Connexion plus valable/.test(erreur.message);
-
 function enregistrerEtat() {
 	ecrireStockage(CLES.etat, JSON.stringify(app.etat));
+	ecrireStockage(CLES.compte, compteConnecte()?.id ?? null);
 }
 
 function passerHorsLigne() {
@@ -121,10 +137,14 @@ function appliquerEtat(etat) {
 	rendre();
 }
 
-/** Erreur d'un appel qui ne modifie rien : déconnexion, hors ligne ou notification. */
+/** Erreur d'un appel qui ne modifie rien : déconnexion, accès refusé, hors ligne ou notification. */
 function signalerErreur(erreur, silencieux = false) {
-	if (estConnexionRefusee(erreur)) {
+	if (estSessionRefusee(erreur)) {
 		deconnecter(erreur.message);
+		return;
+	}
+	if (estAccesRefuse(erreur)) {
+		afficherRefus(erreur.message);
 		return;
 	}
 	if (erreur instanceof ErreurReseau) passerHorsLigne();
@@ -132,7 +152,7 @@ function signalerErreur(erreur, silencieux = false) {
 }
 
 async function actualiser({ silencieux = false } = {}) {
-	if (!app.cle) return;
+	if (!lireSession()) return;
 	const bouton = $("#bouton-actualiser");
 	bouton.classList.add("tourne");
 	app.joursAnciens.clear();
@@ -171,8 +191,8 @@ async function modifier(
 		if (messageSucces) notifier(messageSucces);
 		return resultat ?? true;
 	} catch (erreur) {
-		if (estConnexionRefusee(erreur)) {
-			deconnecter(erreur.message);
+		if (estSessionRefusee(erreur) || estAccesRefuse(erreur)) {
+			signalerErreur(erreur);
 			return null;
 		}
 		surErreur(erreur.message);
@@ -862,7 +882,7 @@ async function chercherOff(evenement) {
 		});
 	} catch (e) {
 		remplacerContenu($("#resultats-off"));
-		if (estConnexionRefusee(e)) deconnecter(e.message);
+		if (estSessionRefusee(e) || estAccesRefuse(e)) signalerErreur(e);
 		else erreur.textContent = e.message;
 		return;
 	} finally {
@@ -1511,7 +1531,7 @@ function rendre() {
 }
 
 // ---------------------------------------------------------------------------
-// Connexion : lien avec la clé (QR code du classeur ou d'un autre téléphone)
+// Connexion : compte (shared/connexion.js, projet droits)
 // ---------------------------------------------------------------------------
 
 function afficherEcran(nom) {
@@ -1532,107 +1552,71 @@ function afficherEcran(nom) {
 	}
 }
 
-function afficherConnexion(message = "") {
+/**
+ * Écran de connexion : nouveau compte (prénom), ou appareil à connecter à un compte existant.
+ * @param message Message à afficher (ex : session expirée)
+ * @param invitation Code d'un lien de connexion (QR code d'un autre appareil), utilisé aussitôt
+ */
+function afficherConnexion(message = "", invitation = null) {
 	afficherEcran("connexion");
-	$("#erreur-connexion").textContent = message;
+	$("#refus").hidden = true;
+	$("#connexion").hidden = false;
+	afficherFormulaireConnexion($("#connexion"), {
+		nomApp: "Cuisine",
+		message,
+		invitation,
+		surConnecte: (compte) => {
+			notifier(`Bienvenue ${compte.prenom} !`);
+			chargerApresConnexion();
+		},
+	});
 }
 
-/** Clé contenue dans un lien de connexion (…/#cle=…), ou null. */
-function cleDuLien(texte) {
-	const trouve = /[#&]cle=([A-Za-z0-9]+)/.exec(String(texte));
-	return trouve ? trouve[1] : null;
-}
-
-/** Lien de connexion : l'app, avec la clé après « # » (jamais envoyée au serveur web). */
-const lienDeConnexion = () =>
-	`${location.origin}${location.pathname}#cle=${app.cle}`;
-
-async function connecterAvecCle(cle) {
-	app.cle = cle;
-	ecrireStockage(CLES.cle, cle);
+/** Compte connecté sans accès à Cuisine : la session est gardée (elle sert aux autres apps). */
+function afficherRefus(message) {
 	app.etat = null;
 	ecrireStockage(CLES.etat, null);
-	afficherConnexion("Connexion…");
+	afficherEcran("connexion");
+	$("#connexion").hidden = true;
+	$("#refus").hidden = false;
+	$("#message-refus").textContent = message;
+}
+
+/** Premier chargement du journal, une fois l'appareil connecté. */
+async function chargerApresConnexion() {
+	app.etat = null;
+	ecrireStockage(CLES.etat, null);
 	try {
-		app.etat = await appelerApi("etat");
-		enregistrerEtat();
-		afficherConnexion();
+		appliquerEtat(await appelerApi("etat"));
 		afficherEcran("app");
 	} catch (erreur) {
-		deconnecter(erreur.message);
+		signalerErreur(erreur);
 	}
 }
 
-function validerLien(evenement) {
-	evenement.preventDefault();
-	const cle = cleDuLien($("#champ-lien").value);
-	if (!cle) {
-		$("#erreur-connexion").textContent =
-			"Ce n'est pas un lien de connexion à l'app Cuisine.";
-		return;
-	}
-	$("#champ-lien").value = "";
-	connecterAvecCle(cle);
-}
-
-function afficherQr() {
-	fermerMenu();
-	// qrcode : bibliothèque qrcode-generator (../shared/vendor), chargée par la page.
-	const qr = window.qrcode(0, "M");
-	qr.addData(lienDeConnexion());
-	qr.make();
-	$("#qr-image").innerHTML = qr.createSvgTag({
-		cellSize: 6,
-		margin: 4,
-		scalable: true,
-	});
-	$("#dialogue-qr").showModal();
-}
-
-/** Envoie le lien de connexion : partage du téléphone (SMS, messagerie…), sinon copie. */
-async function envoyerLien() {
-	const lien = lienDeConnexion();
-	if (navigator.share) {
-		try {
-			await navigator.share({
-				title: "Cuisine",
-				text: "Le lien de connexion à l'app Cuisine :",
-				url: lien,
-			});
-			return;
-		} catch (erreur) {
-			if (erreur?.name === "AbortError") return;
-		}
-	}
-	try {
-		await navigator.clipboard.writeText(lien);
-		notifier("Lien copié.");
-	} catch {
-		notifier("Impossible de copier le lien.", true);
-	}
-}
-
+/** Session refusée : oublie la connexion de l'appareil et ses données, puis affiche la connexion. */
 function deconnecter(message = "") {
 	fermerMenu();
-	app.cle = null;
+	oublierConnexion();
 	app.etat = null;
 	app.joursAnciens.clear();
-	for (const cle of [CLES.cle, CLES.etat]) ecrireStockage(cle, null);
+	ecrireStockage(CLES.etat, null);
 	for (const dialogue of document.querySelectorAll("dialog[open]")) {
 		dialogue.close();
 	}
 	afficherConnexion(message);
 }
 
-function seDeconnecter() {
+async function seDeconnecter() {
 	fermerMenu();
 	if (
 		!confirm(
-			"Te déconnecter de cet appareil ? Pour revenir, il faudra le lien de connexion (QR code du classeur ou d'un autre téléphone).",
+			"Te déconnecter de cet appareil ? Les autres apps le seront aussi (même compte).",
 		)
 	) {
 		return;
 	}
+	await deconnecterAppareil();
 	deconnecter();
 }
 
@@ -1684,7 +1668,6 @@ function suivreLeJour() {
 }
 
 function brancherEvenements() {
-	$("#form-lien").addEventListener("submit", validerLien);
 	for (const bouton of document.querySelectorAll("#onglets button")) {
 		bouton.addEventListener("click", () => changerVue(bouton.dataset.vue));
 	}
@@ -1751,7 +1734,6 @@ function brancherEvenements() {
 	);
 	$("#menu-nouveau-profil").addEventListener("click", () => ouvrirProfil());
 
-	$("#bouton-envoyer-lien").addEventListener("click", envoyerLien);
 	for (const bouton of document.querySelectorAll("[data-fermer]")) {
 		bouton.addEventListener("click", () => bouton.closest("dialog").close());
 	}
@@ -1766,7 +1748,18 @@ function brancherEvenements() {
 	document.addEventListener("keydown", (e) => {
 		if (e.key === "Escape") fermerMenu();
 	});
-	$("#menu-qr").addEventListener("click", afficherQr);
+	$("#menu-autre-appareil").addEventListener("click", async () => {
+		fermerMenu();
+		try {
+			await connecterUnAutreAppareil("Cuisine");
+		} catch (erreur) {
+			notifier(erreur.message, true);
+		}
+	});
+	$("#bouton-autre-compte").addEventListener("click", async () => {
+		await deconnecterAppareil();
+		afficherConnexion();
+	});
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), $("#dialogue-ios"));
 	$("#menu-signalement").addEventListener("click", () => {
@@ -1792,25 +1785,25 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
-	// Lien de connexion (…/#cle=…) : connexion avec cette clé, retirée aussitôt de l'adresse.
-	const cleLien = cleDuLien(location.hash);
+	// Ancienne connexion par clé (avant les comptes) : plus utilisée.
+	ecrireStockage(CLES.ancienneCle, null);
+	// Lien de connexion d'un appareil (…#invitation=<code>), retiré aussitôt de l'adresse.
+	const invitation = invitationDuLien(location.hash);
 	history.replaceState(null, "", location.pathname);
 	if (!window.API_URL) {
-		afficherConnexion("L'adresse de l'API n'est pas configurée (config.js).");
+		afficherEcran("connexion");
+		$("#connexion").textContent =
+			"L'adresse de l'API n'est pas configurée (config.js).";
 		return;
 	}
-	if (cleLien) {
-		connecterAvecCle(cleLien);
-		return;
-	}
-	if (!app.cle) {
-		afficherConnexion();
+	if (invitation || !lireSession()) {
+		afficherConnexion("", invitation);
 		return;
 	}
 	if (app.etat) afficherEcran("app");
 	actualiser({ silencieux: true }).then(() => {
 		if (app.etat) afficherEcran("app");
-		else if (app.cle) {
+		else if (lireSession() && $("#refus").hidden) {
 			afficherConnexion(
 				"Impossible de charger le journal. Vérifie ta connexion.",
 			);
