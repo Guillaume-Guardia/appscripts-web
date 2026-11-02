@@ -11,11 +11,11 @@
  * Installe les gestionnaires du service worker.
  * @param nomApp Préfixe des caches de l'app : les apps partagent l'origine, donc le stockage des
  * caches, et chacune ne supprime que les siens (ceux d'un front de review, REVIEW défini par
- * version.js, sont préfixés à part)
+ * version.js, sont préfixés à part, par dossier de review)
  */
 // biome-ignore lint/correctness/noUnusedVariables: appelée par le sw.js de chaque app.
 function installerServiceWorker(nomApp) {
-	const prefixe = `${self.REVIEW ? "review-" : ""}${nomApp}-`;
+	const prefixe = `${self.REVIEW ? `review-${self.REVIEW_DOSSIER || ""}-` : ""}${nomApp}-`;
 	const version = `${prefixe}${self.VERSION_APP}-${self.EMPREINTE_APP || "dev"}`;
 	const fichiers = self.FICHIERS_APP || ["./"];
 
