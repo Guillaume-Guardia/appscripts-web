@@ -127,21 +127,6 @@ function basculerBlocage(compte) {
 	);
 }
 
-function supprimerCompte(compte) {
-	if (
-		!confirm(
-			`Supprimer le compte de ${compte.prenom} ? Ses appareils sont déconnectés et ses droits retirés. Ce que les apps ont gardé de lui (ex : sa liste dans Cadeaux) reste.`,
-		)
-	) {
-		return;
-	}
-	modifier(
-		"supprimer-compte",
-		{ compteId: compte.id },
-		`Compte de ${compte.prenom} supprimé.`,
-	);
-}
-
 function carteCompte(compte, apps) {
 	const moi = compte.id === compteConnecte()?.id;
 	const detail = [
@@ -179,15 +164,6 @@ function carteCompte(compte, apps) {
 						onclick: () => basculerBlocage(compte),
 					},
 					compte.bloque ? "Débloquer" : "Bloquer",
-				),
-				el(
-					"button",
-					{
-						type: "button",
-						class: "danger",
-						onclick: () => supprimerCompte(compte),
-					},
-					"Supprimer",
 				),
 			),
 	);
