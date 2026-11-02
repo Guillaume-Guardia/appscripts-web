@@ -1,4 +1,16 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
+import {
+	afficherConnexion as afficherFormulaireConnexion,
+	compteConnecte,
+	connecterUnAutreAppareil,
+	deconnecter as deconnecterAppareil,
+	deconnecterPartout,
+	estAccesRefuse,
+	estSessionRefusee,
+	invitationDuLien,
+	lireSession,
+	oublierConnexion,
+} from "../shared/connexion.js";
 import { aujourdhui, joursEntre, versChampDate } from "../shared/dates.js";
 import {
 	$,
@@ -21,13 +33,14 @@ import {
 } from "../shared/stockage.js";
 
 // ---------------------------------------------------------------------------
-// Stockage local (préférences de ce navigateur : clé, dernier état)
+// Stockage local (préférences de ce navigateur : invitation, dernier état)
 // ---------------------------------------------------------------------------
 
 const CLES = {
+	/** Clé d'un lien d'invitation (ou d'avant les comptes), envoyée jusqu'à ce qu'elle serve. */
 	cle: "cadeaux.cle",
-	code: "cadeaux.code",
-	membre: "cadeaux.membre",
+	/** Compte dont l'état est en cache. */
+	compte: "cadeaux.compte",
 	etat: "cadeaux.etat",
 	onglet: "cadeaux.onglet",
 	familles: "cadeaux.familles",
@@ -44,11 +57,10 @@ function lireFamillesActives() {
 // ---------------------------------------------------------------------------
 
 const app = {
-	/** Clé de connexion (QR code) : la seule chose qui identifie le membre. */
+	/** Clé d'un lien d'invitation pas encore utilisée : elle lie le compte à sa personne. */
 	cle: lireStockage(CLES.cle),
-	/** Ancienne connexion (code famille + Id), le temps de recevoir une clé ; ou code d'inscription. */
-	code: lireStockage(CLES.code),
-	membreId: lireStockage(CLES.membre),
+	/** Code famille saisi à l'inscription. */
+	code: null,
 	/** { moi, familles, personnes, cadeaux, historique } renvoyé par l'API. */
 	etat: null,
 	/** Familles affichées (Famille, Disponibles) ; vide = toutes. */
@@ -73,7 +85,8 @@ const app = {
 const etatEnCache = lireStockageJson(CLES.etat);
 if (
 	etatEnCache?.moi &&
-	(app.cle || etatEnCache.moi.id === app.membreId) &&
+	lireSession() &&
+	lireStockage(CLES.compte) === compteConnecte()?.id &&
 	Array.isArray(etatEnCache.secretSantas)
 ) {
 	app.etat = etatEnCache;
@@ -85,39 +98,59 @@ if (
 
 const appelerApi = creerApi({
 	url: window.API_URL,
-	// Avec une clé, elle seule ; sinon l'ancienne connexion, qui en reçoit une (accepteCle).
+	// La session du compte ; et la clé d'une invitation, tant qu'elle n'a pas servi.
 	identifiants: () =>
 		app.cle
-			? { cle: app.cle }
-			: { code: app.code, membreId: app.membreId, accepteCle: true },
+			? { session: lireSession(), cle: app.cle }
+			: { session: lireSession() },
 	surVersion: (version) => {
 		if (version === app.versionApi) return;
 		app.versionApi = version;
 		ecrireStockage(CLES.versionApi, version);
 		afficherVersions();
 	},
-	// Nouvelle clé (inscription, ancienne connexion, autres appareils déconnectés) : à garder.
-	surReponse: (reponse) => {
-		if (reponse.cle) garderCle(reponse.cle);
-	},
 });
 
-/** Garde la clé de connexion ; l'ancienne connexion (code + Id) ne sert plus. */
+/** Garde la clé d'un lien d'invitation, envoyée jusqu'à ce qu'elle serve (null : l'oublier). */
 function garderCle(cle) {
 	app.cle = cle;
 	ecrireStockage(CLES.cle, cle);
-	app.code = null;
-	app.membreId = null;
-	ecrireStockage(CLES.code, null);
-	ecrireStockage(CLES.membre, null);
 }
 
-const estConnecte = () => Boolean(app.cle || (app.code && app.membreId));
+const estConnecte = () => Boolean(lireSession());
+
+/** Le compte n'est encore personne de Cadeaux (MESSAGE_A_LIER du projet cadeaux). */
+const estALier = (erreur) => /Rejoins ta famille/.test(erreur?.message ?? "");
+
+/** La clé d'invitation envoyée n'a pas pu lier le compte (voir lierAvecCle du projet cadeaux). */
+const estInvitationRefusee = (erreur) =>
+	/Lien d'invitation plus valable|Ton compte est déjà celui|utilise déjà l'app avec un autre compte|n'existe plus/.test(
+		erreur?.message ?? "",
+	);
+
+/**
+ * Erreur de connexion d'un appel : écran qui convient (connexion, accès refusé, famille à
+ * rejoindre).
+ * @return Vrai si l'erreur a été traitée
+ */
+function traiterErreurConnexion(erreur) {
+	if (estSessionRefusee(erreur)) deconnecter(erreur.message);
+	else if (estAccesRefuse(erreur)) afficherRefus(erreur.message);
+	else if (estALier(erreur)) afficherAccueil();
+	else if (estInvitationRefusee(erreur)) {
+		garderCle(null);
+		afficherAccueil(erreur.message);
+	} else return false;
+	return true;
+}
 
 function appliquerEtat(etat) {
 	app.etat = etat;
 	app.horsLigne = false;
 	ecrireStockage(CLES.etat, JSON.stringify(etat));
+	ecrireStockage(CLES.compte, compteConnecte()?.id ?? null);
+	// La clé d'invitation a servi (ou le compte était déjà lié) : plus besoin de l'envoyer.
+	if (app.cle) garderCle(null);
 	const ids = new Set(etat.cadeaux.map((c) => c.id));
 	for (const id of app.selection) if (!ids.has(id)) app.selection.delete(id);
 	afficherBandeauHorsLigne();
@@ -136,13 +169,7 @@ async function actualiser({ silencieux = false } = {}) {
 			afficherBandeauHorsLigne();
 			rendre();
 			if (!silencieux) notifier(erreur.message, true);
-		} else if (
-			/Code famille|Membre inconnu|QR code|Compte introuvable/.test(
-				erreur.message,
-			)
-		) {
-			deconnecter(erreur.message);
-		} else {
+		} else if (!traiterErreurConnexion(erreur)) {
 			notifier(erreur.message, true);
 		}
 	} finally {
@@ -174,6 +201,7 @@ async function modifier(
 		if (messageSucces) notifier(messageSucces);
 		return resultat ?? true;
 	} catch (erreur) {
+		if (traiterErreurConnexion(erreur)) return null;
 		surErreur(erreur.message);
 		if (erreur instanceof ErreurReseau) {
 			app.horsLigne = true;
@@ -1973,7 +2001,8 @@ async function copierCode(famille) {
 }
 
 // ---------------------------------------------------------------------------
-// Connexion : QR code (clé), ou code famille pour un nouveau venu
+// Connexion : compte (shared/connexion.js, projet droits), puis sa personne dans Cadeaux (code
+// famille, ou lien d'invitation d'un proche)
 // ---------------------------------------------------------------------------
 
 function afficherEcran(nom) {
@@ -1981,11 +2010,41 @@ function afficherEcran(nom) {
 	$("#ecran-app").hidden = nom !== "app";
 }
 
-function afficherAccueil(message = "") {
+/** Affiche une des parties de l'écran de connexion (compte, refus, accueil, choix-membre). */
+function afficherPartieConnexion(partie, message = "") {
 	afficherEcran("connexion");
-	$("#accueil-connexion").hidden = false;
-	$("#choix-membre").hidden = true;
+	$("#connexion-compte").hidden = partie !== "compte";
+	$("#refus").hidden = partie !== "refus";
+	$("#accueil-connexion").hidden = partie !== "accueil";
+	$("#choix-membre").hidden = partie !== "choix-membre";
 	$("#erreur-connexion").textContent = message;
+}
+
+/**
+ * Pas de compte sur l'appareil : prénom, ou lien de connexion d'un autre appareil.
+ * @param invitation Code d'un lien de connexion (QR code d'un autre appareil), utilisé aussitôt
+ */
+function afficherConnexionCompte(message = "", invitation = null) {
+	afficherPartieConnexion("compte");
+	afficherFormulaireConnexion($("#connexion-compte"), {
+		nomApp: "Cadeaux",
+		message,
+		invitation,
+		surConnecte: () => chargerApresConnexion(),
+	});
+}
+
+/** Compte sans accès à Cadeaux : la session est gardée (elle sert aux autres apps). */
+function afficherRefus(message) {
+	app.etat = null;
+	ecrireStockage(CLES.etat, null);
+	afficherPartieConnexion("refus");
+	$("#message-refus").textContent = message;
+}
+
+/** Compte qui n'est encore personne de Cadeaux : code famille, ou lien d'invitation. */
+function afficherAccueil(message = "") {
+	afficherPartieConnexion("accueil", message);
 }
 
 /** Code famille d'un nouveau venu : on vérifie le code, puis il s'ajoute. */
@@ -1996,19 +2055,21 @@ async function validerCode(evenement) {
 	$("#erreur-connexion").textContent = "";
 	app.code = $("#champ-code").value.trim();
 	try {
-		const famille = await appelerApi("famille");
-		$("#accueil-connexion").hidden = true;
-		$("#choix-membre").hidden = false;
+		const famille = await appelerApi("famille", { code: app.code });
+		afficherPartieConnexion("choix-membre");
 		$("#titre-choix").textContent = `Famille ${famille.nom} : ajoute-toi`;
+		$("#champ-prenom").value ||= compteConnecte()?.prenom ?? "";
 		$("#champ-prenom").focus();
 	} catch (erreur) {
-		$("#erreur-connexion").textContent = erreur.message;
+		if (!traiterErreurConnexion(erreur)) {
+			$("#erreur-connexion").textContent = erreur.message;
+		}
 	} finally {
 		if (bouton) bouton.disabled = false;
 	}
 }
 
-/** Ouvre l'app avec l'état reçu (inscription, QR code scanné). */
+/** Ouvre l'app avec l'état reçu (inscription, invitation, connexion). */
 function ouvrirApp(etat) {
 	app.selection.clear();
 	appliquerEtat(etat);
@@ -2027,32 +2088,45 @@ async function ajouterMoi(evenement) {
 	if (bouton) bouton.disabled = true;
 	$("#erreur-connexion").textContent = "";
 	try {
-		// La réponse apporte la clé du nouveau membre (gardée par appelerApi).
 		ouvrirApp(
 			await appelerApi("ajouter-moi", {
+				code: app.code,
 				prenom: $("#champ-prenom").value,
 				naissance: $("#champ-naissance").value,
 			}),
 		);
 	} catch (erreur) {
-		$("#erreur-connexion").textContent = erreur.message;
+		if (!traiterErreurConnexion(erreur)) {
+			$("#erreur-connexion").textContent = erreur.message;
+		}
 	} finally {
 		if (bouton) bouton.disabled = false;
 	}
 }
 
-/** Connexion avec une clé (lien du QR code, ou QR code scanné dans l'app). */
-async function connecterAvecCle(cle) {
-	garderCle(cle);
+/** Premier chargement, une fois l'appareil connecté (ou une invitation reçue). */
+async function chargerApresConnexion() {
 	app.etat = null;
 	ecrireStockage(CLES.etat, null);
-	afficherAccueil();
-	$("#erreur-connexion").textContent = "Connexion…";
+	afficherAccueil("Connexion…");
 	try {
 		ouvrirApp(await appelerApi("etat"));
 	} catch (erreur) {
-		deconnecter(erreur.message);
+		if (!traiterErreurConnexion(erreur)) afficherAccueil(erreur.message);
 	}
+}
+
+/**
+ * Lien d'invitation (QR code d'un proche, ou du classeur) : la clé est gardée, puis envoyée
+ * dès que l'appareil est connecté à un compte.
+ */
+function accepterInvitation(cle) {
+	garderCle(cle);
+	if (estConnecte()) chargerApresConnexion();
+	else
+		afficherConnexionCompte(
+			"Pour accepter l'invitation, crée ton compte (ou connecte cet appareil au tien).",
+		);
 }
 
 /** Lien reçu à distance, collé à la connexion (ex : app installée sur iPhone, hors de Safari). */
@@ -2061,21 +2135,21 @@ function validerLien(evenement) {
 	const cle = cleDuLien($("#champ-lien").value);
 	if (!cle) {
 		$("#erreur-connexion").textContent =
-			"Ce n'est pas un lien de connexion à l'app Cadeaux.";
+			"Ce n'est pas un lien d'invitation de l'app Cadeaux.";
 		return;
 	}
 	$("#champ-lien").value = "";
-	connecterAvecCle(cle);
+	accepterInvitation(cle);
 }
 
-/** Clé contenue dans un lien de QR code (…/#cle=…), ou null. */
+/** Clé contenue dans un lien d'invitation (…/#cle=…), ou null. */
 function cleDuLien(texte) {
 	const trouve = /[#&]cle=([A-Za-z0-9]+)/.exec(String(texte));
 	return trouve ? trouve[1] : null;
 }
 
 /** Lien à mettre dans un QR code : l'app, avec la clé après « # » (jamais envoyée au serveur web). */
-function lienDeConnexion(cle) {
+function lienDInvitation(cle) {
 	return `${location.origin}${location.pathname}#cle=${cle}`;
 }
 
@@ -2085,7 +2159,7 @@ let envoiQr = null;
 /** @param message texte du message qui accompagne le lien envoyé (« Envoyer le lien ») */
 function afficherQr(titre, aide, cle, message) {
 	fermerMenu();
-	envoiQr = { lien: lienDeConnexion(cle), message };
+	envoiQr = { lien: lienDInvitation(cle), message };
 	const qr = window.qrcode(0, "M");
 	qr.addData(envoiQr.lien);
 	qr.make();
@@ -2126,47 +2200,32 @@ async function envoyerLienQr() {
 	}
 }
 
-function afficherMonQr() {
-	if (!app.cle) {
-		notifier(
-			"Ton QR code arrive au prochain chargement : touche Actualiser.",
-			true,
-		);
-		return;
-	}
-	afficherQr(
-		"Mon QR code",
-		"Scanne-le avec ton autre appareil (appareil photo, ou « Scanner mon QR code » dans l'app), ou envoie-toi le lien. Ne le donne à personne d'autre : il ouvre ton compte.",
-		app.cle,
-		"Mon lien de connexion à Cadeaux de Noël (ne le transfère à personne) :",
-	);
-}
-
 async function inviter(personneInvitee) {
 	const cle = await modifier("inviter", { personneId: personneInvitee.id });
 	if (!cle) return;
 	const { prenom } = personneInvitee;
 	afficherQr(
 		`Inviter ${prenom}`,
-		`Fais scanner ce QR code à ${prenom}, ou envoie-lui le lien s'il est loin : il ouvre son compte sur son téléphone. Envoie-le à ${prenom} seulement. Un nouveau QR code (ou lien) remplace le précédent.`,
+		`Fais scanner ce QR code à ${prenom}, ou envoie-lui le lien s'il est loin : l'app s'ouvre sur son téléphone, et ${prenom} y entre avec son compte. Il sert une fois ; envoie-le à ${prenom} seulement. Un nouveau QR code (ou lien) remplace le précédent.`,
 		cle,
 		`${prenom}, voici ton invitation aux listes de cadeaux de Noël de la famille : ouvre ce lien sur ton téléphone (il est personnel, ne le transfère pas).`,
 	);
 }
 
-async function revoquer() {
+async function deconnecterTousLesAppareils() {
 	fermerMenu();
 	if (
 		!confirm(
-			"Déconnecter tous tes autres appareils ? Pour les reconnecter, il faudra scanner ton nouveau QR code.",
+			"Déconnecter tous tes appareils, celui-ci compris (téléphone perdu) ? Les autres apps le seront aussi (même compte).",
 		)
 	)
 		return;
-	await modifier(
-		"revoquer",
-		{},
-		"Autres appareils déconnectés. Ton QR code a changé.",
-	);
+	try {
+		await deconnecterPartout();
+		deconnecter("Tous tes appareils sont déconnectés.");
+	} catch (erreur) {
+		notifier(erreur.message, true);
+	}
 }
 
 // Lecture d'un QR code : BarcodeDetector quand le navigateur l'a, sinon jsQR (chargé au besoin).
@@ -2232,7 +2291,7 @@ async function ouvrirScanner() {
 			const cle = texte ? cleDuLien(texte) : null;
 			if (cle) {
 				arreterScanner();
-				connecterAvecCle(cle);
+				accepterInvitation(cle);
 			} else {
 				if (texte)
 					$("#scanner-message").textContent =
@@ -2250,27 +2309,28 @@ async function ouvrirScanner() {
 	}
 }
 
+/** Session refusée : oublie la connexion de l'appareil et ses données, puis affiche la connexion. */
 function deconnecter(message = "") {
 	fermerMenu();
-	app.cle = null;
-	app.code = null;
-	app.membreId = null;
+	oublierConnexion();
 	app.etat = null;
 	// La version de l'API reste : elle ne dit rien du membre.
 	for (const cle of Object.values(CLES))
 		if (cle !== CLES.versionApi) ecrireStockage(cle, null);
+	app.cle = null;
 	$("#champ-code").value = "";
-	afficherAccueil(message);
+	afficherConnexionCompte(message);
 }
 
-function seDeconnecter() {
+async function seDeconnecter() {
 	fermerMenu();
 	if (
 		!confirm(
-			"Te déconnecter de cet appareil ? Pour revenir, il faudra scanner ton QR code depuis un autre appareil connecté.",
+			"Te déconnecter de cet appareil ? Les autres apps le seront aussi (même compte).",
 		)
 	)
 		return;
+	await deconnecterAppareil();
 	deconnecter();
 }
 
@@ -2311,6 +2371,10 @@ function brancherEvenements() {
 	$("#bouton-envoyer-lien").addEventListener("click", envoyerLienQr);
 	$("#form-nouveau-membre").addEventListener("submit", ajouterMoi);
 	$("#bouton-autre-code").addEventListener("click", () => afficherAccueil());
+	$("#bouton-autre-compte").addEventListener("click", async () => {
+		await deconnecterAppareil();
+		deconnecter();
+	});
 	$("#bouton-scanner").addEventListener("click", ouvrirScanner);
 	$("#bouton-fermer-scanner").addEventListener("click", arreterScanner);
 	$("#dialogue-scanner").addEventListener("cancel", arreterScanner);
@@ -2346,8 +2410,18 @@ function brancherEvenements() {
 	});
 	// L'installation elle-même est branchée par brancherInstallation (shared/pwa.js).
 	$("#menu-installer").addEventListener("click", fermerMenu);
-	$("#menu-qr").addEventListener("click", afficherMonQr);
-	$("#menu-revoquer").addEventListener("click", revoquer);
+	$("#menu-autre-appareil").addEventListener("click", async () => {
+		fermerMenu();
+		try {
+			await connecterUnAutreAppareil("Cadeaux");
+		} catch (erreur) {
+			notifier(erreur.message, true);
+		}
+	});
+	$("#menu-deconnecter-partout").addEventListener(
+		"click",
+		deconnecterTousLesAppareils,
+	);
 	$("#menu-deconnecter").addEventListener("click", seDeconnecter);
 	$("#bouton-offrir-selection").addEventListener("click", () =>
 		reserver([...app.selection]),
@@ -2388,19 +2462,29 @@ function demarrer() {
 	brancherEvenements();
 	enregistrerServiceWorker();
 	brancherInstallation($("#menu-installer"), $("#dialogue-ios"));
+	// Ancienne connexion par code famille et Id (avant les clés) : plus utilisée.
+	ecrireStockage("cadeaux.code", null);
+	ecrireStockage("cadeaux.membre", null);
 	if (!window.API_URL) {
 		afficherAccueil("L'adresse de l'API n'est pas configurée (config.js).");
 		return;
 	}
-	// Lien d'un QR code (…/#cle=…) : connexion avec cette clé, retirée aussitôt de l'adresse.
+	// Liens ouverts dans l'app, retirés aussitôt de l'adresse : invitation d'un proche
+	// (…#cle=<clé>), ou connexion d'un appareil à un compte (…#invitation=<code>).
 	const cleLien = cleDuLien(location.hash);
+	const invitation = invitationDuLien(location.hash);
+	history.replaceState(null, "", location.pathname);
 	if (cleLien) {
-		history.replaceState(null, "", location.pathname);
-		connecterAvecCle(cleLien);
+		accepterInvitation(cleLien);
 		return;
 	}
-	if (!estConnecte()) {
-		afficherAccueil();
+	if (invitation || !estConnecte()) {
+		afficherConnexionCompte(
+			app.cle
+				? "Pour accepter l'invitation, crée ton compte (ou connecte cet appareil au tien)."
+				: "",
+			invitation,
+		);
 		return;
 	}
 	if (app.etat) {
@@ -2409,7 +2493,7 @@ function demarrer() {
 	}
 	actualiser({ silencieux: true }).then(() => {
 		if (app.etat) afficherEcran("app");
-		else if (estConnecte())
+		else if (estConnecte() && $("#ecran-connexion").hidden)
 			afficherAccueil(
 				"Impossible de charger les listes. Vérifie ta connexion.",
 			);
