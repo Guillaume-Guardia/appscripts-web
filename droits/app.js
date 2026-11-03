@@ -1,4 +1,5 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
+import { brancherMenuApps } from "../shared/apps.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	compteConnecte,
@@ -488,6 +489,7 @@ function brancherEvenements() {
 	});
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), { connexion: true });
+	brancherMenuApps($("#menu-apps"), "droits");
 	$("#menu-signalement").addEventListener("click", () => {
 		fermerMenu();
 		ouvrirSignalement({ app: "Droits", prenom: compteConnecte()?.prenom });

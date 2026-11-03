@@ -4,8 +4,13 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="theme-color" content="#0f5f66" />
+		<meta name="description" content="Toutes les apps dans une seule fenêtre installée, avec une seule connexion." />
 		<title>Mes apps</title>
-		<link rel="icon" href="voyage/icons/icon.svg" type="image/svg+xml" />
+		<link rel="manifest" href="manifest.webmanifest" />
+		<link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="Mes apps" />
 		<link rel="stylesheet" href="shared/base.css" />
 		<style>
 			/* Sur ordinateur, les cartes remplissent la largeur (plusieurs colonnes). */
@@ -26,13 +31,17 @@
 			.sans-acces p::after { content: " · Pas encore accès"; }
 			.a-venir { box-shadow: none; background: transparent; border-style: dashed; }
 			.a-venir .icone { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0; background: var(--surface-2); color: var(--texte-doux); }
+			.entete .installer { min-height: 36px; padding: 6px 14px; border-color: currentColor; background: transparent; }
 			.a-venir svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 		</style>
 	</head>
 	<body>
 		<header class="entete">
 			<h1>Mes apps</h1>
+			<!-- Installé, le portail ouvre toutes les apps dans sa fenêtre : une icône, une connexion. -->
+			<button type="button" id="installer" class="installer" hidden>Installer</button>
 		</header>
+		<div id="bandeau" class="bandeau" hidden></div>
 		<main>
 			<!-- Une carte par app ; chacune s'installe séparément sur le téléphone, depuis sa page. -->
 			<div class="apps">
@@ -142,11 +151,19 @@
 			</div>
 			<button type="button" id="signalement" class="lien-signalement">Une suggestion ou un bug ?</button>
 		</main>
+		<div id="toasts" class="toasts" aria-live="polite"></div>
 		<script src="shared/config.js"></script>
+		<script src="version.js"></script>
 		<script type="module">
 			import { accesDuCompte, lireSession } from "./shared/connexion.js";
 			import { el } from "./shared/dom.js";
+			import { brancherInstallation, enregistrerServiceWorker } from "./shared/pwa.js";
 			import { ouvrirSignalement } from "./shared/signalement.js";
+
+			enregistrerServiceWorker();
+			// Sur iPhone, un lien de connexion est copié pour le portail installé (qui ne partage pas la
+			// connexion de Safari) : collé dans la première app ouverte, il connecte toutes les autres.
+			brancherInstallation(document.querySelector("#installer"), { connexion: true });
 
 			// Compte connecté : les apps qu'il n'a pas encore (onglet Droits) sont grisées, et s'il a le
 			// droit de les voir, chaque carte a les liens de ses classeurs. Sans compte, ou hors ligne,
@@ -175,7 +192,6 @@
 			document.querySelector("#signalement").addEventListener("click", () =>
 				ouvrirSignalement({
 					app: "Portail",
-					version: "",
 					projets: [
 						"Budget",
 						"BulletinSalaire",

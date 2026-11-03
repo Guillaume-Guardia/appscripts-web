@@ -12,12 +12,17 @@
  * @param nomApp Préfixe des caches de l'app : les apps partagent l'origine, donc le stockage des
  * caches, et chacune ne supprime que les siens (ceux d'un front de review, REVIEW défini par
  * version.js, sont préfixés à part, par dossier de review)
+ * @param seulementSesFichiers Ne répondre que pour les fichiers de FICHIERS_APP : le portail, dont
+ * la portée couvre les dossiers des apps, laisse leurs pages au réseau (puis à leur service worker)
  */
 // biome-ignore lint/correctness/noUnusedVariables: appelée par le sw.js de chaque app.
-function installerServiceWorker(nomApp) {
+function installerServiceWorker(nomApp, { seulementSesFichiers = false } = {}) {
 	const prefixe = `${self.REVIEW ? `review-${self.REVIEW_DOSSIER || ""}-` : ""}${nomApp}-`;
 	const version = `${prefixe}${self.VERSION_APP}-${self.EMPREINTE_APP || "dev"}`;
 	const fichiers = self.FICHIERS_APP || ["./"];
+	const siens = new Set(
+		fichiers.map((fichier) => new URL(fichier, self.location).pathname),
+	);
 
 	self.addEventListener("install", (evenement) => {
 		// cache: "reload" : les fichiers de la nouvelle version, pas ceux du cache HTTP (10 min sur Pages).
@@ -56,9 +61,11 @@ function installerServiceWorker(nomApp) {
 	// n'est jamais mise en cache : les données hors ligne sont gardées par l'app elle-même.
 	self.addEventListener("fetch", (evenement) => {
 		const requete = evenement.request;
+		const url = new URL(requete.url);
 		if (
 			requete.method !== "GET" ||
-			new URL(requete.url).origin !== self.location.origin
+			url.origin !== self.location.origin ||
+			(seulementSesFichiers && !siens.has(url.pathname))
 		) {
 			return;
 		}

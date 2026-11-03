@@ -1,4 +1,5 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
+import { brancherMenuApps } from "../shared/apps.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	compteConnecte,
@@ -2549,6 +2550,7 @@ function demarrer() {
 	brancherEvenements();
 	enregistrerServiceWorker();
 	brancherInstallation($("#menu-installer"), { connexion: true });
+	brancherMenuApps($("#menu-apps"), "cadeaux");
 	// Ancienne connexion par code famille et Id (avant les clés) : plus utilisée.
 	ecrireStockage("cadeaux.code", null);
 	ecrireStockage("cadeaux.membre", null);

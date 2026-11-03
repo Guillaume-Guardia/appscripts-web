@@ -40,11 +40,14 @@ export function enregistrerServiceWorker() {
 			});
 		});
 	// Première visite : le service worker prend la main (clients.claim) sans rien changer à l'app,
-	// pas besoin de recharger. Ensuite, un changement est une mise à jour acceptée.
-	const avaitUnServiceWorker = Boolean(navigator.serviceWorker.controller);
+	// pas besoin de recharger ; de même quand il la prend à celui du portail (première visite d'une
+	// app dans le portail installé, dont la portée couvre les apps). Ensuite, un changement du même
+	// service worker est une mise à jour acceptée.
+	const avant = navigator.serviceWorker.controller?.scriptURL;
 	let recharge = false;
 	navigator.serviceWorker.addEventListener("controllerchange", () => {
-		if (recharge || !avaitUnServiceWorker) return;
+		if (recharge || navigator.serviceWorker.controller?.scriptURL !== avant)
+			return;
 		recharge = true;
 		window.location.reload();
 	});

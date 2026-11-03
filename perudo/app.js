@@ -1,3 +1,4 @@
+import { brancherMenuApps } from "../shared/apps.js";
 import { $ } from "../shared/dom.js";
 import {
 	brancherInstallation,
@@ -419,6 +420,7 @@ function brancherEvenements() {
 	});
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"));
+	brancherMenuApps($("#menu-apps"), "perudo");
 	$("#menu-signalement").addEventListener("click", () => {
 		fermerMenu();
 		ouvrirSignalement({ app: "Perudo" });
