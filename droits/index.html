@@ -9,6 +9,7 @@
 		<title>Droits</title>
 		<link rel="manifest" href="manifest.webmanifest" />
 		<link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-title" content="Droits" />
 		<link rel="stylesheet" href="../shared/base.css" />
@@ -25,11 +26,14 @@
 			</button>
 			<nav id="menu" class="menu" hidden>
 				<p id="menu-compte" class="compte"></p>
+				<p class="menu-titre">Connexion</p>
 				<button type="button" id="menu-autre-appareil">Connecter un autre appareil</button>
 				<button type="button" id="menu-connexions">Mes connexions</button>
+				<button type="button" id="menu-deconnecter">Se déconnecter</button>
+				<p class="menu-titre">Application</p>
+				<button type="button" id="menu-installer" hidden>Installer l'app</button>
 				<button type="button" id="menu-signalement">Suggestion ou bug</button>
 				<button type="button" id="menu-maj">Rechercher une mise à jour</button>
-				<button type="button" id="menu-deconnecter">Se déconnecter</button>
 				<p class="version"></p>
 			</nav>
 		</header>

@@ -1770,7 +1770,7 @@ function brancherEvenements() {
 		afficherConnexion();
 	});
 	$("#menu-installer").addEventListener("click", fermerMenu);
-	brancherInstallation($("#menu-installer"), $("#dialogue-ios"));
+	brancherInstallation($("#menu-installer"), { connexion: true });
 	$("#menu-signalement").addEventListener("click", () => {
 		fermerMenu();
 		ouvrirSignalement({ app: "Cuisine", prenom: profilActif()?.nom });

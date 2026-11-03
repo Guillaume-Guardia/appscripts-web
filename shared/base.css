@@ -254,8 +254,28 @@ h3 {
 	background: var(--surface-2);
 }
 
+/* Titre d'un groupe d'actions (« Connexion », « Application »), séparé du groupe précédent */
+.menu-titre {
+	margin: 4px 0 0;
+	padding: 10px 12px 2px;
+	border-top: 1px solid var(--bord);
+	color: var(--texte-doux);
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.menu-titre:first-child {
+	margin-top: 0;
+	padding-top: 6px;
+	border-top: 0;
+}
+
 .menu .version {
-	margin: 6px 12px 2px;
+	margin: 4px 0 0;
+	padding: 8px 12px 2px;
+	border-top: 1px solid var(--bord);
 }
 
 .version {

@@ -2534,7 +2534,7 @@ function demarrer() {
 	if (!RENDUS[app.onglet]) app.onglet = "ma-liste";
 	brancherEvenements();
 	enregistrerServiceWorker();
-	brancherInstallation($("#menu-installer"), $("#dialogue-ios"));
+	brancherInstallation($("#menu-installer"), { connexion: true });
 	// Ancienne connexion par code famille et Id (avant les clés) : plus utilisée.
 	ecrireStockage("cadeaux.code", null);
 	ecrireStockage("cadeaux.membre", null);

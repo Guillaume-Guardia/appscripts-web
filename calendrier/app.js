@@ -20,7 +20,11 @@ import {
 	notifier,
 	remplacerContenu,
 } from "../shared/dom.js";
-import { chercherMiseAJour, enregistrerServiceWorker } from "../shared/pwa.js";
+import {
+	brancherInstallation,
+	chercherMiseAJour,
+	enregistrerServiceWorker,
+} from "../shared/pwa.js";
 import { ouvrirSignalement } from "../shared/signalement.js";
 import { ecrireStockage, lireStockage } from "../shared/stockage.js";
 
@@ -437,6 +441,8 @@ function brancherEvenements() {
 			notifier(erreur.message, true);
 		}
 	});
+	$("#menu-installer").addEventListener("click", fermerMenu);
+	brancherInstallation($("#menu-installer"), { connexion: true });
 	$("#menu-signalement").addEventListener("click", () => {
 		fermerMenu();
 		ouvrirSignalement({ app: "Calendrier", prenom: compteConnecte()?.prenom });

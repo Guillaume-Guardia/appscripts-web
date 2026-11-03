@@ -313,7 +313,7 @@ function brancherEvenements() {
 	$("#menu-parametres").addEventListener("click", ouvrirParametres);
 	$("#menu-effacer").addEventListener("click", effacerSimulation);
 	$("#menu-installer").addEventListener("click", fermerMenu);
-	brancherInstallation($("#menu-installer"), $("#dialogue-ios"));
+	brancherInstallation($("#menu-installer"));
 	$("#menu-signalement").addEventListener("click", () => {
 		fermerMenu();
 		ouvrirSignalement({ app: "Investissement" });

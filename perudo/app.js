@@ -418,7 +418,7 @@ function brancherEvenements() {
 		if (e.key === "Escape") fermerMenu();
 	});
 	$("#menu-installer").addEventListener("click", fermerMenu);
-	brancherInstallation($("#menu-installer"), $("#dialogue-ios"));
+	brancherInstallation($("#menu-installer"));
 	$("#menu-signalement").addEventListener("click", () => {
 		fermerMenu();
 		ouvrirSignalement({ app: "Perudo" });

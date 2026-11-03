@@ -26,12 +26,14 @@
 			<nav id="menu" class="menu" hidden>
 				<button type="button" id="menu-objectifs">Mes objectifs</button>
 				<button type="button" id="menu-nouveau-profil">Ajouter une personne</button>
+				<p class="menu-titre">Connexion</p>
 				<button type="button" id="menu-autre-appareil">Connecter un autre appareil</button>
 				<button type="button" id="menu-connexions">Mes connexions</button>
+				<button type="button" id="menu-deconnecter" class="danger">Se déconnecter</button>
+				<p class="menu-titre">Application</p>
 				<button type="button" id="menu-installer" hidden>Installer l'app</button>
 				<button type="button" id="menu-signalement">Suggestion ou bug</button>
 				<button type="button" id="menu-maj">Rechercher une mise à jour</button>
-				<button type="button" id="menu-deconnecter" class="danger">Se déconnecter</button>
 				<p class="version"></p>
 			</nav>
 		</header>
@@ -278,14 +280,6 @@
 			</form>
 		</dialog>
 
-		<dialog id="dialogue-ios" class="dialogue">
-			<h2>Installer l'app</h2>
-			<p>Dans Safari : bouton <strong>Partager</strong>, puis <strong>Sur l'écran d'accueil</strong>.</p>
-			<p class="aide">L'app installée ne partage pas la connexion de Safari : il faudra t'y reconnecter au premier lancement (QR code depuis un appareil connecté).</p>
-			<div class="boutons">
-				<button type="button" data-fermer class="bouton-principal">Compris</button>
-			</div>
-		</dialog>
 
 		<datalist id="liste-categories"></datalist>
 		<datalist id="liste-aliments"></datalist>
