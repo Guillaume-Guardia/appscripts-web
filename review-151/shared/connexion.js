@@ -17,6 +17,7 @@ import {
 } from "./biometrie.js";
 import { el, notifier, remplacerContenu } from "./dom.js";
 import {
+	boutonInstallation,
 	definirLienConnexion,
 	estInstallee,
 	proposerInstallation,
@@ -825,6 +826,8 @@ export function afficherConnexion(
 			carteLien(),
 			carteNouveauCompte(),
 			erreur,
+			// Le menu (et son « Installer l'app ») n'est pas affiché avant la connexion.
+			boutonInstallation({ connexion: true }),
 			// Pas encore de compte, ou la connexion ne marche pas : le dire quand même.
 			el(
 				"button",

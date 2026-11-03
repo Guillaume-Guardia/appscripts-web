@@ -74,6 +74,14 @@ export async function chercherMiseAJour({ silencieux = false } = {}) {
 
 const estIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
+/** Navigateur de l'iPhone : les autres que Safari ont leur bouton Partager dans la barre d'adresse. */
+const navigateurIos =
+	[
+		["Chrome", /CriOS/],
+		["Firefox", /FxiOS/],
+		["Edge", /EdgiOS/],
+	].find(([, motif]) => motif.test(navigator.userAgent))?.[0] ?? "Safari";
+
 /** L'app est ouverte depuis l'écran d'accueil (installée), pas dans le navigateur. */
 export const estInstallee =
 	window.matchMedia("(display-mode: standalone)").matches ||
@@ -81,13 +89,17 @@ export const estInstallee =
 
 /** Invitation du navigateur (Android, ordinateur), gardée pour le bouton « Installer l'app ». */
 let invitation = null;
-/** Boutons « Installer l'app », affichés seulement si l'installation est possible. */
+/** Boutons « Installer l'app » (ou leur groupe), affichés si l'installation est possible. */
 const boutons = new Set();
 
 const installationPossible = () => !estInstallee && (invitation || estIos);
 
 function afficherBoutons() {
-	for (const bouton of boutons) bouton.hidden = !installationPossible();
+	for (const bouton of boutons) {
+		// Bouton retiré de la page (écran de connexion refait) : oublié.
+		if (!bouton.isConnected) boutons.delete(bouton);
+		else bouton.hidden = !installationPossible();
+	}
 }
 
 window.addEventListener("beforeinstallprompt", (evenement) => {
@@ -137,16 +149,18 @@ function copierLienConnexion() {
 }
 
 /**
- * Fenêtre des explications pour l'iPhone : Safari n'a pas d'invitation, l'app s'ajoute à la main.
- * @param connexion L'app demande une connexion : l'app installée ne la partage pas avec Safari,
- * un lien de connexion est copié pour elle
+ * Fenêtre des explications pour l'iPhone : ses navigateurs n'ont pas d'invitation, l'app s'ajoute
+ * à la main (Safari, ou Chrome, Firefox et Edge depuis iOS 16.4).
+ * @param connexion L'app demande une connexion : l'app installée ne la partage pas avec le
+ * navigateur, un lien de connexion est copié pour elle
  */
 function ouvrirAideIos(connexion) {
 	const remarque = el(
 		"p",
 		{ class: "aide" },
-		"L'app installée ne partage pas la connexion de Safari : il faudra t'y reconnecter au premier lancement (biométrie, code par e-mail ou QR code depuis un appareil connecté).",
+		`L'app installée ne partage pas la connexion de ${navigateurIos} : il faudra t'y reconnecter au premier lancement (biométrie, code par e-mail ou QR code depuis un appareil connecté).`,
 	);
+	const safari = navigateurIos === "Safari";
 	if (connexion) {
 		copierLienConnexion().then((copie) => {
 			if (copie) {
@@ -162,11 +176,19 @@ function ouvrirAideIos(connexion) {
 		el(
 			"p",
 			{},
-			"Dans Safari : bouton ",
+			`Dans ${navigateurIos} : bouton `,
 			el("strong", {}, "Partager"),
+			safari ? "" : " (dans la barre d'adresse, en haut à droite)",
 			", puis ",
 			el("strong", {}, "Sur l'écran d'accueil"),
 			".",
+		),
+		el(
+			"p",
+			{ class: "aide" },
+			safari
+				? "Pas dans la liste ? Tout en bas, « Modifier les actions » pour l'ajouter."
+				: "Pas dans la liste ? Tout en bas, « Modifier les actions » pour l'ajouter. Sinon (iOS trop ancien), ouvre cette page dans Safari.",
 		),
 		connexion ? remarque : null,
 		el(
@@ -213,8 +235,28 @@ async function installer(connexion) {
  */
 export function brancherInstallation(bouton, { connexion = false } = {}) {
 	boutons.add(bouton);
-	afficherBoutons();
+	bouton.hidden = !installationPossible();
 	bouton.addEventListener("click", () => installer(connexion));
+}
+
+/**
+ * Bouton « Installer l'app » hors du menu (écran de connexion, où le menu n'est pas affiché), dans
+ * un groupe .boutons masqué tant que l'installation n'est pas possible.
+ * @param connexion Voir brancherInstallation
+ */
+export function boutonInstallation({ connexion = false } = {}) {
+	const groupe = el(
+		"div",
+		{ class: "boutons" },
+		el(
+			"button",
+			{ type: "button", onclick: () => installer(connexion) },
+			"Installer l'app",
+		),
+	);
+	boutons.add(groupe);
+	groupe.hidden = !installationPossible();
+	return groupe;
 }
 
 /**
