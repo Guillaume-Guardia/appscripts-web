@@ -6,6 +6,48 @@
 import { afficherBandeau, el, notifier } from "./dom.js";
 
 let enregistrement = null;
+/** La mise à jour est acceptée : le prochain changement de service worker recharge la page. */
+let miseAJourAcceptee = false;
+let recharge = false;
+
+/** Délai après lequel la page est rechargée si le navigateur n'a rien annoncé (iPhone). */
+const DELAI_MISE_A_JOUR_MS = 5000;
+
+function recharger() {
+	if (recharge) return;
+	recharge = true;
+	window.location.reload();
+}
+
+/**
+ * Active la nouvelle version (bouton « Mettre à jour »), puis recharge la page.
+ * @param proposee Le service worker du bandeau : une version plus récente a pu le remplacer depuis
+ */
+function activerMiseAJour(proposee) {
+	miseAJourAcceptee = true;
+	const worker =
+		enregistrement?.waiting ??
+		(proposee.state === "installed" ? proposee : null);
+	// Plus rien en attente : la nouvelle version est déjà active, il ne reste qu'à recharger.
+	if (!worker) {
+		recharger();
+		return;
+	}
+	afficherBandeau("maj", "Mise à jour…");
+	// Recharger dès l'activation, sans attendre controllerchange, que l'iPhone n'envoie pas toujours.
+	worker.addEventListener("statechange", () => {
+		if (worker.state === "activated") recharger();
+	});
+	worker.postMessage("activer");
+	setTimeout(recharger, DELAI_MISE_A_JOUR_MS);
+}
+
+function proposerMiseAJour(worker) {
+	afficherBandeau("maj", "Nouvelle version disponible.", {
+		libelle: "Mettre à jour",
+		faire: () => activerMiseAJour(worker),
+	});
+}
 
 /**
  * Enregistre le service worker de l'app (sw.js, à côté de sa page). Une nouvelle version affiche
@@ -18,12 +60,6 @@ export function enregistrerServiceWorker() {
 		.register("sw.js", { updateViaCache: "none" })
 		.then((nouvel) => {
 			enregistrement = nouvel;
-			const proposerMiseAJour = (worker) => {
-				afficherBandeau("maj", "Nouvelle version disponible.", {
-					libelle: "Mettre à jour",
-					faire: () => worker.postMessage("activer"),
-				});
-			};
 			if (nouvel.waiting && navigator.serviceWorker.controller) {
 				proposerMiseAJour(nouvel.waiting);
 			}
@@ -42,14 +78,16 @@ export function enregistrerServiceWorker() {
 	// Première visite : le service worker prend la main (clients.claim) sans rien changer à l'app,
 	// pas besoin de recharger ; de même quand il la prend à celui du portail (première visite d'une
 	// app dans le portail installé, dont la portée couvre les apps). Ensuite, un changement du même
-	// service worker est une mise à jour acceptée.
+	// service worker est une mise à jour, tout comme un changement après « Mettre à jour » (même
+	// si la page n'avait pas de service worker à son ouverture).
 	const avant = navigator.serviceWorker.controller?.scriptURL;
-	let recharge = false;
 	navigator.serviceWorker.addEventListener("controllerchange", () => {
-		if (recharge || navigator.serviceWorker.controller?.scriptURL !== avant)
-			return;
-		recharge = true;
-		window.location.reload();
+		if (
+			miseAJourAcceptee ||
+			navigator.serviceWorker.controller?.scriptURL === avant
+		) {
+			recharger();
+		}
 	});
 }
 
@@ -68,7 +106,10 @@ export async function chercherMiseAJour({ silencieux = false } = {}) {
 		return;
 	}
 	if (silencieux) return;
-	if (enregistrement.waiting || enregistrement.installing) {
+	if (enregistrement.waiting && navigator.serviceWorker.controller) {
+		proposerMiseAJour(enregistrement.waiting);
+		notifier("Nouvelle version prête : touche « Mettre à jour ».");
+	} else if (enregistrement.waiting || enregistrement.installing) {
 		notifier("Nouvelle version en cours de chargement…");
 	} else {
 		notifier(`Tu as la dernière version (${window.VERSION_APP}).`);
