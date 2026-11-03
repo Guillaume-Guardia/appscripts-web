@@ -110,6 +110,26 @@ function casesDesApps(compte, apps, moi) {
 	);
 }
 
+/** Droit de voir les liens des classeurs dans le portail (« tableaux » dans l'onglet Droits). */
+function caseTableaux(compte, moi) {
+	return el(
+		"label",
+		{ class: "case" },
+		el("input", {
+			type: "checkbox",
+			checked: compte.tableaux,
+			disabled: compte.toutes || moi,
+			onchange: (e) =>
+				modifier(
+					"changer-droit",
+					{ compteId: compte.id, app: "tableaux", acces: e.target.checked },
+					`Tableaux ${e.target.checked ? "visibles" : "masqués"} pour ${compte.prenom}.`,
+				),
+		}),
+		"Voir les tableaux",
+	);
+}
+
 function deconnecterSesAppareils(compte) {
 	if (
 		!confirm(
@@ -302,6 +322,7 @@ function carteCompte(compte, apps) {
 		el("h3", {}, compte.prenom || "Sans prénom"),
 		el("p", { class: "detail" }, detail),
 		casesDesApps(compte, apps, moi),
+		caseTableaux(compte, moi),
 		el(
 			"div",
 			{ class: "boutons" },

@@ -93,11 +93,14 @@ export async function deconnecterPartout() {
 }
 
 /**
- * Clés des apps ouvertes au compte connecté (onglet Droits du projet droits, ex : « voyage »).
+ * Accès du compte connecté (onglet Droits du projet droits) : `apps`, les clés des apps qui lui
+ * sont ouvertes (ex : « voyage ») ; `tableaux`, les liens des classeurs ({ projet, nom, url }),
+ * vide s'il n'a pas le droit de les voir.
  * @throws Si l'API refuse (hors ligne, session fermée)
  */
-export async function appsOuvertes() {
-	return (await appelerDroits("moi")).apps;
+export async function accesDuCompte() {
+	const { apps, tableaux = [] } = await appelerDroits("moi");
+	return { apps, tableaux };
 }
 
 /** Change le prénom du compte connecté. @return Le compte à jour */

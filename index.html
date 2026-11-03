@@ -11,7 +11,14 @@
 			/* Sur ordinateur, les cartes remplissent la largeur (plusieurs colonnes). */
 			main { max-width: none; }
 			.apps { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); }
-			.app { display: flex; align-items: center; gap: 16px; padding: 14px 16px; color: inherit; text-decoration: none; }
+			.app { position: relative; display: flex; align-items: center; gap: 16px; padding: 14px 16px; }
+			/* Le lien du titre couvre toute la carte ; les liens des tableaux passent au-dessus. */
+			.lien-app { color: inherit; text-decoration: none; }
+			.lien-app::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+			.lien-app:focus-visible { outline: none; }
+			.app:has(.lien-app:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+			.tableaux { position: relative; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+			.tableaux a { padding: 2px 10px; border: 1px solid var(--bord); border-radius: 999px; color: var(--accent); font-size: 13px; text-decoration: none; }
 			.app img { width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0; }
 			.app h2 { font-size: 18px; }
 			.app p { margin: 2px 0 0; color: var(--texte-doux); font-size: 14px; }
@@ -29,103 +36,103 @@
 		<main>
 			<!-- Une carte par app ; chacune s'installe séparément sur le téléphone, depuis sa page. -->
 			<div class="apps">
-				<a class="carte app" href="voyage/" data-app="voyage">
+				<div class="carte app" data-app="voyage" data-projet="voyage">
 					<img src="voyage/icons/icon-192.png" alt="" />
 					<div>
-						<h2>Voyage</h2>
+						<h2><a class="lien-app" href="voyage/">Voyage</a></h2>
 						<p>Les listes de bagages, selon la destination, la durée et le transport.</p>
 					</div>
-				</a>
-				<a class="carte app" href="cuisine/" data-app="cuisine">
+				</div>
+				<div class="carte app" data-app="cuisine" data-projet="cuisine">
 					<img src="cuisine/icons/icon-192.png" alt="" />
 					<div>
-						<h2>Cuisine</h2>
+						<h2><a class="lien-app" href="cuisine/">Cuisine</a></h2>
 						<p>Le journal alimentaire : calories, macros, recettes et poids.</p>
 					</div>
-				</a>
-				<a class="carte app" href="investissement/">
+				</div>
+				<div class="carte app" data-projet="investissement">
 					<img src="investissement/icons/icon-192.png" alt="" />
 					<div>
-						<h2>Investissement</h2>
+						<h2><a class="lien-app" href="investissement/">Investissement</a></h2>
 						<p>Simuler un bien locatif : frais, crédit, cash-flow et rendement.</p>
 					</div>
-				</a>
-				<a class="carte app" href="cadeaux/" data-app="cadeaux">
+				</div>
+				<div class="carte app" data-app="cadeaux" data-projet="cadeaux">
 					<img src="cadeaux/icons/icon-192.png" alt="" />
 					<div>
-						<h2>Cadeaux</h2>
+						<h2><a class="lien-app" href="cadeaux/">Cadeaux</a></h2>
 						<p>Les listes de cadeaux de Noël de la famille.</p>
 					</div>
-				</a>
-				<a class="carte app" href="calendrier/" data-app="calendrier">
+				</div>
+				<div class="carte app" data-app="calendrier" data-projet="calendrier">
 					<img src="calendrier/icons/icon.svg" alt="" />
 					<div>
-						<h2>Calendrier</h2>
+						<h2><a class="lien-app" href="calendrier/">Calendrier</a></h2>
 						<p>Le planning de Marianne, mois par mois, à jour en temps réel.</p>
 					</div>
-				</a>
-				<a class="carte app" href="perudo/">
+				</div>
+				<div class="carte app" data-projet="perudo">
 					<img src="perudo/icons/icon-192.png" alt="" />
 					<div>
-						<h2>Perudo</h2>
+						<h2><a class="lien-app" href="perudo/">Perudo</a></h2>
 						<p>Dudo, Calza ou surenchère : les probabilités à partir de tes dés.</p>
 					</div>
-				</a>
-				<a class="carte app" href="droits/" data-app="droits">
+				</div>
+				<div class="carte app" data-app="droits" data-projet="droits">
 					<img src="droits/icons/icon.svg" alt="" />
 					<div>
-						<h2>Droits</h2>
+						<h2><a class="lien-app" href="droits/">Droits</a></h2>
 						<p>Les comptes des apps et les apps ouvertes à chacun.</p>
 					</div>
-				</a>
+				</div>
 			</div>
 
 			<!-- Projets du dépôt (projets/) qui n'ont pas encore d'app : ils tournent dans leur classeur Google. -->
 			<h2 class="titre-section">À venir</h2>
 			<div class="apps">
-				<div class="carte app a-venir">
+				<div class="carte app a-venir" data-projet="budget">
 					<span class="icone"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h15a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a2 2 0 0 1 2-2h11v3M16 14h1" /></svg></span>
 					<div>
 						<h2>Budget</h2>
 						<p>Le budget du mois, envoyé en PDF.</p>
 					</div>
 				</div>
-				<div class="carte app a-venir">
+				<div class="carte app a-venir" data-projet="bulletin-salaire">
 					<span class="icone"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5" /></svg></span>
 					<div>
 						<h2>Bulletins de salaire</h2>
 						<p>Les bulletins de salaire de chacun, classés par entreprise.</p>
 					</div>
 				</div>
-				<div class="carte app a-venir">
+				<div class="carte app a-venir" data-projet="drive">
 					<span class="icone"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h6l2 2h10v11H3zM3 11h18" /></svg></span>
 					<div>
 						<h2>Drive</h2>
 						<p>Les scans déposés dans Drive, rangés et renommés tout seuls.</p>
 					</div>
 				</div>
-				<div class="carte app a-venir">
+				<div class="carte app a-venir" data-projet="location">
 					<span class="icone"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM11 12l9-9M17 6l3 3M14 9l2 2" /></svg></span>
 					<div>
 						<h2>Location</h2>
 						<p>La gestion locative : quittances, loyers reçus, révision du loyer.</p>
 					</div>
 				</div>
-				<div class="carte app a-venir">
+				<div class="carte app a-venir" data-projet="maison">
 					<span class="icone"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7M5 10v10h14V10M10 20v-6h4v6" /></svg></span>
 					<div>
 						<h2>Maison</h2>
 						<p>Les entretiens de la maison et la valeur des biens.</p>
 					</div>
 				</div>
-				<div class="carte app a-venir">
+				<div class="carte app a-venir" data-projet="travail">
 					<span class="icone"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h18v12H3zM9 8V5h6v3M3 13h18" /></svg></span>
 					<div>
 						<h2>Travail</h2>
 						<p>Les candidatures, les activités et le temps passé.</p>
 					</div>
 				</div>
-				<div class="carte app a-venir">
+				<div class="carte app a-venir" data-projet="voiture">
 					<span class="icone"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v-4l2-6h14l2 6v4zM3 13h18M7 17v2M17 17v2M7 15h1M16 15h1" /></svg></span>
 					<div>
 						<h2>Voiture</h2>
@@ -137,16 +144,29 @@
 		</main>
 		<script src="shared/config.js"></script>
 		<script type="module">
-			import { appsOuvertes, lireSession } from "./shared/connexion.js";
+			import { accesDuCompte, lireSession } from "./shared/connexion.js";
+			import { el } from "./shared/dom.js";
 			import { ouvrirSignalement } from "./shared/signalement.js";
 
-			// Compte connecté : les apps qu'il n'a pas encore (onglet Droits) sont grisées. Sans compte,
-			// ou hors ligne, rien n'est grisé : chaque app propose la connexion.
+			// Compte connecté : les apps qu'il n'a pas encore (onglet Droits) sont grisées, et s'il a le
+			// droit de les voir, chaque carte a les liens de ses classeurs. Sans compte, ou hors ligne,
+			// rien ne change : chaque app propose la connexion.
 			if (lireSession()) {
-				appsOuvertes()
-					.then((apps) => {
+				accesDuCompte()
+					.then(({ apps, tableaux }) => {
 						for (const carte of document.querySelectorAll("[data-app]")) {
 							carte.classList.toggle("sans-acces", !apps.includes(carte.dataset.app));
+						}
+						for (const carte of document.querySelectorAll("[data-projet]")) {
+							const liens = tableaux.filter((t) => t.projet === carte.dataset.projet);
+							if (!liens.length) continue;
+							carte.querySelector("div").append(
+								el(
+									"div",
+									{ class: "tableaux" },
+									liens.map(({ nom, url }) => el("a", { href: url, target: "_blank", rel: "noopener" }, nom)),
+								),
+							);
 						}
 					})
 					.catch(() => {});
