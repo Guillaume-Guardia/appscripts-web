@@ -1,0 +1,149 @@
+/* Styles propres à Calendrier ; le reste est dans ../shared/base.css. */
+
+.navigation-mois {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-bottom: 12px;
+}
+
+.navigation-mois h2 {
+	flex: 1;
+	min-width: 0;
+	font-size: 19px;
+	text-align: center;
+	white-space: nowrap;
+	margin: 0;
+}
+
+#bouton-aujourdhui {
+	min-height: 32px;
+	padding: 4px 10px;
+	font-size: 14px;
+}
+
+.calendrier {
+	padding: 8px;
+}
+
+.jours-semaine,
+.grille {
+	display: grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	gap: 4px;
+}
+
+.jours-semaine {
+	color: var(--texte-doux);
+	font-size: 13px;
+	font-weight: 600;
+	text-align: center;
+	padding-bottom: 4px;
+}
+
+.jour {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 3px;
+	min-width: 0;
+	min-height: 64px;
+	padding: 4px 2px;
+	border: 1px solid transparent;
+	border-radius: 10px;
+	background: transparent;
+}
+
+.jour.week-end {
+	background: var(--surface-2);
+}
+
+.jour .numero {
+	font-size: 14px;
+	line-height: 22px;
+	width: 24px;
+	border-radius: 999px;
+	text-align: center;
+}
+
+.jour.aujourdhui .numero {
+	background: var(--accent);
+	color: var(--sur-accent);
+	font-weight: 700;
+}
+
+.jour.ferie .numero {
+	color: var(--danger);
+	font-weight: 700;
+}
+
+.jour.aujourdhui.ferie .numero {
+	color: var(--sur-accent);
+}
+
+.jour.choisi {
+	border-color: var(--accent);
+}
+
+.pastille {
+	display: block;
+	max-width: 100%;
+	padding: 1px 5px;
+	border-radius: 6px;
+	background: var(--accent);
+	color: var(--sur-accent);
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 18px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.detail-jour {
+	margin-top: 12px;
+	padding: 14px 16px;
+}
+
+.detail-jour h3 {
+	font-size: 18px;
+	margin-bottom: 8px;
+}
+
+.detail-jour .nom-ferie {
+	color: var(--danger);
+	margin: 0 0 8px;
+}
+
+.poste {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 6px 0;
+}
+
+.poste .pastille {
+	flex-shrink: 0;
+	min-width: 40px;
+	text-align: center;
+	font-size: 14px;
+	line-height: 24px;
+}
+
+.poste p {
+	margin: 0;
+}
+
+.poste-titre {
+	font-weight: 600;
+}
+
+.poste-detail {
+	color: var(--texte-doux);
+	font-size: 14px;
+}
+
+.mise-a-jour {
+	text-align: center;
+	margin-top: 12px;
+}
