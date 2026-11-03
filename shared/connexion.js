@@ -1,21 +1,38 @@
-// Connexion aux apps : un compte par personne (projet droits), créé avec son prénom. Un autre
-// appareil se connecte au même compte avec le QR code (ou le lien) affiché par un appareil déjà
-// connecté. La clé de session est gardée par le navigateur, dans le stockage que partagent les apps
-// de l'origine (une seule connexion pour toutes, sauf les apps installées sur iPhone, qui ont
-// chacune leur stockage), et envoyée à chaque API, qui retrouve le compte dans le classeur Droits.
+// Connexion aux apps : un compte par personne (projet droits), créé avec son prénom. Un appareil se
+// connecte ensuite au même compte par la biométrie, un code ou un lien reçu par e-mail, ou le QR
+// code (ou le lien) affiché par un appareil déjà connecté, selon les modes activés par l'admin
+// (app Droits). Juste après une connexion, l'app propose d'activer la biométrie sur l'appareil.
+// La clé de session est gardée par le navigateur, dans le stockage que partagent les apps de
+// l'origine (une seule connexion pour toutes, sauf les apps installées sur iPhone, qui ont chacune
+// leur stockage), et envoyée à chaque API, qui retrouve le compte dans le classeur Droits.
 
 import { creerApi } from "./api.js";
-import { el, remplacerContenu } from "./dom.js";
+import {
+	biometrieDisponible,
+	creerCleBiometrie,
+	signerDefiBiometrie,
+} from "./biometrie.js";
+import { el, notifier, remplacerContenu } from "./dom.js";
 import { ouvrirQr } from "./qr.js";
 import { ouvrirSignalement } from "./signalement.js";
 import { ecrireStockage, lireStockage, lireStockageJson } from "./stockage.js";
 
-const CLES = { session: "appscripts.session", compte: "appscripts.compte" };
+const CLES = {
+	session: "appscripts.session",
+	compte: "appscripts.compte",
+	/** Modes de connexion activés, gardés pour afficher la connexion sans attendre l'API. */
+	modes: "appscripts.modes",
+	/** Biométrie de l'appareil : « oui » (activée), « non » (proposée et refusée). */
+	biometrie: "appscripts.biometrie",
+};
+
+/** Modes de connexion d'un compte existant, tant que l'API ne les a pas donnés : tous. */
+const MODES_PAR_DEFAUT = { code: true, lien: true, qr: true, biometrie: true };
 
 /** Clé de session de l'appareil, ou null s'il n'est pas connecté. */
 export const lireSession = () => lireStockage(CLES.session);
 
-/** Compte connecté ({ id, prenom }), tel qu'à la dernière connexion, ou null. */
+/** Compte connecté ({ id, prenom, email }), tel qu'à la dernière connexion, ou null. */
 export const compteConnecte = () => lireStockageJson(CLES.compte);
 
 function garderConnexion({ session, compte }) {
@@ -57,12 +74,13 @@ export async function deconnecter() {
 }
 
 /**
- * Ferme toutes les sessions du compte, y compris celle de l'appareil (appareil perdu). Les apps
- * les refusent au plus tard 10 minutes après.
+ * Ferme toutes les sessions du compte, y compris celle de l'appareil (appareil perdu), et
+ * désactive sa biométrie partout. Les apps refusent les sessions au plus tard 10 minutes après.
  */
 export async function deconnecterPartout() {
 	await appelerDroits("deconnecter-partout");
 	oublierConnexion();
+	ecrireStockage(CLES.biometrie, null);
 }
 
 /**
@@ -93,7 +111,7 @@ const lienInvitation = (code) =>
 /**
  * Affiche le QR code qui connecte un autre appareil au compte (valable 15 minutes, une fois).
  * @param nomApp Nom de l'app, pour le message qui accompagne le lien envoyé
- * @throws Si l'API refuse (hors ligne, session fermée)
+ * @throws Si l'API refuse (hors ligne, session fermée, QR code désactivé)
  */
 export async function connecterUnAutreAppareil(nomApp) {
 	const code = await appelerDroits("inviter-appareil");
@@ -105,7 +123,7 @@ export async function connecterUnAutreAppareil(nomApp) {
 	});
 }
 
-/** Description de l'appareil, pour s'y retrouver dans l'onglet Sessions. */
+/** Description de l'appareil, pour s'y retrouver dans les onglets Sessions et Biométrie. */
 function appareil(nomApp) {
 	const plateforme =
 		navigator.userAgentData?.platform || navigator.platform || "appareil";
@@ -113,8 +131,223 @@ function appareil(nomApp) {
 }
 
 /**
- * Affiche la connexion dans `conteneur` : nouveau compte (prénom), ou appareil à connecter à un
- * compte existant (lien d'un QR code collé).
+ * Modes de connexion activés ({ code, lien, qr, biometrie }) : ceux gardés de la dernière réponse
+ * de l'API (ou tous), et une promesse de ceux de l'API.
+ */
+function modesConnexion() {
+	const garde = lireStockageJson(CLES.modes) ?? MODES_PAR_DEFAUT;
+	const frais = appelerDroits("modes-connexion")
+		.then((modes) => {
+			ecrireStockage(CLES.modes, JSON.stringify(modes));
+			return modes;
+		})
+		.catch(() => garde);
+	return { garde, frais };
+}
+
+/**
+ * Active la biométrie sur l'appareil connecté : à appeler au toucher d'un bouton (le navigateur
+ * l'exige), avec la réponse de preparer-biometrie demandée avant.
+ * @throws Si l'appareil ou l'API refuse
+ */
+async function activerBiometrie(preparation, nomApp) {
+	const cle = await creerCleBiometrie(preparation);
+	await appelerDroits("activer-biometrie", {
+		...cle,
+		appareil: appareil(nomApp),
+	});
+	ecrireStockage(CLES.biometrie, "oui");
+}
+
+/**
+ * Juste après une connexion : propose d'activer la biométrie sur l'appareil (un geste), si elle
+ * est activée par l'admin, possible sur l'appareil, et ni activée ni refusée ici.
+ */
+async function proposerBiometrie(nomApp, modes) {
+	if (!modes.biometrie || lireStockage(CLES.biometrie)) return;
+	if (!(await biometrieDisponible())) return;
+	let preparation;
+	try {
+		// Demandé avant le toucher : le navigateur veut la biométrie aussitôt après le geste.
+		preparation = await appelerDroits("preparer-biometrie");
+	} catch {
+		return;
+	}
+	const dialogue = el(
+		"dialog",
+		{ class: "dialogue", onclose: () => dialogue.remove() },
+		el("h2", {}, "Activer la biométrie ?"),
+		el(
+			"p",
+			{ class: "aide" },
+			"La prochaine fois, connecte-toi d'un geste : empreinte, visage ou code de cet appareil. Ils ne quittent pas l'appareil.",
+		),
+		el(
+			"div",
+			{ class: "boutons" },
+			el(
+				"button",
+				{
+					type: "button",
+					onclick: () => {
+						ecrireStockage(CLES.biometrie, "non");
+						dialogue.close();
+					},
+				},
+				"Plus tard",
+			),
+			el(
+				"button",
+				{
+					type: "button",
+					class: "bouton-principal",
+					onclick: async (e) => {
+						const bouton = e.currentTarget;
+						bouton.disabled = true;
+						try {
+							await activerBiometrie(preparation, nomApp);
+							notifier("Biométrie activée.");
+							dialogue.close();
+						} catch (erreur) {
+							notifier(erreur.message, true);
+							bouton.disabled = false;
+						}
+					},
+				},
+				"Activer",
+			),
+		),
+	);
+	document.body.append(dialogue);
+	dialogue.showModal();
+}
+
+/**
+ * Fenêtre « Mes connexions » : adresse e-mail du compte (pour se connecter par un code ou un lien)
+ * et biométrie de cet appareil.
+ * @param nomApp Nom de l'app, pour décrire l'appareil
+ * @throws Si l'API refuse (hors ligne, session fermée)
+ */
+export async function ouvrirMesConnexions(nomApp) {
+	const [moi, modes] = await Promise.all([
+		appelerDroits("moi"),
+		modesConnexion().frais,
+	]);
+	const disponible = modes.biometrie && (await biometrieDisponible());
+	let preparation = null;
+	const demanderPreparation = () =>
+		appelerDroits("preparer-biometrie")
+			.then((p) => {
+				preparation = p;
+			})
+			.catch(() => {});
+	if (disponible) demanderPreparation();
+
+	const email = el("input", {
+		id: "mes-connexions-email",
+		type: "email",
+		inputmode: "email",
+		autocomplete: "email",
+		maxlength: "120",
+		value: moi.email ?? "",
+	});
+	const etatBiometrie = el("p", { class: "aide" });
+	const boutonBiometrie = el(
+		"button",
+		{ type: "button" },
+		"Activer sur cet appareil",
+	);
+	function afficherBiometrie() {
+		const activee = lireStockage(CLES.biometrie) === "oui";
+		etatBiometrie.textContent = !modes.biometrie
+			? "Désactivée pour toutes les apps."
+			: !disponible
+				? "Pas disponible sur cet appareil."
+				: activee
+					? "Activée sur cet appareil."
+					: "Pas encore activée sur cet appareil.";
+		boutonBiometrie.hidden = !disponible || activee;
+	}
+	afficherBiometrie();
+	boutonBiometrie.addEventListener("click", async () => {
+		boutonBiometrie.disabled = true;
+		try {
+			await activerBiometrie(
+				preparation ?? (await appelerDroits("preparer-biometrie")),
+				nomApp,
+			);
+			notifier("Biométrie activée.");
+		} catch (erreur) {
+			notifier(erreur.message, true);
+			// Le défi a pu servir : un neuf pour le prochain essai.
+			preparation = null;
+			demanderPreparation();
+		} finally {
+			boutonBiometrie.disabled = false;
+			afficherBiometrie();
+		}
+	});
+
+	const dialogue = el(
+		"dialog",
+		{ class: "dialogue", onclose: () => dialogue.remove() },
+		el("h2", {}, "Mes connexions"),
+		el(
+			"form",
+			{
+				class: "formulaire",
+				onsubmit: async (e) => {
+					e.preventDefault();
+					const bouton = e.submitter ?? e.target.querySelector("[type=submit]");
+					bouton.disabled = true;
+					try {
+						const compte = await appelerDroits("modifier-profil", {
+							email: email.value,
+						});
+						ecrireStockage(CLES.compte, JSON.stringify(compte));
+						notifier(
+							compte.email ? "Adresse enregistrée." : "Adresse retirée.",
+						);
+					} catch (erreur) {
+						notifier(erreur.message, true);
+					} finally {
+						bouton.disabled = false;
+					}
+				},
+			},
+			el("label", { for: "mes-connexions-email" }, "Mon adresse e-mail"),
+			el(
+				"p",
+				{ class: "aide" },
+				"Pour recevoir un code ou un lien de connexion (nouvel appareil, appareil perdu).",
+			),
+			email,
+			el("button", { type: "submit" }, "Enregistrer"),
+		),
+		el("h3", { class: "titre-section" }, "Biométrie"),
+		etatBiometrie,
+		el(
+			"div",
+			{ class: "boutons" },
+			boutonBiometrie,
+			el(
+				"button",
+				{
+					type: "button",
+					class: "bouton-principal",
+					onclick: () => dialogue.close(),
+				},
+				"Fermer",
+			),
+		),
+	);
+	document.body.append(dialogue);
+	dialogue.showModal();
+}
+
+/**
+ * Affiche la connexion dans `conteneur` : compte existant (biométrie, code ou lien par e-mail,
+ * lien d'un QR code collé, selon les modes activés), ou nouveau compte (prénom).
  * @param nomApp Nom de l'app, pour décrire l'appareil
  * @param surConnecte Appelée avec le compte, une fois connecté
  * @param message Message à afficher (ex : session expirée)
@@ -126,20 +359,33 @@ export function afficherConnexion(
 	{ nomApp, surConnecte, message = "", invitation = null },
 ) {
 	const erreur = el("p", { class: "erreur", role: "alert" }, message);
+	const { garde, frais } = modesConnexion();
+	let modes = garde;
+	/** Défi de connexion par la biométrie, demandé d'avance (le navigateur veut le geste aussitôt). */
+	let defi = null;
+	const demanderDefi = () => {
+		defi = appelerDroits("defi-biometrie").catch(() => null);
+	};
+
+	/** Garde la connexion, la signale à l'app, puis propose la biométrie. */
+	function terminer(connexion, parBiometrie = false) {
+		garderConnexion(connexion);
+		if (parBiometrie) ecrireStockage(CLES.biometrie, "oui");
+		surConnecte(connexion.compte);
+		if (!parBiometrie) proposerBiometrie(nomApp, modes);
+	}
 
 	/** Lance une connexion : bouton désactivé et erreur effacée pendant l'appel. */
-	async function connecter(evenement, action, parametres) {
-		evenement?.preventDefault();
-		const bouton = evenement?.submitter;
+	async function connecter(bouton, action, parametres) {
 		if (bouton) bouton.disabled = true;
 		erreur.textContent = "";
 		try {
-			const connexion = await appelerDroits(action, {
-				...parametres,
-				appareil: appareil(nomApp),
-			});
-			garderConnexion(connexion);
-			surConnecte(connexion.compte);
+			terminer(
+				await appelerDroits(action, {
+					...parametres,
+					appareil: appareil(nomApp),
+				}),
+			);
 		} catch (e) {
 			erreur.textContent = e.message;
 		} finally {
@@ -147,76 +393,260 @@ export function afficherConnexion(
 		}
 	}
 
-	const prenom = el("input", {
-		id: "connexion-prenom",
-		required: true,
-		autocomplete: "given-name",
-		maxlength: "40",
-	});
-	const lien = el("input", {
-		id: "connexion-lien",
-		type: "url",
-		inputmode: "url",
-		required: true,
-		autocomplete: "off",
-		placeholder: "https://…#invitation=…",
-	});
-	remplacerContenu(
-		conteneur,
-		el(
+	async function connecterParBiometrie(e) {
+		const bouton = e.currentTarget;
+		bouton.disabled = true;
+		erreur.textContent = "";
+		try {
+			const valeur = (await defi) ?? (await appelerDroits("defi-biometrie"));
+			const signature = await signerDefiBiometrie(valeur);
+			terminer(
+				await appelerDroits("connecter-biometrie", {
+					...signature,
+					appareil: appareil(nomApp),
+				}),
+				true,
+			);
+		} catch (erreurBiometrie) {
+			erreur.textContent = erreurBiometrie.message;
+			// Clé supprimée côté serveur : l'activation sera reproposée.
+			if (/Biométrie inconnue/.test(erreurBiometrie.message)) {
+				ecrireStockage(CLES.biometrie, null);
+			}
+			// Le défi a pu servir : un neuf pour le prochain essai.
+			demanderDefi();
+		} finally {
+			bouton.disabled = false;
+		}
+	}
+
+	function carteBiometrie() {
+		return el(
+			"div",
+			{ class: "carte formulaire" },
+			el(
+				"button",
+				{
+					type: "button",
+					class: "bouton-principal",
+					onclick: connecterParBiometrie,
+				},
+				"Me connecter avec la biométrie",
+			),
+			el(
+				"p",
+				{ class: "aide" },
+				"Empreinte, visage ou code de l'appareil, si tu l'as activée.",
+			),
+		);
+	}
+
+	/** Message une fois l'e-mail envoyé, selon ce qu'il contient. */
+	function messageEnvoi({ code, lien }) {
+		const suite =
+			code && lien
+				? "Touche son lien sur cet appareil, ou saisis son code :"
+				: code
+					? "Saisis son code :"
+					: "Touche son lien sur cet appareil.";
+		return `Si c'est l'adresse d'un compte, un e-mail vient de partir (regarde aussi dans les spams). ${suite}`;
+	}
+
+	function carteEmail() {
+		const envoi =
+			modes.code && modes.lien
+				? "un code ou un lien"
+				: modes.code
+					? "un code"
+					: "un lien";
+		const email = el("input", {
+			id: "connexion-email",
+			type: "email",
+			inputmode: "email",
+			required: true,
+			autocomplete: "email",
+			maxlength: "120",
+		});
+		const code = el("input", {
+			id: "connexion-code",
+			inputmode: "numeric",
+			autocomplete: "one-time-code",
+			pattern: "[0-9 ]{6,7}",
+			maxlength: "7",
+			required: true,
+		});
+		const formulaireCode = el(
 			"form",
 			{
-				class: "carte formulaire",
-				onsubmit: (e) => connecter(e, "creer-compte", { prenom: prenom.value }),
+				class: "formulaire",
+				hidden: true,
+				onsubmit: (e) => {
+					e.preventDefault();
+					connecter(
+						e.submitter ?? e.target.querySelector("[type=submit]"),
+						"utiliser-code",
+						{
+							email: email.value,
+							code: code.value,
+						},
+					);
+				},
 			},
-			el("label", { for: "connexion-prenom" }, "Ton prénom"),
-			prenom,
+			el("label", { for: "connexion-code" }, "Code reçu (6 chiffres)"),
+			code,
 			el(
 				"button",
 				{ type: "submit", class: "bouton-principal" },
-				"Créer mon compte",
+				"Me connecter",
 			),
-		),
-		el(
+		);
+		const aide = el("p", { class: "aide", hidden: true });
+		return el(
+			"div",
+			{ class: "carte formulaire" },
+			el(
+				"form",
+				{
+					class: "formulaire",
+					onsubmit: async (e) => {
+						e.preventDefault();
+						const bouton =
+							e.submitter ?? e.target.querySelector("[type=submit]");
+						bouton.disabled = true;
+						erreur.textContent = "";
+						try {
+							const envoye = await appelerDroits("envoyer-email", {
+								email: email.value,
+								retour: `${location.origin}${location.pathname}`,
+							});
+							aide.textContent = messageEnvoi(envoye);
+							aide.hidden = false;
+							formulaireCode.hidden = !envoye.code;
+							bouton.textContent = "Renvoyer";
+							if (envoye.code) code.focus();
+						} catch (erreurEnvoi) {
+							erreur.textContent = erreurEnvoi.message;
+						} finally {
+							bouton.disabled = false;
+						}
+					},
+				},
+				el("label", { for: "connexion-email" }, "Ton adresse e-mail"),
+				email,
+				el("button", { type: "submit" }, `Recevoir ${envoi}`),
+			),
+			aide,
+			formulaireCode,
+		);
+	}
+
+	function carteLien() {
+		const lien = el("input", {
+			id: "connexion-lien",
+			type: "url",
+			inputmode: "url",
+			required: true,
+			autocomplete: "off",
+			placeholder: "https://…#invitation=…",
+		});
+		return el(
 			"form",
 			{
 				class: "carte formulaire",
 				onsubmit: (e) => {
+					e.preventDefault();
 					const code = invitationDuLien(lien.value);
 					if (!code) {
-						e.preventDefault();
 						erreur.textContent =
 							"Ce n'est pas un lien de connexion : il contient « #invitation= ».";
 						return;
 					}
-					connecter(e, "utiliser-invitation", { invitation: code });
+					connecter(
+						e.submitter ?? e.target.querySelector("[type=submit]"),
+						"utiliser-invitation",
+						{ invitation: code },
+					);
 				},
 			},
 			el(
 				"p",
 				{ class: "aide" },
-				"Déjà un compte sur un autre appareil ? Sur cet appareil-là : menu → « Connecter un autre appareil », puis scanne le QR code avec l'appareil photo. Ou colle ici le lien reçu :",
+				modes.qr
+					? "Connecté sur un autre appareil ? Sur celui-là : menu → « Connecter un autre appareil », puis scanne le QR code avec l'appareil photo. Ou colle ici le lien reçu :"
+					: "Tu as reçu un lien de connexion ? Touche-le, ou colle-le ici :",
 			),
 			el("label", { for: "connexion-lien" }, "Lien de connexion"),
 			lien,
 			el("button", { type: "submit" }, "Connecter cet appareil"),
-		),
-		erreur,
-		// Pas encore de compte, ou la connexion ne marche pas : le dire quand même.
-		el(
-			"button",
+		);
+	}
+
+	function carteNouveauCompte() {
+		const prenom = el("input", {
+			id: "connexion-prenom",
+			required: true,
+			autocomplete: "given-name",
+			maxlength: "40",
+		});
+		return el(
+			"form",
 			{
-				type: "button",
-				class: "lien-signalement",
-				onclick: () => ouvrirSignalement({ app: nomApp }),
+				class: "carte formulaire",
+				onsubmit: (e) => {
+					e.preventDefault();
+					connecter(
+						e.submitter ?? e.target.querySelector("[type=submit]"),
+						"creer-compte",
+						{ prenom: prenom.value },
+					);
+				},
 			},
-			"Une suggestion ou un bug ?",
-		),
-	);
+			el("p", { class: "aide" }, "Pas encore de compte ?"),
+			el("label", { for: "connexion-prenom" }, "Ton prénom"),
+			prenom,
+			el("button", { type: "submit" }, "Créer mon compte"),
+		);
+	}
+
+	async function afficher() {
+		const biometrie = modes.biometrie && (await biometrieDisponible());
+		if (biometrie && !defi) demanderDefi();
+		remplacerContenu(
+			conteneur,
+			biometrie && carteBiometrie(),
+			(modes.code || modes.lien) && carteEmail(),
+			carteLien(),
+			carteNouveauCompte(),
+			erreur,
+			// Pas encore de compte, ou la connexion ne marche pas : le dire quand même.
+			el(
+				"button",
+				{
+					type: "button",
+					class: "lien-signalement",
+					onclick: () => ouvrirSignalement({ app: nomApp }),
+				},
+				"Une suggestion ou un bug ?",
+			),
+		);
+	}
+
+	afficher();
 	if (!window.API_DROITS) {
 		erreur.textContent =
 			"L'adresse de l'API de connexion n'est pas configurée (shared/config.js).";
-	} else if (invitation) {
+		return;
+	}
+	// Modes changés par l'admin depuis la dernière fois : l'écran est refait, sauf pendant une
+	// saisie (rare).
+	frais.then((recus) => {
+		if (JSON.stringify(recus) === JSON.stringify(modes)) return;
+		modes = recus;
+		if (conteneur.isConnected && !conteneur.contains(document.activeElement)) {
+			afficher();
+		}
+	});
+	if (invitation) {
 		erreur.textContent = "Connexion…";
 		connecter(null, "utiliser-invitation", { invitation });
 	}

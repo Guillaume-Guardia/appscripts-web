@@ -7,6 +7,7 @@ import {
 	estSessionRefusee,
 	invitationDuLien,
 	lireSession,
+	ouvrirMesConnexions,
 } from "../shared/connexion.js";
 import { $, el, notifier, remplacerContenu } from "../shared/dom.js";
 import { chercherMiseAJour, enregistrerServiceWorker } from "../shared/pwa.js";
@@ -105,7 +106,13 @@ function casesDesApps(compte, apps, moi) {
 }
 
 function deconnecterSesAppareils(compte) {
-	if (!confirm(`Déconnecter tous les appareils de ${compte.prenom} ?`)) return;
+	if (
+		!confirm(
+			`Déconnecter tous les appareils de ${compte.prenom} ? Sa biométrie est aussi désactivée.`,
+		)
+	) {
+		return;
+	}
 	modifier(
 		"deconnecter-compte",
 		{ compteId: compte.id },
@@ -130,7 +137,7 @@ function basculerBlocage(compte) {
 function supprimerCompte(compte) {
 	if (
 		!confirm(
-			`Supprimer le compte de ${compte.prenom} ? Ses appareils sont déconnectés et ses droits retirés. Ce que les apps ont gardé de lui (ex : sa liste dans Cadeaux) reste.`,
+			`Supprimer le compte de ${compte.prenom} ? Ses appareils sont déconnectés (biométrie comprise) et ses droits retirés. Ce que les apps ont gardé de lui (ex : sa liste dans Cadeaux) reste.`,
 		)
 	) {
 		return;
@@ -142,10 +149,80 @@ function supprimerCompte(compte) {
 	);
 }
 
+function changerEmail(compte) {
+	const email = prompt(
+		`Adresse e-mail de ${compte.prenom} (vide : aucune), pour se connecter par un code ou un lien :`,
+		compte.email,
+	);
+	if (email === null) return;
+	modifier(
+		"changer-email",
+		{ compteId: compte.id, email },
+		`Adresse de ${compte.prenom} ${email.trim() ? "enregistrée" : "retirée"}.`,
+	);
+}
+
+function envoyerLien(compte) {
+	if (
+		!confirm(
+			`Envoyer à ${compte.email} un lien qui connecte un appareil au compte de ${compte.prenom} (10 minutes, une fois) ?`,
+		)
+	) {
+		return;
+	}
+	modifier(
+		"envoyer-lien",
+		// Le site vu d'ici (front de review compris) : le lien ouvre une app du même site.
+		{ compteId: compte.id, site: new URL("../", location.href).href },
+		`Lien envoyé à ${compte.prenom}.`,
+	);
+}
+
+/** Modes de connexion d'un compte existant, activés ou non pour tous. */
+function rendreModes() {
+	const { modes } = app.administration;
+	remplacerContenu(
+		$("#modes-connexion"),
+		el("h2", { class: "titre-section" }, "Modes de connexion"),
+		el(
+			"div",
+			{ class: "carte carte-modes" },
+			modes.map(({ cle, nom, actif }) =>
+				el(
+					"label",
+					{ class: "case" },
+					el("input", {
+						type: "checkbox",
+						checked: actif,
+						onchange: (e) =>
+							modifier(
+								"changer-mode",
+								{ mode: cle, actif: e.target.checked },
+								`${nom} ${e.target.checked ? "activé" : "désactivé"}.`,
+							),
+					}),
+					nom,
+				),
+			),
+			el(
+				"p",
+				{ class: "aide" },
+				"Pour tous les comptes, aussitôt. Un appareil déjà connecté le reste ; créer un compte (prénom) et le QR code du classeur restent possibles.",
+			),
+		),
+		el("h2", { class: "titre-section" }, "Comptes"),
+	);
+}
+
 function carteCompte(compte, apps) {
 	const moi = compte.id === compteConnecte()?.id;
+	const lienActif = app.administration.modes.some(
+		(mode) => mode.cle === "lien" && mode.actif,
+	);
 	const detail = [
 		`Appareils connectés : ${compte.appareils}`,
+		compte.biometrie ? `biométrie : ${compte.biometrie}` : "",
+		compte.email || "sans e-mail",
 		compte.bloque ? "bloqué" : "",
 		compte.toutes ? "toutes les apps (onglet Droits)" : "",
 		moi ? "toi" : "",
@@ -158,6 +235,24 @@ function carteCompte(compte, apps) {
 		el("h3", {}, compte.prenom || "Sans prénom"),
 		el("p", { class: "detail" }, detail),
 		casesDesApps(compte, apps, moi),
+		el(
+			"div",
+			{ class: "boutons" },
+			el(
+				"button",
+				{ type: "button", onclick: () => changerEmail(compte) },
+				compte.email ? "Changer l'e-mail" : "Ajouter un e-mail",
+			),
+			!moi &&
+				compte.email &&
+				lienActif &&
+				!compte.bloque &&
+				el(
+					"button",
+					{ type: "button", onclick: () => envoyerLien(compte) },
+					"Envoyer un lien de connexion",
+				),
+		),
 		!moi &&
 			el(
 				"div",
@@ -195,6 +290,7 @@ function carteCompte(compte, apps) {
 
 function rendreComptes() {
 	const { apps, comptes } = app.administration;
+	rendreModes();
 	remplacerContenu(
 		$("#liste-comptes"),
 		comptes.length
@@ -290,6 +386,14 @@ function brancherEvenements() {
 		fermerMenu();
 		try {
 			await connecterUnAutreAppareil("Droits");
+		} catch (erreur) {
+			notifier(erreur.message, true);
+		}
+	});
+	$("#menu-connexions").addEventListener("click", async () => {
+		fermerMenu();
+		try {
+			await ouvrirMesConnexions("Droits");
 		} catch (erreur) {
 			notifier(erreur.message, true);
 		}

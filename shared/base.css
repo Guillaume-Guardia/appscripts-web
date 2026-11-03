@@ -342,6 +342,12 @@ main {
 	margin-top: 16px;
 }
 
+/* Formulaire dans une carte de connexion (e-mail, puis code reçu). */
+.ecran-connexion .formulaire .formulaire {
+	padding: 0;
+	margin-top: 0;
+}
+
 /* Formulaires */
 
 .formulaire {

@@ -9,6 +9,7 @@ import {
 	invitationDuLien,
 	lireSession,
 	oublierConnexion,
+	ouvrirMesConnexions,
 } from "../shared/connexion.js";
 import { aujourdhui, versChampDate, versDate } from "../shared/dates.js";
 import {
@@ -424,6 +425,14 @@ function brancherEvenements() {
 		fermerMenu();
 		try {
 			await connecterUnAutreAppareil("Calendrier");
+		} catch (erreur) {
+			notifier(erreur.message, true);
+		}
+	});
+	$("#menu-connexions").addEventListener("click", async () => {
+		fermerMenu();
+		try {
+			await ouvrirMesConnexions("Calendrier");
 		} catch (erreur) {
 			notifier(erreur.message, true);
 		}

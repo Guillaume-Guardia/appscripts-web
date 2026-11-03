@@ -10,6 +10,7 @@ import {
 	lireSession,
 	modifierPrenom,
 	oublierConnexion,
+	ouvrirMesConnexions,
 } from "../shared/connexion.js";
 import { aujourdhui, joursEntre, pluriel, versDate } from "../shared/dates.js";
 import {
@@ -1189,6 +1190,14 @@ function brancherEvenements() {
 		fermerMenu();
 		try {
 			await connecterUnAutreAppareil("Voyage");
+		} catch (erreur) {
+			notifier(erreur.message, true);
+		}
+	});
+	$("#menu-connexions").addEventListener("click", async () => {
+		fermerMenu();
+		try {
+			await ouvrirMesConnexions("Voyage");
 		} catch (erreur) {
 			notifier(erreur.message, true);
 		}
