@@ -245,7 +245,9 @@ button:focus-visible {
 	min-height: 100dvh;
 	display: grid;
 	place-items: center;
-	padding: 24px 16px;
+	/* App installée sur iPhone : la page passe sous la barre d'état (black-translucent). */
+	padding: calc(24px + env(safe-area-inset-top)) 16px
+		calc(24px + env(safe-area-inset-bottom));
 }
 .connexion-carte {
 	width: 100%;

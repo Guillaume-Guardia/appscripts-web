@@ -6,6 +6,7 @@ import {
 	deconnecter as deconnecterAppareil,
 	estSessionRefusee,
 	invitationDuLien,
+	inviterPersonne,
 	lireSession,
 	ouvrirMesConnexions,
 } from "../shared/connexion.js";
@@ -214,7 +215,69 @@ function rendreModes() {
 				"Pour tous les comptes, aussitôt. Un appareil déjà connecté le reste ; créer un compte (prénom) et le QR code du classeur restent possibles.",
 			),
 		),
+		el("h2", { class: "titre-section" }, "Inviter une personne"),
+		formulaireInvitation(),
 		el("h2", { class: "titre-section" }, "Comptes"),
+	);
+}
+
+/**
+ * Invitation d'une nouvelle personne : prénom et apps, puis QR code (ou lien) qui crée son compte
+ * en s'ouvrant (shared/connexion.js), sur la page de la première app cochée.
+ */
+function formulaireInvitation() {
+	const { apps } = app.administration;
+	const prenom = el("input", {
+		id: "invitation-prenom",
+		required: true,
+		autocomplete: "off",
+		maxlength: "40",
+	});
+	const cases = apps.map(({ cle, nom }) => ({
+		cle,
+		element: el("input", { type: "checkbox", value: cle }),
+		nom,
+	}));
+	return el(
+		"form",
+		{
+			class: "carte formulaire carte-modes",
+			onsubmit: async (e) => {
+				e.preventDefault();
+				const choisies = cases.filter((c) => c.element.checked);
+				if (!choisies.length) {
+					notifier("Choisis au moins une app.", true);
+					return;
+				}
+				const bouton = e.submitter ?? e.target.querySelector("[type=submit]");
+				bouton.disabled = true;
+				try {
+					await inviterPersonne({
+						prenom: prenom.value,
+						apps: choisies.map((c) => c.cle),
+						// Le site vu d'ici (front de review compris).
+						page: new URL(`../${choisies[0].cle}/`, location.href).href,
+						nomApp: choisies[0].nom,
+					});
+					e.target.reset();
+				} catch (erreur) {
+					traiterErreur(erreur);
+				} finally {
+					bouton.disabled = false;
+				}
+			},
+		},
+		el("label", { for: "invitation-prenom" }, "Son prénom"),
+		prenom,
+		cases.map(({ element, nom }) =>
+			el("label", { class: "case" }, element, nom),
+		),
+		el(
+			"p",
+			{ class: "aide" },
+			"Son lien (QR code, ou à envoyer) lui crée un compte avec ces apps et le connecte. Valable 7 jours, une fois.",
+		),
+		el("button", { type: "submit" }, "Créer l'invitation"),
 	);
 }
 

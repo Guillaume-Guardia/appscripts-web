@@ -9,6 +9,7 @@ import {
 	invitationDuLien,
 	lireSession,
 	oublierConnexion,
+	ouvrirInvitation,
 	ouvrirMesConnexions,
 } from "../shared/connexion.js";
 import {
@@ -1748,6 +1749,10 @@ function brancherEvenements() {
 	});
 	document.addEventListener("keydown", (e) => {
 		if (e.key === "Escape") fermerMenu();
+	});
+	$("#menu-inviter").addEventListener("click", () => {
+		fermerMenu();
+		ouvrirInvitation("Cuisine");
 	});
 	$("#menu-autre-appareil").addEventListener("click", async () => {
 		fermerMenu();

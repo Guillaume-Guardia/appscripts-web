@@ -9,6 +9,7 @@ import {
 	invitationDuLien,
 	lireSession,
 	oublierConnexion,
+	ouvrirInvitation,
 	ouvrirMesConnexions,
 } from "../shared/connexion.js";
 import { aujourdhui, versChampDate, versDate } from "../shared/dates.js";
@@ -424,6 +425,10 @@ function brancherEvenements() {
 	});
 	document.addEventListener("keydown", (e) => {
 		if (e.key === "Escape") fermerMenu();
+	});
+	$("#menu-inviter").addEventListener("click", () => {
+		fermerMenu();
+		ouvrirInvitation("Calendrier");
 	});
 	$("#menu-autre-appareil").addEventListener("click", async () => {
 		fermerMenu();

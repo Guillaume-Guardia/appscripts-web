@@ -3,6 +3,7 @@ import {
 	afficherConnexion as afficherFormulaireConnexion,
 	compteConnecte,
 	connecterUnAutreAppareil,
+	creerCompteInvite,
 	deconnecter as deconnecterAppareil,
 	deconnecterPartout,
 	estAccesRefuse,
@@ -25,6 +26,7 @@ import {
 	brancherInstallation,
 	chercherMiseAJour,
 	enregistrerServiceWorker,
+	proposerInstallation,
 } from "../shared/pwa.js";
 import { ouvrirSignalement } from "../shared/signalement.js";
 import {
@@ -2183,15 +2185,27 @@ async function chargerApresConnexion() {
 
 /**
  * Lien d'invitation (QR code d'un proche, ou du classeur) : la clé est gardée, puis envoyée
- * dès que l'appareil est connecté à un compte.
+ * dès que l'appareil est connecté à un compte. Sans compte sur l'appareil, il est créé avec le
+ * prénom de la personne invitée (shared/connexion.js propose ensuite la biométrie et
+ * l'installation) ; si ce prénom est déjà pris, la personne se connecte au sien.
  */
-function accepterInvitation(cle) {
+async function accepterInvitation(cle) {
 	garderCle(cle);
-	if (estConnecte()) chargerApresConnexion();
-	else
-		afficherConnexionCompte(
-			"Pour accepter l'invitation, crée ton compte (ou connecte cet appareil au tien).",
-		);
+	if (estConnecte()) {
+		chargerApresConnexion();
+		proposerInstallation({ connexion: true });
+		return;
+	}
+	afficherAccueil("Création de ton compte…");
+	try {
+		const { prenom } = await appelerApi("invitation");
+		await creerCompteInvite(prenom, "Cadeaux");
+	} catch (erreur) {
+		if (estInvitationRefusee(erreur)) garderCle(null);
+		afficherConnexionCompte(erreur.message);
+		return;
+	}
+	chargerApresConnexion();
 }
 
 /** Lien reçu à distance, collé à la connexion (ex : app installée sur iPhone, hors de Safari). */

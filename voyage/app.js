@@ -10,6 +10,7 @@ import {
 	lireSession,
 	modifierPrenom,
 	oublierConnexion,
+	ouvrirInvitation,
 	ouvrirMesConnexions,
 } from "../shared/connexion.js";
 import { aujourdhui, joursEntre, pluriel, versDate } from "../shared/dates.js";
@@ -1186,6 +1187,10 @@ function brancherEvenements() {
 		if (e.key === "Escape") fermerMenu();
 	});
 	$("#menu-prenom").addEventListener("click", changerPrenom);
+	$("#menu-inviter").addEventListener("click", () => {
+		fermerMenu();
+		ouvrirInvitation("Voyage");
+	});
 	$("#menu-autre-appareil").addEventListener("click", async () => {
 		fermerMenu();
 		try {

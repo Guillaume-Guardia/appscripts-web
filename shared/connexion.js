@@ -2,9 +2,12 @@
 // connecte ensuite au même compte par la biométrie, un code ou un lien reçu par e-mail, ou le QR
 // code (ou le lien) affiché par un appareil déjà connecté, selon les modes activés par l'admin
 // (app Droits). Juste après une connexion, l'app propose d'activer la biométrie sur l'appareil.
+// Un lien d'invitation (QR code) ouvert sur l'appareil le connecte aussitôt, en créant le compte
+// d'une nouvelle personne invitée, puis l'app propose la biométrie et l'installation.
 // La clé de session est gardée par le navigateur, dans le stockage que partagent les apps de
 // l'origine (une seule connexion pour toutes, sauf les apps installées sur iPhone, qui ont chacune
-// leur stockage), et envoyée à chaque API, qui retrouve le compte dans le classeur Droits.
+// leur stockage : un lien de connexion est copié avant l'installation, à coller dans l'app
+// installée), et envoyée à chaque API, qui retrouve le compte dans le classeur Droits.
 
 import { creerApi } from "./api.js";
 import {
@@ -13,6 +16,12 @@ import {
 	signerDefiBiometrie,
 } from "./biometrie.js";
 import { el, notifier, remplacerContenu } from "./dom.js";
+import {
+	boutonInstallation,
+	definirLienConnexion,
+	estInstallee,
+	proposerInstallation,
+} from "./pwa.js";
 import { ouvrirQr } from "./qr.js";
 import { ouvrirSignalement } from "./signalement.js";
 import { ecrireStockage, lireStockage, lireStockageJson } from "./stockage.js";
@@ -105,8 +114,110 @@ export function invitationDuLien(texte) {
 }
 
 /** Lien de connexion de l'app pour une invitation (le code après « # » n'est pas envoyé au site). */
-const lienInvitation = (code) =>
-	`${location.origin}${location.pathname}#invitation=${code}`;
+const lienInvitation = (
+	code,
+	page = `${location.origin}${location.pathname}`,
+) => `${page}#invitation=${code}`;
+
+// Avant d'installer l'app sur iPhone : lien de connexion pour l'app installée (shared/pwa.js).
+definirLienConnexion(async () =>
+	lireSession()
+		? lienInvitation(await appelerDroits("lien-installation"))
+		: null,
+);
+
+/** Clé de l'app ouverte (dossier de sa page, ex : « voyage »), comme dans l'onglet Droits. */
+const cleApp = () =>
+	location.pathname
+		.replace(/\/[^/]*\.html$/, "")
+		.split("/")
+		.filter(Boolean)
+		.at(-1);
+
+/**
+ * Invite une nouvelle personne : QR code (ou lien à envoyer) qui crée son compte avec ce prénom,
+ * lui ouvre les apps et connecte son appareil. Valable 7 jours, une fois.
+ * @param prenom Prénom de la personne invitée
+ * @param apps Clés des apps à lui ouvrir (le compte connecté doit les avoir, sauf l'admin)
+ * @param page Page où mène le lien (par défaut, celle de l'app ouverte)
+ * @param nomApp Nom de l'app, pour le message qui accompagne le lien envoyé
+ * @throws Si l'API refuse (prénom déjà pris, app qui ne peut pas être ouverte, hors ligne)
+ */
+export async function inviterPersonne({ prenom, apps, page, nomApp }) {
+	const code = await appelerDroits("inviter-personne", { prenom, apps });
+	const nom = prenom.trim();
+	ouvrirQr({
+		titre: `Inviter ${nom}`,
+		aide: `Fais scanner ce QR code à ${nom}, ou envoie-lui le lien : l'app s'ouvre sur son téléphone, son compte est créé et connecté. Valable 7 jours, une seule fois ; envoie-le à ${nom} seulement.`,
+		lien: lienInvitation(code, page),
+		texteEnvoi: `${nom}, voici ton invitation à l'app ${nomApp} : ouvre ce lien sur ton téléphone (il est personnel, ne le transfère pas).`,
+	});
+}
+
+/**
+ * Menu « Inviter quelqu'un » : prénom de la personne, puis QR code qui lui crée un compte avec
+ * accès à l'app ouverte (inviterPersonne).
+ * @param nomApp Nom de l'app
+ */
+export function ouvrirInvitation(nomApp) {
+	const prenom = el("input", {
+		id: "invitation-prenom",
+		required: true,
+		autocomplete: "off",
+		maxlength: "40",
+	});
+	const dialogue = el(
+		"dialog",
+		{ class: "dialogue", onclose: () => dialogue.remove() },
+		el("h2", {}, "Inviter quelqu'un"),
+		el(
+			"form",
+			{
+				class: "formulaire",
+				onsubmit: async (e) => {
+					e.preventDefault();
+					const bouton = e.submitter ?? e.target.querySelector("[type=submit]");
+					bouton.disabled = true;
+					try {
+						await inviterPersonne({
+							prenom: prenom.value,
+							apps: [cleApp()],
+							nomApp,
+						});
+						dialogue.close();
+					} catch (erreur) {
+						notifier(erreur.message, true);
+					} finally {
+						bouton.disabled = false;
+					}
+				},
+			},
+			el(
+				"p",
+				{ class: "aide" },
+				`Pour quelqu'un qui n'a pas encore de compte : son lien lui crée un compte, avec accès à ${nomApp}.`,
+			),
+			el("label", { for: "invitation-prenom" }, "Son prénom"),
+			prenom,
+			el(
+				"div",
+				{ class: "boutons" },
+				el(
+					"button",
+					{ type: "button", onclick: () => dialogue.close() },
+					"Annuler",
+				),
+				el(
+					"button",
+					{ type: "submit", class: "bouton-principal" },
+					"Créer l'invitation",
+				),
+			),
+		),
+	);
+	document.body.append(dialogue);
+	dialogue.showModal();
+}
 
 /**
  * Affiche le QR code qui connecte un autre appareil au compte (valable 15 minutes, une fois).
@@ -162,6 +273,7 @@ async function activerBiometrie(preparation, nomApp) {
 /**
  * Juste après une connexion : propose d'activer la biométrie sur l'appareil (un geste), si elle
  * est activée par l'admin, possible sur l'appareil, et ni activée ni refusée ici.
+ * @return Promesse résolue une fois la fenêtre fermée (ou aussitôt, sans fenêtre)
  */
 async function proposerBiometrie(nomApp, modes) {
 	if (!modes.biometrie || lireStockage(CLES.biometrie)) return;
@@ -220,6 +332,37 @@ async function proposerBiometrie(nomApp, modes) {
 	);
 	document.body.append(dialogue);
 	dialogue.showModal();
+	await new Promise((resolve) => {
+		dialogue.addEventListener("close", resolve);
+	});
+}
+
+/**
+ * Juste après une connexion par un lien d'invitation (QR code) : biométrie, puis installation de
+ * l'app (sur iPhone, l'app installée aura un lien de connexion copié, ou la biométrie).
+ */
+async function accueillir(nomApp, modes) {
+	await proposerBiometrie(nomApp, modes);
+	await proposerInstallation({ connexion: true });
+}
+
+/**
+ * Lien d'invitation d'une app (ex : Cadeaux) ouvert sur un appareil sans compte : le compte est
+ * créé avec le prénom de la personne invitée et l'appareil connecté, puis l'app propose la
+ * biométrie et l'installation.
+ * @param prenom Prénom de la personne invitée (donné par l'API de l'app)
+ * @param nomApp Nom de l'app, pour décrire l'appareil
+ * @return Le compte créé
+ * @throws Si l'API refuse (prénom déjà pris : l'app affiche alors la connexion)
+ */
+export async function creerCompteInvite(prenom, nomApp) {
+	const connexion = await appelerDroits("creer-compte", {
+		prenom,
+		appareil: appareil(nomApp),
+	});
+	garderConnexion(connexion);
+	accueillir(nomApp, lireStockageJson(CLES.modes) ?? MODES_PAR_DEFAUT);
+	return connexion.compte;
 }
 
 /**
@@ -352,7 +495,7 @@ export async function ouvrirMesConnexions(nomApp) {
  * @param surConnecte Appelée avec le compte, une fois connecté
  * @param message Message à afficher (ex : session expirée)
  * @param invitation Code d'un lien de connexion ouvert sur l'appareil (invitationDuLien) : utilisé
- * aussitôt
+ * aussitôt (celui d'une nouvelle personne crée son compte), puis l'app propose de s'installer
  */
 export function afficherConnexion(
 	conteneur,
@@ -366,13 +509,33 @@ export function afficherConnexion(
 	const demanderDefi = () => {
 		defi = appelerDroits("defi-biometrie").catch(() => null);
 	};
+	/**
+	 * Invitation d'une nouvelle personne dont le prénom est déjà pris : une fois l'appareil connecté
+	 * (à son compte, ou à un nouveau), elle ouvre ses apps à ce compte.
+	 */
+	let invitationEnAttente = null;
 
-	/** Garde la connexion, la signale à l'app, puis propose la biométrie. */
-	function terminer(connexion, parBiometrie = false) {
+	/**
+	 * Garde la connexion, la signale à l'app, puis propose la biométrie (et l'installation, après
+	 * un lien d'invitation).
+	 */
+	async function terminer(connexion, parBiometrie = false) {
 		garderConnexion(connexion);
 		if (parBiometrie) ecrireStockage(CLES.biometrie, "oui");
+		if (invitationEnAttente) {
+			try {
+				await appelerDroits("utiliser-invitation", {
+					invitation: invitationEnAttente,
+					pourMonCompte: true,
+				});
+			} catch {
+				// Expirée entre-temps : le compte est connecté, sans ces apps.
+			}
+			invitationEnAttente = null;
+		}
 		surConnecte(connexion.compte);
-		if (!parBiometrie) proposerBiometrie(nomApp, modes);
+		if (invitation) accueillir(nomApp, parBiometrie ? {} : modes);
+		else if (!parBiometrie) proposerBiometrie(nomApp, modes);
 	}
 
 	/** Lance une connexion : bouton désactivé et erreur effacée pendant l'appel. */
@@ -380,7 +543,7 @@ export function afficherConnexion(
 		if (bouton) bouton.disabled = true;
 		erreur.textContent = "";
 		try {
-			terminer(
+			await terminer(
 				await appelerDroits(action, {
 					...parametres,
 					appareil: appareil(nomApp),
@@ -388,9 +551,52 @@ export function afficherConnexion(
 			);
 		} catch (e) {
 			erreur.textContent = e.message;
+			if (
+				action === "utiliser-invitation" &&
+				/Il y a déjà un compte/.test(e.message)
+			) {
+				invitationEnAttente = parametres.invitation;
+			}
 		} finally {
 			if (bouton) bouton.disabled = false;
 		}
+	}
+
+	/** App installée sur iPhone : coller le lien de connexion copié avant l'installation. */
+	function carteInstallee() {
+		return el(
+			"div",
+			{ class: "carte formulaire" },
+			el(
+				"p",
+				{ class: "aide" },
+				"Tu viens d'installer l'app ? Ton lien de connexion a été copié avant l'installation.",
+			),
+			el(
+				"button",
+				{
+					type: "button",
+					class: "bouton-principal",
+					onclick: async (e) => {
+						const bouton = e.currentTarget;
+						erreur.textContent = "";
+						let code = null;
+						try {
+							code = invitationDuLien(await navigator.clipboard.readText());
+						} catch {
+							// Collage refusé : le message ci-dessous.
+						}
+						if (!code) {
+							erreur.textContent =
+								"Pas de lien de connexion copié : connecte-toi autrement ci-dessous.";
+							return;
+						}
+						connecter(bouton, "utiliser-invitation", { invitation: code });
+					},
+				},
+				"Coller mon lien de connexion",
+			),
+		);
 	}
 
 	async function connecterParBiometrie(e) {
@@ -400,7 +606,7 @@ export function afficherConnexion(
 		try {
 			const valeur = (await defi) ?? (await appelerDroits("defi-biometrie"));
 			const signature = await signerDefiBiometrie(valeur);
-			terminer(
+			await terminer(
 				await appelerDroits("connecter-biometrie", {
 					...signature,
 					appareil: appareil(nomApp),
@@ -614,10 +820,14 @@ export function afficherConnexion(
 		remplacerContenu(
 			conteneur,
 			biometrie && carteBiometrie(),
+			// App installée (iPhone) : elle ne partage pas la connexion du navigateur.
+			estInstallee && !lireSession() && carteInstallee(),
 			(modes.code || modes.lien) && carteEmail(),
 			carteLien(),
 			carteNouveauCompte(),
 			erreur,
+			// Le menu (et son « Installer l'app ») n'est pas affiché avant la connexion.
+			boutonInstallation({ connexion: true }),
 			// Pas encore de compte, ou la connexion ne marche pas : le dire quand même.
 			el(
 				"button",
