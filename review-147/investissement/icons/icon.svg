@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+	<title>Investissement</title>
+	<rect width="512" height="512" rx="112" fill="#24477a" />
+	<path d="M112 266L256 144l144 122" fill="none" stroke="#f4f1ea" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" />
+	<rect x="148" y="236" width="216" height="172" rx="18" fill="#f4f1ea" />
+	<path d="M184 368l52-50 36 30 58-60" fill="none" stroke="#2b7a4b" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" />
+	<path d="M300 288h30v30" fill="none" stroke="#2b7a4b" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

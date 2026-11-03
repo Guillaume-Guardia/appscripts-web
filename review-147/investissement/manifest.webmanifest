@@ -1,0 +1,24 @@
+{
+	"name": "Investissement",
+	"short_name": "Investissement",
+	"description": "Simulateur d'investissement locatif : frais, crédit, loyer net, cash-flow et rendement d'un bien.",
+	"lang": "fr",
+	"id": "./",
+	"start_url": "./",
+	"scope": "./",
+	"display": "standalone",
+	"orientation": "portrait",
+	"background_color": "#f4f1ea",
+	"theme_color": "#24477a",
+	"icons": [
+		{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" },
+		{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+		{ "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+		{
+			"src": "icons/icon-maskable-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		}
+	]
+}
