@@ -4,7 +4,6 @@ import {
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
-	deconnecterPartout,
 	estSessionRefusee,
 	invitationDuLien,
 	lireSession,
@@ -1085,23 +1084,6 @@ async function seDeconnecter() {
 	deconnecter();
 }
 
-async function deconnecterTousLesAppareils() {
-	fermerMenu();
-	if (
-		!confirm(
-			"Déconnecter tous tes appareils, celui-ci compris (téléphone perdu) ? Il faudra se reconnecter avec un code par e-mail.",
-		)
-	) {
-		return;
-	}
-	try {
-		await deconnecterPartout();
-		deconnecter("Tous tes appareils sont déconnectés.");
-	} catch (erreur) {
-		notifier(erreur.message, true);
-	}
-}
-
 async function changerPrenom() {
 	fermerMenu();
 	const prenom = prompt("Ton prénom :", app.etat?.moi?.prenom ?? "");
@@ -1213,10 +1195,6 @@ function brancherEvenements() {
 			notifier(erreur.message, true);
 		}
 	});
-	$("#menu-deconnecter-partout").addEventListener(
-		"click",
-		deconnecterTousLesAppareils,
-	);
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), { connexion: true });
 	$("#bouton-signalement").addEventListener("click", () => {

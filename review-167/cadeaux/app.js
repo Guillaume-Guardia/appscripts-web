@@ -5,7 +5,6 @@ import {
 	connecterUnAutreAppareil,
 	creerCompteInvite,
 	deconnecter as deconnecterAppareil,
-	deconnecterPartout,
 	decrireAppareil,
 	estAccesRefuse,
 	estSessionRefusee,
@@ -2317,22 +2316,6 @@ async function inviter(personneInvitee) {
 	);
 }
 
-async function deconnecterTousLesAppareils() {
-	fermerMenu();
-	if (
-		!confirm(
-			"Déconnecter tous tes appareils, celui-ci compris (téléphone perdu) ? Les autres apps le seront aussi (même compte).",
-		)
-	)
-		return;
-	try {
-		await deconnecterPartout();
-		deconnecter("Tous tes appareils sont déconnectés.");
-	} catch (erreur) {
-		notifier(erreur.message, true);
-	}
-}
-
 // Lecture d'un QR code : BarcodeDetector quand le navigateur l'a, sinon jsQR (chargé au besoin).
 let scanner = null;
 
@@ -2530,10 +2513,6 @@ function brancherEvenements() {
 			notifier(erreur.message, true);
 		}
 	});
-	$("#menu-deconnecter-partout").addEventListener(
-		"click",
-		deconnecterTousLesAppareils,
-	);
 	$("#menu-deconnecter").addEventListener("click", seDeconnecter);
 	$("#bouton-offrir-selection").addEventListener("click", () =>
 		reserver([...app.selection]),

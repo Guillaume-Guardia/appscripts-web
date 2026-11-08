@@ -65,6 +65,13 @@
 	--ombre: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
 }
 
+/* Repli de shared/pwa.js (compenserBarreDEtat) : iOS annonce une zone protégée nulle */
+@media (orientation: portrait) {
+	:root[data-sous-barre-etat] {
+		--haut-securise: 59px;
+	}
+}
+
 * {
 	box-sizing: border-box;
 }
@@ -276,7 +283,7 @@ button:focus-visible {
 	display: grid;
 	place-items: center;
 	/* App installée sur iPhone : la page passe sous la barre d'état (black-translucent). */
-	padding: calc(24px + env(safe-area-inset-top)) 16px
+	padding: calc(24px + var(--haut-securise, env(safe-area-inset-top))) 16px
 		calc(24px + env(safe-area-inset-bottom));
 }
 .connexion-carte {
@@ -325,7 +332,7 @@ button:focus-visible {
 	justify-content: space-between;
 	align-items: center;
 	gap: 12px;
-	padding: calc(12px + env(safe-area-inset-top)) 16px 14px;
+	padding: calc(12px + var(--haut-securise, env(safe-area-inset-top))) 16px 14px;
 	background: var(--entete);
 	color: var(--sur-entete);
 }
@@ -349,7 +356,7 @@ button:focus-visible {
 	   des onglets du bas. */
 	max-height: calc(
 		100dvh -
-		env(safe-area-inset-top) -
+		var(--haut-securise, env(safe-area-inset-top)) -
 		env(safe-area-inset-bottom) -
 		var(--nav-h) -
 		80px
@@ -680,7 +687,7 @@ button:focus-visible {
 	align-items: center;
 	gap: 12px;
 	padding: 8px 16px calc(8px);
-	padding-top: calc(8px + env(safe-area-inset-top));
+	padding-top: calc(8px + var(--haut-securise, env(safe-area-inset-top)));
 	background: var(--texte);
 	color: var(--fond);
 	font-size: 0.9rem;
@@ -705,7 +712,7 @@ button:focus-visible {
 	z-index: 20;
 	left: 16px;
 	right: 16px;
-	top: calc(16px + env(safe-area-inset-top));
+	top: calc(16px + var(--haut-securise, env(safe-area-inset-top)));
 	display: flex;
 	flex-direction: column;
 	gap: 8px;

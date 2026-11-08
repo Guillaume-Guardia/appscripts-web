@@ -87,11 +87,36 @@ function appliquerMiseAJour(worker) {
 }
 
 /**
+ * iPhone, app installée, en portrait : la page occupe tout l'écran mais iOS annonce une zone
+ * protégée nulle, et l'en-tête passe sous l'heure et la batterie, où ses boutons ne répondent pas.
+ * Le repli (--haut-securise, voir base.css) n'est posé que dans ce cas : quand iOS réserve lui-même
+ * la place de la barre, la page est moins haute que l'écran.
+ */
+function compenserBarreDEtat() {
+	if (
+		!estIos ||
+		!estInstallee ||
+		!window.matchMedia("(orientation: portrait)").matches ||
+		window.innerHeight < window.screen.height
+	) {
+		return;
+	}
+	const sonde = el("div", {
+		style: "position:fixed;padding-top:env(safe-area-inset-top)",
+	});
+	document.body.append(sonde);
+	const zone = Number.parseFloat(getComputedStyle(sonde).paddingTop);
+	sonde.remove();
+	if (!zone) document.documentElement.dataset.sousBarreEtat = "";
+}
+
+/**
  * Enregistre le service worker de l'app (sw.js, à côté de sa page). Une nouvelle version s'installe
  * seule et recharge la page, puis s'annonce (voir annoncerMiseAJour).
  */
 export function enregistrerServiceWorker() {
 	annoncerMiseAJour();
+	compenserBarreDEtat();
 	// Sur iPhone, :active (infobulles à l'appui maintenu) demande un écouteur tactile.
 	document.addEventListener("touchstart", () => {}, { passive: true });
 	if (!("serviceWorker" in navigator)) return;

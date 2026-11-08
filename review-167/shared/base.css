@@ -61,6 +61,13 @@
 	--ombre: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
 }
 
+/* Repli de shared/pwa.js (compenserBarreDEtat) : iOS annonce une zone protégée nulle */
+@media (orientation: portrait) {
+	:root[data-sous-barre-etat] {
+		--haut-securise: 59px;
+	}
+}
+
 * {
 	box-sizing: border-box;
 }
@@ -169,7 +176,8 @@ h3 {
 	display: flex;
 	align-items: center;
 	gap: 4px;
-	padding: calc(env(safe-area-inset-top) + 8px) 8px 8px 16px;
+	padding: calc(var(--haut-securise, env(safe-area-inset-top)) + 8px) 8px 8px
+		16px;
 	background: var(--entete);
 	color: var(--sur-entete);
 	min-height: 56px;
@@ -262,7 +270,11 @@ h3 {
 	flex-direction: column;
 	min-width: 240px;
 	/* Accroché à l'en-tête, qui ne défile pas : plus haut que l'écran, il défile lui-même. */
-	max-height: calc(100dvh - env(safe-area-inset-top) - 72px);
+	max-height: calc(
+		100dvh -
+		var(--haut-securise, env(safe-area-inset-top)) -
+		72px
+	);
 	overflow-y: auto;
 	overscroll-behavior: contain;
 	padding: 6px;
