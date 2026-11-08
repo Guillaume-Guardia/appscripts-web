@@ -1,0 +1,103 @@
+{
+	"name": "Mes apps",
+	"short_name": "Mes apps",
+	"description": "Toutes les apps dans une seule fenêtre installée, avec une seule connexion.",
+	"lang": "fr",
+	"id": "./",
+	"start_url": "./",
+	"scope": "./",
+	"display": "standalone",
+	"orientation": "portrait",
+	"background_color": "#f4f1ea",
+	"theme_color": "#0f5f66",
+	"icons": [
+		{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" },
+		{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+		{ "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+		{
+			"src": "icons/icon-maskable-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		}
+	],
+	"shortcuts": [
+		{
+			"name": "Voyage",
+			"url": "voyage/",
+			"icons": [
+				{
+					"src": "voyage/icons/icon-192.png",
+					"sizes": "192x192",
+					"type": "image/png"
+				}
+			]
+		},
+		{
+			"name": "Cuisine",
+			"url": "cuisine/",
+			"icons": [
+				{
+					"src": "cuisine/icons/icon-192.png",
+					"sizes": "192x192",
+					"type": "image/png"
+				}
+			]
+		},
+		{
+			"name": "Cadeaux",
+			"url": "cadeaux/",
+			"icons": [
+				{
+					"src": "cadeaux/icons/icon-192.png",
+					"sizes": "192x192",
+					"type": "image/png"
+				}
+			]
+		},
+		{
+			"name": "Calendrier",
+			"url": "calendrier/",
+			"icons": [
+				{
+					"src": "calendrier/icons/icon-192.png",
+					"sizes": "192x192",
+					"type": "image/png"
+				}
+			]
+		},
+		{
+			"name": "Investissement",
+			"url": "investissement/",
+			"icons": [
+				{
+					"src": "investissement/icons/icon-192.png",
+					"sizes": "192x192",
+					"type": "image/png"
+				}
+			]
+		},
+		{
+			"name": "Perudo",
+			"url": "perudo/",
+			"icons": [
+				{
+					"src": "perudo/icons/icon-192.png",
+					"sizes": "192x192",
+					"type": "image/png"
+				}
+			]
+		},
+		{
+			"name": "Droits",
+			"url": "droits/",
+			"icons": [
+				{
+					"src": "droits/icons/icon-192.png",
+					"sizes": "192x192",
+					"type": "image/png"
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,631 @@
+/* Styles communs aux apps : palette par défaut (une app peut la redéfinir dans son style.css),
+   en-tête, menu, bandeaux, formulaires, dialogues, notifications. */
+
+:root {
+	color-scheme: light;
+	--fond: #f4f1ea;
+	--surface: #fffdf8;
+	--surface-2: #ebe6db;
+	--texte: #1d2a2c;
+	--texte-doux: #5d6b6c;
+	--bord: #dcd5c7;
+	--accent: #0f5f66;
+	--accent-fonce: #0a474c;
+	--sur-accent: #ffffff;
+	--entete: #0f5f66;
+	--sur-entete: #ffffff;
+	--vert: #2b7a4b;
+	--vert-fond: #e1f0e6;
+	--danger: #b3261e;
+	--ombre: 0 1px 2px rgb(29 42 44 / 0.06), 0 4px 16px rgb(29 42 44 / 0.06);
+	--rayon: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		color-scheme: dark;
+		--fond: #121a1b;
+		--surface: #1b2526;
+		--surface-2: #253132;
+		--texte: #e8efee;
+		--texte-doux: #9fb0b0;
+		--bord: #304041;
+		--accent: #5cc2c9;
+		--accent-fonce: #8ad6db;
+		--sur-accent: #0d1a1b;
+		--entete: #0b3d41;
+		--sur-entete: #e8efee;
+		--vert: #7fcf9f;
+		--vert-fond: #1c3326;
+		--danger: #f2827a;
+		--ombre: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
+	}
+}
+
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	--fond: #121a1b;
+	--surface: #1b2526;
+	--surface-2: #253132;
+	--texte: #e8efee;
+	--texte-doux: #9fb0b0;
+	--bord: #304041;
+	--accent: #5cc2c9;
+	--accent-fonce: #8ad6db;
+	--sur-accent: #0d1a1b;
+	--entete: #0b3d41;
+	--sur-entete: #e8efee;
+	--vert: #7fcf9f;
+	--vert-fond: #1c3326;
+	--danger: #f2827a;
+	--ombre: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+}
+
+body {
+	margin: 0;
+	min-height: 100dvh;
+	background: var(--fond);
+	color: var(--texte);
+	font:
+		16px / 1.45 system-ui,
+		-apple-system,
+		"Segoe UI",
+		Roboto,
+		sans-serif;
+	-webkit-tap-highlight-color: transparent;
+}
+
+[hidden] {
+	/* biome-ignore lint/complexity/noImportantStyles: hidden doit gagner sur les display des composants. */
+	display: none !important;
+}
+
+button,
+input,
+select,
+textarea {
+	font: inherit;
+	color: inherit;
+}
+
+button {
+	cursor: pointer;
+	border: 1px solid var(--bord);
+	background: var(--surface);
+	border-radius: 999px;
+	padding: 8px 16px;
+	min-height: 40px;
+}
+
+button:disabled {
+	opacity: 0.55;
+	cursor: default;
+}
+
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+input:not([type="checkbox"]),
+select,
+textarea {
+	width: 100%;
+	padding: 10px 12px;
+	border: 1px solid var(--bord);
+	border-radius: 10px;
+	background: var(--surface);
+	min-height: 44px;
+}
+
+h1,
+h2,
+h3 {
+	margin: 0;
+	line-height: 1.2;
+}
+
+.aide {
+	color: var(--texte-doux);
+	font-size: 14px;
+}
+
+.erreur {
+	color: var(--danger);
+	font-size: 14px;
+	min-height: 1em;
+	margin: 4px 0 0;
+}
+
+.erreur:empty {
+	display: none;
+}
+
+.bouton-principal {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: var(--sur-accent);
+	font-weight: 600;
+}
+
+.danger {
+	color: var(--danger);
+}
+
+/* En-tête */
+
+.entete {
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: calc(env(safe-area-inset-top) + 8px) 8px 8px 16px;
+	background: var(--entete);
+	color: var(--sur-entete);
+	min-height: 56px;
+}
+
+.entete h1 {
+	flex: 1;
+	font-size: 20px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+#bouton-retour:not([hidden]) + h1 {
+	margin-left: -4px;
+}
+
+.entete:has(#bouton-retour:not([hidden])) {
+	padding-left: 4px;
+}
+
+.bouton-icone {
+	display: grid;
+	place-items: center;
+	width: 44px;
+	height: 44px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	flex-shrink: 0;
+}
+
+.bouton-icone svg,
+.bouton-flottant svg {
+	width: 24px;
+	height: 24px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+#bouton-actualiser.tourne svg {
+	animation: tourner 0.8s linear infinite;
+}
+
+@keyframes tourner {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.menu {
+	position: absolute;
+	top: calc(100% - 4px);
+	right: 8px;
+	display: flex;
+	flex-direction: column;
+	min-width: 240px;
+	/* Accroché à l'en-tête, qui ne défile pas : plus haut que l'écran, il défile lui-même. */
+	max-height: calc(100dvh - env(safe-area-inset-top) - 72px);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding: 6px;
+	background: var(--surface);
+	color: var(--texte);
+	border: 1px solid var(--bord);
+	border-radius: var(--rayon);
+	box-shadow: var(--ombre);
+}
+
+.menu button {
+	border: 0;
+	border-radius: 10px;
+	background: transparent;
+	text-align: left;
+}
+
+.menu button:hover {
+	background: var(--surface-2);
+}
+
+/* Groupe « Apps » (shared/apps.js) : des liens, présentés comme les boutons du menu */
+.menu-apps {
+	display: contents;
+}
+
+.menu a {
+	display: flex;
+	align-items: center;
+	min-height: 40px;
+	padding: 8px 16px;
+	border-radius: 10px;
+	color: inherit;
+	text-decoration: none;
+}
+
+.menu a:hover {
+	background: var(--surface-2);
+}
+
+/* Titre d'un groupe d'actions (« Connexion », « Application »), séparé du groupe précédent */
+.menu-titre {
+	margin: 4px 0 0;
+	padding: 10px 12px 2px;
+	border-top: 1px solid var(--bord);
+	color: var(--texte-doux);
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.menu-titre:first-child {
+	margin-top: 0;
+	padding-top: 6px;
+	border-top: 0;
+}
+
+.menu .version {
+	margin: 4px 0 0;
+	padding: 8px 12px 2px;
+	border-top: 1px solid var(--bord);
+}
+
+.version {
+	color: var(--texte-doux);
+	font-size: 12px;
+}
+
+.chargement {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 20;
+	height: 3px;
+	background: linear-gradient(
+		90deg,
+		transparent,
+		var(--accent-fonce),
+		transparent
+	);
+	background-size: 50% 100%;
+	background-repeat: no-repeat;
+	animation: chargement 1.2s ease-in-out infinite;
+}
+
+@keyframes chargement {
+	from {
+		background-position: -50% 0;
+	}
+	to {
+		background-position: 150% 0;
+	}
+}
+
+.bandeau {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 8px 16px;
+	background: var(--surface-2);
+	font-size: 14px;
+}
+
+.bandeau button {
+	min-height: 32px;
+	padding: 4px 12px;
+}
+
+main {
+	max-width: 640px;
+	margin: 0 auto;
+	padding: 16px 16px calc(env(safe-area-inset-bottom) + 96px);
+}
+
+.carte {
+	background: var(--surface);
+	border: 1px solid var(--bord);
+	border-radius: var(--rayon);
+	box-shadow: var(--ombre);
+}
+
+/* Connexion */
+
+.ecran-connexion {
+	text-align: center;
+	padding-top: 24px;
+}
+
+.ecran-connexion .logo {
+	width: 72px;
+	height: 72px;
+	color: var(--accent);
+}
+
+.ecran-connexion h2 {
+	font-size: 28px;
+	margin: 8px 0;
+}
+
+.ecran-connexion .formulaire {
+	text-align: left;
+	padding: 16px;
+	margin-top: 16px;
+}
+
+/* Formulaire dans une carte de connexion (e-mail, puis code reçu). */
+.ecran-connexion .formulaire .formulaire {
+	padding: 0;
+	margin-top: 0;
+}
+
+/* Formulaires */
+
+.formulaire {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.formulaire label:not(.case) {
+	font-weight: 600;
+	font-size: 14px;
+	margin-top: 8px;
+}
+
+.formulaire > button[type="submit"] {
+	margin-top: 12px;
+}
+
+.formulaire fieldset {
+	border: 0;
+	padding: 0;
+	margin: 10px 0 0;
+}
+
+.formulaire legend {
+	font-weight: 600;
+	font-size: 14px;
+	margin-bottom: 6px;
+	padding: 0;
+}
+
+.dates {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+}
+
+.dates > div {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 0;
+}
+
+.case {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-top: 12px;
+	min-height: 44px;
+}
+
+.case input {
+	width: 22px;
+	height: 22px;
+	accent-color: var(--accent);
+	flex-shrink: 0;
+}
+
+.puces {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.puce {
+	min-height: 38px;
+	padding: 6px 14px;
+}
+
+.puce[aria-pressed="true"] {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: var(--sur-accent);
+}
+
+textarea {
+	resize: vertical;
+}
+
+/* Lien discret vers « Suggestion ou bug » (écran de connexion, portail). */
+.lien-signalement {
+	border: 0;
+	background: none;
+	color: var(--texte-doux);
+	text-decoration: underline;
+	margin: 16px auto 0;
+	display: block;
+}
+
+.boutons {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 16px;
+	flex-wrap: wrap;
+}
+
+/* Dialogues */
+
+.dialogue {
+	width: min(560px, calc(100vw - 24px));
+	max-height: calc(100dvh - 24px);
+	padding: 20px;
+	border: 1px solid var(--bord);
+	border-radius: var(--rayon);
+	background: var(--surface);
+	color: var(--texte);
+	box-shadow: var(--ombre);
+}
+
+.dialogue::backdrop {
+	background: rgb(0 0 0 / 0.45);
+}
+
+.dialogue h2 {
+	font-size: 20px;
+	margin-bottom: 4px;
+}
+
+.qr {
+	display: grid;
+	place-items: center;
+	margin: 12px auto;
+	padding: 8px;
+	background: #fff;
+	border-radius: 10px;
+	width: fit-content;
+}
+
+.qr svg {
+	width: min(260px, 70vw);
+	height: min(260px, 70vw);
+}
+
+/* Listes */
+
+.titre-section {
+	font-size: 13px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--texte-doux);
+	margin: 20px 4px 8px;
+}
+
+.titre-section:first-child {
+	margin-top: 4px;
+}
+
+.progression {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font-size: 13px;
+	color: var(--texte-doux);
+}
+
+.barre {
+	flex: 1;
+	height: 6px;
+	border-radius: 999px;
+	background: var(--surface-2);
+	overflow: hidden;
+}
+
+.barre > span {
+	display: block;
+	height: 100%;
+	background: var(--accent);
+	border-radius: inherit;
+	transition: width 0.2s;
+}
+
+.barre.complete > span {
+	background: var(--vert);
+}
+
+.vide {
+	text-align: center;
+	color: var(--texte-doux);
+	padding: 32px 16px;
+}
+
+.vide svg {
+	width: 64px;
+	height: 64px;
+	color: var(--bord);
+}
+
+.bouton-flottant {
+	position: fixed;
+	right: max(16px, calc(50vw - 304px));
+	bottom: calc(env(safe-area-inset-bottom) + 20px);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 20px 12px 16px;
+	min-height: 52px;
+	background: var(--accent);
+	border-color: var(--accent);
+	color: var(--sur-accent);
+	font-weight: 600;
+	box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
+}
+
+/* Notifications */
+
+.toasts {
+	position: fixed;
+	left: 50%;
+	bottom: calc(env(safe-area-inset-bottom) + 88px);
+	transform: translateX(-50%);
+	z-index: 30;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: min(480px, calc(100vw - 32px));
+	pointer-events: none;
+}
+
+.toast {
+	padding: 10px 16px;
+	border-radius: 12px;
+	background: var(--texte);
+	color: var(--fond);
+	box-shadow: var(--ombre);
+	font-size: 14px;
+}
+
+.erreur-toast {
+	background: var(--danger);
+	color: #fff;
+}
+
+/* Compte connecté, en tête du menu */
+.menu .compte {
+	margin: 6px 12px 8px;
+	font-size: 14px;
+	color: var(--texte-doux);
+	overflow-wrap: anywhere;
+}
