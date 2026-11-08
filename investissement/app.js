@@ -1,4 +1,3 @@
-import { brancherMenuApps } from "../shared/apps.js";
 import { $, el, remplacerContenu } from "../shared/dom.js";
 import {
 	brancherInstallation,
@@ -315,18 +314,13 @@ function brancherEvenements() {
 	$("#menu-effacer").addEventListener("click", effacerSimulation);
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"));
-	brancherMenuApps($("#menu-apps"), "investissement");
-	$("#menu-signalement").addEventListener("click", () => {
+	$("#bouton-signalement").addEventListener("click", () => {
 		fermerMenu();
 		ouvrirSignalement({ app: "Investissement" });
 	});
-	$("#menu-maj").addEventListener("click", () => {
-		fermerMenu();
-		chercherMiseAJour();
-	});
 	document.addEventListener("visibilitychange", () => {
 		if (document.visibilityState === "visible") {
-			chercherMiseAJour({ silencieux: true });
+			chercherMiseAJour();
 		}
 	});
 }

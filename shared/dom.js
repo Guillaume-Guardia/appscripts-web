@@ -50,8 +50,7 @@ export function notifier(message, erreur = false) {
 
 /**
  * Bandeau sous l'en-tête, avec un bouton facultatif.
- * @param type « hors-ligne » ou « maj » : un bandeau de mise à jour n'est pas masqué par le retour
- * de la connexion
+ * @param type Genre de bandeau (« hors-ligne »)
  * @param action { libelle, faire }
  */
 export function afficherBandeau(type, message, action) {
@@ -67,9 +66,9 @@ export function afficherBandeau(type, message, action) {
 	bandeau.hidden = false;
 }
 
-/** Masque le bandeau, sauf celui d'une mise à jour en attente. */
+/** Masque le bandeau. */
 export function masquerBandeau() {
-	if ($("#bandeau").dataset.type !== "maj") $("#bandeau").hidden = true;
+	$("#bandeau").hidden = true;
 }
 
 /**

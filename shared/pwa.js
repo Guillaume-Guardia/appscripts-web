@@ -1,59 +1,124 @@
 // Installation et mises à jour d'une app (PWA) : service worker (sw.js de l'app, qui s'appuie sur
-// shared/sw-shared.js), bandeau « Nouvelle version disponible », bouton d'installation,
+// shared/sw-shared.js), mise à jour automatique de toutes les apps, bouton d'installation,
 // proposition d'installer (arrivée par un lien d'invitation) et explications pour l'iPhone, avec
 // le lien de connexion copié pour l'app installée.
 
-import { afficherBandeau, el, notifier } from "./dom.js";
+import { $, el, notifier } from "./dom.js";
+import { ecrireStockage, lireStockage } from "./stockage.js";
 
 let enregistrement = null;
-/** La mise à jour est acceptée : le prochain changement de service worker recharge la page. */
-let miseAJourAcceptee = false;
-let recharge = false;
+let rechargementDemande = false;
 
+/** Dernière version ouverte sur l'appareil, commune aux apps : une mise à jour s'annonce une fois. */
+const CLE_VERSION_VUE = "appscripts.versionVue";
+/** Racine du site (ce fichier est dans shared/) : la production, ou un front de review. */
+const RACINE_SITE = new URL("../", import.meta.url).href;
 /** Délai après lequel la page est rechargée si le navigateur n'a rien annoncé (iPhone). */
 const DELAI_MISE_A_JOUR_MS = 5000;
+/** Attente entre deux essais de rechargement, tant que la personne est occupée. */
+const DELAI_SI_OCCUPE_MS = 2000;
 
+/** Une saisie, une fenêtre ou un envoi en cours : recharger ferait perdre quelque chose. */
+function estOccupe() {
+	return (
+		document.querySelector("dialog[open]") !== null ||
+		document.activeElement?.matches(
+			"input:not([type=checkbox], [type=radio], [type=button], [type=submit]), textarea, select",
+		) === true ||
+		$("#chargement")?.hidden === false
+	);
+}
+
+/** Recharge la page dès que la personne n'est plus occupée. */
 function recharger() {
-	if (recharge) return;
-	recharge = true;
-	window.location.reload();
+	if (rechargementDemande) return;
+	rechargementDemande = true;
+	const essayer = () => {
+		if (estOccupe()) setTimeout(essayer, DELAI_SI_OCCUPE_MS);
+		else window.location.reload();
+	};
+	essayer();
+}
+
+/** Après une mise à jour, dit une seule fois « ancienne version → nouvelle version ». */
+function annoncerMiseAJour() {
+	const actuelle = window.VERSION_APP;
+	if (!actuelle) return;
+	const vue = lireStockage(CLE_VERSION_VUE);
+	// Une app pas encore à jour ne ramène pas la version vue en arrière.
+	if (vue && actuelle.localeCompare(vue, undefined, { numeric: true }) <= 0) {
+		return;
+	}
+	ecrireStockage(CLE_VERSION_VUE, actuelle);
+	if (vue) notifier(`Mise à jour : ${vue} → ${actuelle}`);
 }
 
 /**
- * Active la nouvelle version (bouton « Mettre à jour »), puis recharge la page.
- * @param proposee Le service worker du bandeau : une version plus récente a pu le remplacer depuis
+ * Demande aux autres apps du site de chercher la nouvelle version : elle est commune à toutes.
+ * La production ne touche pas aux fronts de review (review-<numéro>/, sous sa racine).
  */
-function activerMiseAJour(proposee) {
-	miseAJourAcceptee = true;
-	const worker =
-		enregistrement?.waiting ??
-		(proposee.state === "installed" ? proposee : null);
-	// Plus rien en attente : la nouvelle version est déjà active, il ne reste qu'à recharger.
-	if (!worker) {
-		recharger();
-		return;
-	}
-	afficherBandeau("maj", "Mise à jour…");
+function mettreAJourLesAutresApps() {
+	navigator.serviceWorker
+		.getRegistrations()
+		.then((enregistrements) => {
+			for (const autre of enregistrements) {
+				if (
+					autre.scope !== enregistrement?.scope &&
+					autre.scope.startsWith(RACINE_SITE) &&
+					!autre.scope.slice(RACINE_SITE.length).startsWith("review-")
+				) {
+					autre.update().catch(() => {});
+				}
+			}
+		})
+		.catch(() => {});
+}
+
+/** Une nouvelle version est installée : les autres apps suivent, puis la page se recharge. */
+function appliquerMiseAJour(worker) {
+	mettreAJourLesAutresApps();
 	// Recharger dès l'activation, sans attendre controllerchange, que l'iPhone n'envoie pas toujours.
 	worker.addEventListener("statechange", () => {
 		if (worker.state === "activated") recharger();
 	});
+	// Un service worker d'avant la mise à jour automatique, resté en attente, attend ce message.
 	worker.postMessage("activer");
 	setTimeout(recharger, DELAI_MISE_A_JOUR_MS);
 }
 
-function proposerMiseAJour(worker) {
-	afficherBandeau("maj", "Nouvelle version disponible.", {
-		libelle: "Mettre à jour",
-		faire: () => activerMiseAJour(worker),
+/**
+ * iPhone, app installée, en portrait : la page occupe tout l'écran mais iOS annonce une zone
+ * protégée nulle, et l'en-tête passe sous l'heure et la batterie, où ses boutons ne répondent pas.
+ * Le repli (--haut-securise, voir base.css) n'est posé que dans ce cas : quand iOS réserve lui-même
+ * la place de la barre, la page est moins haute que l'écran.
+ */
+function compenserBarreDEtat() {
+	if (
+		!estIos ||
+		!estInstallee ||
+		!window.matchMedia("(orientation: portrait)").matches ||
+		window.innerHeight < window.screen.height
+	) {
+		return;
+	}
+	const sonde = el("div", {
+		style: "position:fixed;padding-top:env(safe-area-inset-top)",
 	});
+	document.body.append(sonde);
+	const zone = Number.parseFloat(getComputedStyle(sonde).paddingTop);
+	sonde.remove();
+	if (!zone) document.documentElement.dataset.sousBarreEtat = "";
 }
 
 /**
- * Enregistre le service worker de l'app (sw.js, à côté de sa page). Une nouvelle version affiche
- * le bandeau de mise à jour ; l'accepter recharge la page.
+ * Enregistre le service worker de l'app (sw.js, à côté de sa page). Une nouvelle version s'installe
+ * seule et recharge la page, puis s'annonce (voir annoncerMiseAJour).
  */
 export function enregistrerServiceWorker() {
+	annoncerMiseAJour();
+	compenserBarreDEtat();
+	// Sur iPhone, :active (infobulles à l'appui maintenu) demande un écouteur tactile.
+	document.addEventListener("touchstart", () => {}, { passive: true });
 	if (!("serviceWorker" in navigator)) return;
 	// updateViaCache "none" : sw.js et version.js sont relus sans le cache HTTP de Pages.
 	navigator.serviceWorker
@@ -61,7 +126,7 @@ export function enregistrerServiceWorker() {
 		.then((nouvel) => {
 			enregistrement = nouvel;
 			if (nouvel.waiting && navigator.serviceWorker.controller) {
-				proposerMiseAJour(nouvel.waiting);
+				appliquerMiseAJour(nouvel.waiting);
 			}
 			nouvel.addEventListener("updatefound", () => {
 				const worker = nouvel.installing;
@@ -70,7 +135,7 @@ export function enregistrerServiceWorker() {
 						worker.state === "installed" &&
 						navigator.serviceWorker.controller
 					) {
-						proposerMiseAJour(worker);
+						appliquerMiseAJour(worker);
 					}
 				});
 			});
@@ -78,41 +143,19 @@ export function enregistrerServiceWorker() {
 	// Première visite : le service worker prend la main (clients.claim) sans rien changer à l'app,
 	// pas besoin de recharger ; de même quand il la prend à celui du portail (première visite d'une
 	// app dans le portail installé, dont la portée couvre les apps). Ensuite, un changement du même
-	// service worker est une mise à jour, tout comme un changement après « Mettre à jour » (même
-	// si la page n'avait pas de service worker à son ouverture).
+	// service worker est une mise à jour.
 	const avant = navigator.serviceWorker.controller?.scriptURL;
 	navigator.serviceWorker.addEventListener("controllerchange", () => {
-		if (
-			miseAJourAcceptee ||
-			navigator.serviceWorker.controller?.scriptURL === avant
-		) {
-			recharger();
-		}
+		if (navigator.serviceWorker.controller?.scriptURL === avant) recharger();
 	});
 }
 
-/**
- * Cherche une nouvelle version sans attendre le cache (menu, retour sur l'app).
- * @param silencieux Sans notification (retour sur l'app)
- */
-export async function chercherMiseAJour({ silencieux = false } = {}) {
-	if (!enregistrement) return;
+/** Cherche une nouvelle version sans attendre le cache (retour sur l'app). */
+export async function chercherMiseAJour() {
 	try {
-		await enregistrement.update();
+		await enregistrement?.update();
 	} catch {
-		if (!silencieux) {
-			notifier("Impossible de vérifier : pas de connexion ?", true);
-		}
-		return;
-	}
-	if (silencieux) return;
-	if (enregistrement.waiting && navigator.serviceWorker.controller) {
-		proposerMiseAJour(enregistrement.waiting);
-		notifier("Nouvelle version prête : touche « Mettre à jour ».");
-	} else if (enregistrement.waiting || enregistrement.installing) {
-		notifier("Nouvelle version en cours de chargement…");
-	} else {
-		notifier(`Tu as la dernière version (${window.VERSION_APP}).`);
+		// Hors ligne : la recherche se refera au prochain retour sur l'app.
 	}
 }
 

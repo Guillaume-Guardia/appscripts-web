@@ -18,24 +18,28 @@
 	<body>
 		<header class="entete">
 			<h1 id="titre">Droits</h1>
+			<a href="../" class="bouton-icone" aria-label="Mes apps">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" /></svg>
+				<span class="infobulle">Mes apps</span>
+			</a>
 			<button type="button" id="bouton-actualiser" class="bouton-icone" aria-label="Actualiser" hidden>
 				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" /></svg>
+				<span class="infobulle">Actualiser</span>
 			</button>
-			<button type="button" id="bouton-menu" class="bouton-icone" aria-label="Menu" aria-expanded="false" aria-controls="menu" hidden>
-				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+			<button type="button" id="bouton-signalement" class="bouton-icone" aria-label="Suggestion ou bug">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM12 7v4M12 14h.01" /></svg>
+				<span class="infobulle">Suggestion ou bug</span>
+			</button>
+			<button type="button" id="bouton-menu" class="bouton-icone" aria-label="Paramètres" aria-expanded="false" aria-controls="menu" hidden>
+				<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M10.14 5.05L10.4 1.93L13.6 1.93L13.86 5.05L15.6 5.76L18 3.75L20.25 6L18.24 8.4L18.95 10.14L22.07 10.4L22.07 13.6L18.95 13.86L18.24 15.6L20.25 18L18 20.25L15.6 18.24L13.86 18.95L13.6 22.07L10.4 22.07L10.14 18.95L8.4 18.24L6 20.25L3.75 18L5.76 15.6L5.05 13.86L1.93 13.6L1.93 10.4L5.05 10.14L5.76 8.4L3.75 6L6 3.75L8.4 5.76z" /></svg>
+				<span class="infobulle">Paramètres</span>
 			</button>
 			<nav id="menu" class="menu" hidden>
 				<p id="menu-compte" class="compte"></p>
-				<p class="menu-titre">Apps</p>
-				<div id="menu-apps" class="menu-apps"></div>
-				<p class="menu-titre">Connexion</p>
 				<button type="button" id="menu-autre-appareil">Connecter un autre appareil</button>
 				<button type="button" id="menu-connexions">Mes connexions</button>
-				<button type="button" id="menu-deconnecter">Se déconnecter</button>
-				<p class="menu-titre">Application</p>
 				<button type="button" id="menu-installer" hidden>Installer l'app</button>
-				<button type="button" id="menu-signalement">Suggestion ou bug</button>
-				<button type="button" id="menu-maj">Rechercher une mise à jour</button>
+				<button type="button" id="menu-deconnecter">Se déconnecter</button>
 				<p class="version"></p>
 			</nav>
 		</header>

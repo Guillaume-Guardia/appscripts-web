@@ -1,12 +1,10 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
-import { brancherMenuApps } from "../shared/apps.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	creerCompteInvite,
 	deconnecter as deconnecterAppareil,
-	deconnecterPartout,
 	decrireAppareil,
 	estAccesRefuse,
 	estSessionRefusee,
@@ -168,7 +166,13 @@ async function actualiser({ silencieux = false } = {}) {
 	const bouton = $("#bouton-actualiser");
 	bouton.classList.add("tourne");
 	try {
-		appliquerEtat(await appelerApi("etat"));
+		appliquerEtat(
+			await appelerApi(
+				"etat",
+				{},
+				{ discret: silencieux && Boolean(app.etat) },
+			),
+		);
 	} catch (erreur) {
 		if (erreur instanceof ErreurReseau) {
 			app.horsLigne = true;
@@ -1342,7 +1346,6 @@ const RENDUS = {
 function rendreEntete() {
 	const { moi: membre, familles } = app.etat;
 	$("#titre-onglet").textContent = TITRES[app.onglet];
-	$("#bouton-menu").textContent = membre.prenom.charAt(0).toUpperCase();
 	$("#menu-nom").textContent = `Connecté en tant que ${membre.prenom}`;
 
 	// Plusieurs familles : des pastilles dans l'en-tête, chacune s'active ou se désactive (plusieurs
@@ -2313,22 +2316,6 @@ async function inviter(personneInvitee) {
 	);
 }
 
-async function deconnecterTousLesAppareils() {
-	fermerMenu();
-	if (
-		!confirm(
-			"Déconnecter tous tes appareils, celui-ci compris (téléphone perdu) ? Les autres apps le seront aussi (même compte).",
-		)
-	)
-		return;
-	try {
-		await deconnecterPartout();
-		deconnecter("Tous tes appareils sont déconnectés.");
-	} catch (erreur) {
-		notifier(erreur.message, true);
-	}
-}
-
 // Lecture d'un QR code : BarcodeDetector quand le navigateur l'a, sinon jsQR (chargé au besoin).
 let scanner = null;
 
@@ -2526,10 +2513,6 @@ function brancherEvenements() {
 			notifier(erreur.message, true);
 		}
 	});
-	$("#menu-deconnecter-partout").addEventListener(
-		"click",
-		deconnecterTousLesAppareils,
-	);
 	$("#menu-deconnecter").addEventListener("click", seDeconnecter);
 	$("#bouton-offrir-selection").addEventListener("click", () =>
 		reserver([...app.selection]),
@@ -2543,15 +2526,11 @@ function brancherEvenements() {
 	document.addEventListener("visibilitychange", () => {
 		if (document.visibilityState !== "visible") return;
 		actualiser({ silencieux: true });
-		chercherMiseAJour({ silencieux: true });
+		chercherMiseAJour();
 	});
-	$("#menu-signalement").addEventListener("click", () => {
+	$("#bouton-signalement").addEventListener("click", () => {
 		fermerMenu();
 		ouvrirSignalement({ app: "Cadeaux", prenom: app.etat?.moi.prenom });
-	});
-	$("#menu-maj").addEventListener("click", () => {
-		fermerMenu();
-		chercherMiseAJour();
 	});
 	window.addEventListener("online", () => actualiser({ silencieux: true }));
 }
@@ -2570,7 +2549,6 @@ function demarrer() {
 	brancherEvenements();
 	enregistrerServiceWorker();
 	brancherInstallation($("#menu-installer"), { connexion: true });
-	brancherMenuApps($("#menu-apps"), "cadeaux");
 	// Ancienne connexion par code famille et Id (avant les clés) : plus utilisée.
 	ecrireStockage("cadeaux.code", null);
 	ecrireStockage("cadeaux.membre", null);

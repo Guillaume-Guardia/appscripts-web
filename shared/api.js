@@ -23,7 +23,8 @@ function signalerChargement(delta) {
  * @param surVersion Appelée avec la version de l'API renvoyée par chaque réponse
  * @param surReponse Appelée avec chaque réponse réussie entière, pour ce qu'elle porte à côté des
  * données (ex : la nouvelle clé de connexion de cadeaux)
- * @return appeler(action, parametres) : les données de la réponse
+ * @return appeler(action, parametres, { discret }) : les données de la réponse ; discret : sans
+ * barre de chargement (mise à jour de fond, l'écran affiche déjà des données)
  * @throws ErreurReseau sans réseau ou réponse illisible ; Error avec le message de l'API sinon
  */
 export function creerApi({
@@ -32,8 +33,12 @@ export function creerApi({
 	surVersion,
 	surReponse,
 }) {
-	return async function appeler(action, parametres = {}) {
-		signalerChargement(1);
+	return async function appeler(
+		action,
+		parametres = {},
+		{ discret = false } = {},
+	) {
+		if (!discret) signalerChargement(1);
 		try {
 			let reponse;
 			try {
@@ -60,7 +65,7 @@ export function creerApi({
 			surReponse?.(donnees);
 			return donnees.data;
 		} finally {
-			signalerChargement(-1);
+			if (!discret) signalerChargement(-1);
 		}
 	};
 }

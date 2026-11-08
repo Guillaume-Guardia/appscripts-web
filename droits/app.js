@@ -1,5 +1,4 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
-import { brancherMenuApps } from "../shared/apps.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	compteConnecte,
@@ -15,7 +14,6 @@ import {
 import { $, el, notifier, remplacerContenu } from "../shared/dom.js";
 import {
 	brancherInstallation,
-	chercherMiseAJour,
 	enregistrerServiceWorker,
 } from "../shared/pwa.js";
 import { ouvrirQr } from "../shared/qr.js";
@@ -540,14 +538,9 @@ function brancherEvenements() {
 	});
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), { connexion: true });
-	brancherMenuApps($("#menu-apps"), "droits");
-	$("#menu-signalement").addEventListener("click", () => {
+	$("#bouton-signalement").addEventListener("click", () => {
 		fermerMenu();
 		ouvrirSignalement({ app: "Droits", prenom: compteConnecte()?.prenom });
-	});
-	$("#menu-maj").addEventListener("click", () => {
-		fermerMenu();
-		chercherMiseAJour();
 	});
 	$("#menu-deconnecter").addEventListener("click", seDeconnecter);
 	$("#bouton-deconnecter-refus").addEventListener("click", seDeconnecter);

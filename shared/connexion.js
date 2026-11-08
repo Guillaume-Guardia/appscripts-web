@@ -29,6 +29,8 @@ import { ecrireStockage, lireStockage, lireStockageJson } from "./stockage.js";
 const CLES = {
 	session: "appscripts.session",
 	compte: "appscripts.compte",
+	/** Accès du compte (apps ouvertes, liens des classeurs), gardés pour ne pas attendre l'API. */
+	acces: "appscripts.acces",
 	/** Modes de connexion activés, gardés pour afficher la connexion sans attendre l'API. */
 	modes: "appscripts.modes",
 	/** Biométrie de l'appareil : « oui » (activée), « non » (proposée et refusée). */
@@ -37,6 +39,10 @@ const CLES = {
 
 /** Modes de connexion d'un compte existant, tant que l'API ne les a pas donnés : tous. */
 const MODES_PAR_DEFAUT = { code: true, lien: true, qr: true, biometrie: true };
+
+/** Le défi de la biométrie vit 5 minutes sur le serveur : renouvelé avant, écran resté ouvert. */
+const DELAI_RENOUVELLEMENT_DEFI_MS = 4 * 60 * 1000;
+let renouvellementDefi = null;
 
 /** Clé de session de l'appareil, ou null s'il n'est pas connecté. */
 export const lireSession = () => lireStockage(CLES.session);
@@ -47,12 +53,14 @@ export const compteConnecte = () => lireStockageJson(CLES.compte);
 function garderConnexion({ session, compte }) {
 	ecrireStockage(CLES.session, session);
 	ecrireStockage(CLES.compte, JSON.stringify(compte));
+	ecrireStockage(CLES.acces, null);
 }
 
 /** Oublie la connexion de l'appareil (sans prévenir l'API). */
 export function oublierConnexion() {
 	ecrireStockage(CLES.session, null);
 	ecrireStockage(CLES.compte, null);
+	ecrireStockage(CLES.acces, null);
 }
 
 /** L'API a refusé la session (fermée, compte bloqué) : il faut reconnecter l'appareil. */
@@ -83,25 +91,25 @@ export async function deconnecter() {
 }
 
 /**
- * Ferme toutes les sessions du compte, y compris celle de l'appareil (appareil perdu), et
- * désactive sa biométrie partout. Les apps refusent les sessions au plus tard 10 minutes après.
- */
-export async function deconnecterPartout() {
-	await appelerDroits("deconnecter-partout");
-	oublierConnexion();
-	ecrireStockage(CLES.biometrie, null);
-}
-
-/**
  * Accès du compte connecté (onglet Droits du projet droits) : `apps`, les clés des apps qui lui
  * sont ouvertes (ex : « voyage ») ; `tableaux`, les liens des classeurs ({ projet, nom, url }),
- * vide s'il n'a pas le droit de les voir.
+ * vide s'il n'a pas le droit de les voir. Appel discret, gardé sur l'appareil pour accesGardes.
  * @throws Si l'API refuse (hors ligne, session fermée)
  */
 export async function accesDuCompte() {
-	const { apps, tableaux = [] } = await appelerDroits("moi");
-	return { apps, tableaux };
+	const { apps, tableaux = [] } = await appelerDroits(
+		"moi",
+		{},
+		{ discret: true },
+	);
+	const acces = { apps, tableaux };
+	// Déconnecté pendant l'appel : rien à garder.
+	if (lireSession()) ecrireStockage(CLES.acces, JSON.stringify(acces));
+	return acces;
 }
+
+/** Accès du compte à la dernière réponse de l'API (voir accesDuCompte), ou null. */
+export const accesGardes = () => lireStockageJson(CLES.acces);
 
 /** Change le prénom du compte connecté. @return Le compte à jour */
 export async function modifierPrenom(prenom) {
@@ -527,11 +535,40 @@ export function afficherConnexion(
 	const erreur = el("p", { class: "erreur", role: "alert" }, message);
 	const { garde, frais } = modesConnexion();
 	let modes = garde;
-	/** Défi de connexion par la biométrie, demandé d'avance (le navigateur veut le geste aussitôt). */
+	/**
+	 * Défi de connexion par la biométrie, demandé d'avance : l'iPhone refuse la clé si elle n'est
+	 * pas demandée aussitôt après le toucher. Le bouton reste inactif tant que le défi n'est pas là.
+	 */
 	let defi = null;
-	const demanderDefi = () => {
-		defi = appelerDroits("defi-biometrie").catch(() => null);
-	};
+	let defiEnCours = false;
+	let boutonBiometrie = null;
+
+	function actualiserBoutonBiometrie() {
+		if (!boutonBiometrie) return;
+		boutonBiometrie.disabled = defiEnCours;
+		boutonBiometrie.textContent = defi
+			? "Me connecter avec la biométrie"
+			: defiEnCours
+				? "Préparation de la biométrie…"
+				: "Réessayer la biométrie";
+	}
+
+	async function demanderDefi() {
+		clearTimeout(renouvellementDefi);
+		defi = null;
+		defiEnCours = true;
+		actualiserBoutonBiometrie();
+		try {
+			defi = await appelerDroits("defi-biometrie", {}, { discret: true });
+			renouvellementDefi = setTimeout(() => {
+				if (conteneur.isConnected && !lireSession()) demanderDefi();
+			}, DELAI_RENOUVELLEMENT_DEFI_MS);
+		} catch {
+			// Le bouton propose de réessayer.
+		}
+		defiEnCours = false;
+		actualiserBoutonBiometrie();
+	}
 	/**
 	 * Invitation d'une nouvelle personne dont le prénom est déjà pris : une fois l'appareil connecté
 	 * (à son compte, ou à un nouveau), elle ouvre ses apps à ce compte.
@@ -625,11 +662,16 @@ export function afficherConnexion(
 	}
 
 	async function connecterParBiometrie(e) {
-		const bouton = e.currentTarget;
-		bouton.disabled = true;
 		erreur.textContent = "";
+		if (!defi) {
+			demanderDefi();
+			return;
+		}
+		const valeur = defi;
+		defi = null;
+		e.currentTarget.disabled = true;
 		try {
-			const valeur = (await defi) ?? (await appelerDroits("defi-biometrie"));
+			// Rien à attendre avant cet appel : il doit suivre le toucher (voir defi).
 			const signature = await signerDefiBiometrie(valeur);
 			await terminer(
 				await appelerDroits("connecter-biometrie", {
@@ -646,24 +688,20 @@ export function afficherConnexion(
 			}
 			// Le défi a pu servir : un neuf pour le prochain essai.
 			demanderDefi();
-		} finally {
-			bouton.disabled = false;
 		}
 	}
 
 	function carteBiometrie() {
+		boutonBiometrie = el("button", {
+			type: "button",
+			class: "bouton-principal",
+			onclick: connecterParBiometrie,
+		});
+		actualiserBoutonBiometrie();
 		return el(
 			"div",
 			{ class: "carte formulaire" },
-			el(
-				"button",
-				{
-					type: "button",
-					class: "bouton-principal",
-					onclick: connecterParBiometrie,
-				},
-				"Me connecter avec la biométrie",
-			),
+			boutonBiometrie,
 			el(
 				"p",
 				{ class: "aide" },
@@ -848,7 +886,7 @@ export function afficherConnexion(
 
 	async function afficher() {
 		const biometrie = modes.biometrie && (await biometrieDisponible());
-		if (biometrie && !defi) demanderDefi();
+		if (biometrie && !defi && !defiEnCours) demanderDefi();
 		remplacerContenu(
 			conteneur,
 			biometrie && carteBiometrie(),

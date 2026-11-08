@@ -1,5 +1,4 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
-import { brancherMenuApps } from "../shared/apps.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	compteConnecte,
@@ -160,7 +159,13 @@ async function actualiser({ silencieux = false } = {}) {
 	bouton.classList.add("tourne");
 	app.joursAnciens.clear();
 	try {
-		appliquerEtat(await appelerApi("etat"));
+		appliquerEtat(
+			await appelerApi(
+				"etat",
+				{},
+				{ discret: silencieux && Boolean(app.etat) },
+			),
+		);
 	} catch (erreur) {
 		signalerErreur(erreur, silencieux && erreur instanceof ErreurReseau);
 	} finally {
@@ -1777,14 +1782,9 @@ function brancherEvenements() {
 	});
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), { connexion: true });
-	brancherMenuApps($("#menu-apps"), "cuisine");
-	$("#menu-signalement").addEventListener("click", () => {
+	$("#bouton-signalement").addEventListener("click", () => {
 		fermerMenu();
 		ouvrirSignalement({ app: "Cuisine", prenom: profilActif()?.nom });
-	});
-	$("#menu-maj").addEventListener("click", () => {
-		fermerMenu();
-		chercherMiseAJour();
 	});
 	$("#menu-deconnecter").addEventListener("click", seDeconnecter);
 	// Retour sur l'app : un autre téléphone a peut-être ajouté des repas entre-temps.
@@ -1792,7 +1792,7 @@ function brancherEvenements() {
 		if (document.visibilityState !== "visible") return;
 		suivreLeJour();
 		actualiser({ silencieux: true });
-		chercherMiseAJour({ silencieux: true });
+		chercherMiseAJour();
 	});
 	window.addEventListener("online", () => actualiser({ silencieux: true }));
 }

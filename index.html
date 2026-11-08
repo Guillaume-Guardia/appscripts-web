@@ -155,7 +155,7 @@
 		<script src="shared/config.js"></script>
 		<script src="version.js"></script>
 		<script type="module">
-			import { accesDuCompte, lireSession } from "./shared/connexion.js";
+			import { accesDuCompte, accesGardes, lireSession } from "./shared/connexion.js";
 			import { el } from "./shared/dom.js";
 			import { brancherInstallation, enregistrerServiceWorker } from "./shared/pwa.js";
 			import { ouvrirSignalement } from "./shared/signalement.js";
@@ -167,25 +167,31 @@
 
 			// Compte connecté : les apps qu'il n'a pas encore (onglet Droits) sont grisées, et s'il a le
 			// droit de les voir, chaque carte a les liens de ses classeurs. Sans compte, ou hors ligne,
-			// rien ne change : chaque app propose la connexion.
+			// rien ne change : chaque app propose la connexion. Les accès gardés sur l'appareil
+			// s'affichent aussitôt, puis la réponse de l'API les remplace.
+			function afficherAcces({ apps, tableaux }) {
+				for (const carte of document.querySelectorAll("[data-app]")) {
+					carte.classList.toggle("sans-acces", !apps.includes(carte.dataset.app));
+				}
+				for (const carte of document.querySelectorAll("[data-projet]")) {
+					carte.querySelector(".tableaux")?.remove();
+					const liens = tableaux.filter((t) => t.projet === carte.dataset.projet);
+					if (!liens.length) continue;
+					carte.querySelector("div").append(
+						el(
+							"div",
+							{ class: "tableaux" },
+							liens.map(({ nom, url }) => el("a", { href: url, target: "_blank", rel: "noopener" }, nom)),
+						),
+					);
+				}
+			}
+
 			if (lireSession()) {
+				const gardes = accesGardes();
+				if (gardes) afficherAcces(gardes);
 				accesDuCompte()
-					.then(({ apps, tableaux }) => {
-						for (const carte of document.querySelectorAll("[data-app]")) {
-							carte.classList.toggle("sans-acces", !apps.includes(carte.dataset.app));
-						}
-						for (const carte of document.querySelectorAll("[data-projet]")) {
-							const liens = tableaux.filter((t) => t.projet === carte.dataset.projet);
-							if (!liens.length) continue;
-							carte.querySelector("div").append(
-								el(
-									"div",
-									{ class: "tableaux" },
-									liens.map(({ nom, url }) => el("a", { href: url, target: "_blank", rel: "noopener" }, nom)),
-								),
-							);
-						}
-					})
+					.then(afficherAcces)
 					.catch(() => {});
 			}
 

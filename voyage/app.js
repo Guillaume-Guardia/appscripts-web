@@ -1,11 +1,9 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
-import { brancherMenuApps } from "../shared/apps.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
-	deconnecterPartout,
 	estSessionRefusee,
 	invitationDuLien,
 	lireSession,
@@ -110,7 +108,13 @@ async function actualiser({ silencieux = false } = {}) {
 	const bouton = $("#bouton-actualiser");
 	bouton.classList.add("tourne");
 	try {
-		appliquerEtat(await appelerApi("etat"));
+		appliquerEtat(
+			await appelerApi(
+				"etat",
+				{},
+				{ discret: silencieux && Boolean(app.etat) },
+			),
+		);
 	} catch (erreur) {
 		if (erreur instanceof ErreurReseau) {
 			passerHorsLigne();
@@ -1080,23 +1084,6 @@ async function seDeconnecter() {
 	deconnecter();
 }
 
-async function deconnecterTousLesAppareils() {
-	fermerMenu();
-	if (
-		!confirm(
-			"Déconnecter tous tes appareils, celui-ci compris (téléphone perdu) ? Il faudra se reconnecter avec un code par e-mail.",
-		)
-	) {
-		return;
-	}
-	try {
-		await deconnecterPartout();
-		deconnecter("Tous tes appareils sont déconnectés.");
-	} catch (erreur) {
-		notifier(erreur.message, true);
-	}
-}
-
 async function changerPrenom() {
 	fermerMenu();
 	const prenom = prompt("Ton prénom :", app.etat?.moi?.prenom ?? "");
@@ -1208,27 +1195,18 @@ function brancherEvenements() {
 			notifier(erreur.message, true);
 		}
 	});
-	$("#menu-deconnecter-partout").addEventListener(
-		"click",
-		deconnecterTousLesAppareils,
-	);
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), { connexion: true });
-	brancherMenuApps($("#menu-apps"), "voyage");
-	$("#menu-signalement").addEventListener("click", () => {
+	$("#bouton-signalement").addEventListener("click", () => {
 		fermerMenu();
 		ouvrirSignalement({ app: "Voyage", prenom: compteConnecte()?.prenom });
-	});
-	$("#menu-maj").addEventListener("click", () => {
-		fermerMenu();
-		chercherMiseAJour();
 	});
 	$("#menu-deconnecter").addEventListener("click", seDeconnecter);
 	// Retour sur l'app : l'autre téléphone a peut-être coché des objets entre-temps.
 	document.addEventListener("visibilitychange", () => {
 		if (document.visibilityState !== "visible") return;
 		actualiser({ silencieux: true });
-		chercherMiseAJour({ silencieux: true });
+		chercherMiseAJour();
 	});
 	window.addEventListener("online", () => actualiser({ silencieux: true }));
 }
