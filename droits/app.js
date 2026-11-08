@@ -8,6 +8,7 @@ import {
 	estSessionRefusee,
 	invitationDuLien,
 	inviterPersonne,
+	lienInvitation,
 	lireSession,
 	ouvrirMesConnexions,
 } from "../shared/connexion.js";
@@ -17,6 +18,7 @@ import {
 	chercherMiseAJour,
 	enregistrerServiceWorker,
 } from "../shared/pwa.js";
+import { ouvrirQr } from "../shared/qr.js";
 import { ouvrirSignalement } from "../shared/signalement.js";
 
 // ---------------------------------------------------------------------------
@@ -204,6 +206,48 @@ function envoyerLien(compte) {
 	);
 }
 
+/**
+ * Nouveau lien de connexion d'un compte : QR code, ou lien à copier. Il ouvre la première app du
+ * compte ; collé ou scanné dans une app installée, il connecte cette app.
+ */
+async function afficherLienConnexion(compte) {
+	if (
+		!confirm(
+			`Créer un lien de connexion pour ${compte.prenom} ? Il remplace le précédent et donne accès à son compte.`,
+		)
+	) {
+		return;
+	}
+	try {
+		const code = await appelerApi("lien-connexion", { compteId: compte.id });
+		// Le site vu d'ici (front de review compris).
+		const page = new URL(`../${compte.apps[0] ?? "droits"}/`, location.href)
+			.href;
+		const lien = lienInvitation(code, page);
+		ouvrirQr({
+			titre: `Connecter ${compte.prenom}`,
+			aide: `À scanner ou à coller dans l'app (sur iPhone, dans l'app installée : toucher le lien ouvre Safari). Il reste valable jusqu'à ce qu'un nouveau le remplace ou que ses appareils soient déconnectés. Il donne accès à son compte : à ${compte.prenom} seulement.`,
+			lien,
+			texteEnvoi: `${compte.prenom}, voici ton lien de connexion (il est personnel, ne le transfère pas) :`,
+			actions: [
+				{
+					libelle: "Copier le lien",
+					faire: async () => {
+						try {
+							await navigator.clipboard.writeText(lien);
+							notifier("Lien copié.");
+						} catch {
+							notifier("Impossible de copier le lien.", true);
+						}
+					},
+				},
+			],
+		});
+	} catch (erreur) {
+		traiterErreur(erreur);
+	}
+}
+
 /** Modes de connexion d'un compte existant, activés ou non pour tous. */
 function rendreModes() {
 	const { modes } = app.administration;
@@ -332,6 +376,13 @@ function carteCompte(compte, apps) {
 				{ type: "button", onclick: () => changerEmail(compte) },
 				compte.email ? "Changer l'e-mail" : "Ajouter un e-mail",
 			),
+			!moi &&
+				!compte.bloque &&
+				el(
+					"button",
+					{ type: "button", onclick: () => afficherLienConnexion(compte) },
+					"Lien de connexion (QR code)",
+				),
 			!moi &&
 				compte.email &&
 				lienActif &&

@@ -7,8 +7,10 @@ import {
 	creerCompteInvite,
 	deconnecter as deconnecterAppareil,
 	deconnecterPartout,
+	decrireAppareil,
 	estAccesRefuse,
 	estSessionRefusee,
+	garderConnexionInvitee,
 	invitationDuLien,
 	lireSession,
 	oublierConnexion,
@@ -650,7 +652,7 @@ function rendreMaListe() {
 	if (miens.length === 0 && masques === 0) {
 		return [
 			vide(
-				"Ta liste est vide. Ajoute tes envies : tes familles les verront, sans que tu saches qui offre quoi.",
+				"Ta liste est vide pour l'instant. Ajoute tes idées de cadeaux, tes proches pourront s'en inspirer !",
 				ajouter,
 			),
 		];
@@ -833,7 +835,7 @@ function rendreFamille() {
 					el(
 						"p",
 						{ class: "discret" },
-						`${p.prenom} n'utilise pas l'app : la famille tient sa liste.`,
+						`${p.prenom} n'a pas encore de compte : la famille tient sa liste.`,
 					),
 					el(
 						"button",
@@ -1200,11 +1202,7 @@ function rendreReservations() {
 					.map((c) => carteCadeau(c, { pour: "reservation" })),
 			),
 		),
-		el(
-			"p",
-			{ class: "discret" },
-			"Le 26 décembre, ces cadeaux passent dans ton historique.",
-		),
+		el("p", { class: "discret" }, "Le 26 décembre, ces cadeaux sont archivés."),
 	];
 }
 
@@ -1221,7 +1219,7 @@ function rendreHistorique() {
 	if (app.etat.historique.length === 0) {
 		return [
 			vide(
-				"Ton historique est vide. Les cadeaux que tu offres y arrivent chaque 26 décembre ; tu peux aussi en ajouter.",
+				"Aucun cadeau archivé pour l'instant. Chaque 26 décembre, les cadeaux que tu offres sont archivés ici ; tu peux aussi en ajouter.",
 				ajouter,
 			),
 		];
@@ -1233,7 +1231,7 @@ function rendreHistorique() {
 	if (toutes.length === 0) {
 		return [
 			vide(
-				`Rien dans ton historique pour ${nomsFamilles(famillesActives())}.`,
+				`Aucun cadeau archivé pour ${nomsFamilles(famillesActives())}.`,
 				ajouter,
 			),
 		];
@@ -2098,6 +2096,8 @@ function afficherConnexionCompte(message = "", invitation = null) {
 		nomApp: "Cadeaux",
 		message,
 		invitation,
+		ouvrirLienApp: ouvrirCleDuLien,
+		scanner: ouvrirScanner,
 		surConnecte: () => chargerApresConnexion(),
 	});
 }
@@ -2185,41 +2185,62 @@ async function chargerApresConnexion() {
 }
 
 /**
- * Lien d'invitation (QR code d'un proche, ou du classeur) : la clé est gardée, puis envoyée
- * dès que l'appareil est connecté à un compte. Sans compte sur l'appareil, il est créé avec le
- * prénom de la personne invitée (shared/connexion.js propose ensuite la biométrie et
- * l'installation) ; si ce prénom est déjà pris, la personne se connecte au sien.
+ * Lien d'invitation (QR code d'un proche, ou du classeur), valable tant qu'il n'est pas remplacé :
+ * la clé est gardée, puis envoyée jusqu'à ce que le compte soit lié à sa personne. Si cette
+ * personne a déjà un compte, l'appareil y est connecté (app installée, nouveau téléphone). Sinon,
+ * sans compte sur l'appareil, il est créé avec son prénom (shared/connexion.js propose ensuite la
+ * biométrie et l'installation) ; si ce prénom est déjà pris, la personne se connecte au sien.
  */
 async function accepterInvitation(cle) {
 	garderCle(cle);
-	if (estConnecte()) {
-		chargerApresConnexion();
-		proposerInstallation({ connexion: true });
-		return;
-	}
-	afficherAccueil("Création de ton compte…");
+	afficherAccueil("Connexion…");
 	try {
-		const { prenom } = await appelerApi("invitation");
-		await creerCompteInvite(prenom, "Cadeaux");
+		const { prenom, connexion } = await appelerApi("invitation", {
+			appareil: decrireAppareil("Cadeaux"),
+		});
+		if (connexion) garderConnexionInvitee(connexion, "Cadeaux");
+		else if (prenom && !estConnecte()) {
+			await creerCompteInvite(prenom, "Cadeaux");
+		} else proposerInstallation({ connexion: true });
 	} catch (erreur) {
 		if (estInvitationRefusee(erreur)) garderCle(null);
-		afficherConnexionCompte(erreur.message);
-		return;
+		if (!estConnecte()) {
+			afficherConnexionCompte(erreur.message);
+			return;
+		}
+		notifier(erreur.message, true);
 	}
 	chargerApresConnexion();
+}
+
+/** Ouvre un lien d'invitation de Cadeaux (…#cle=…). @return Vrai si c'en est un */
+function ouvrirCleDuLien(texte) {
+	const cle = cleDuLien(texte);
+	if (cle) accepterInvitation(cle);
+	return Boolean(cle);
+}
+
+/**
+ * Ouvre un lien reçu ou scanné : invitation de Cadeaux (…#cle=…), ou connexion d'un appareil à un
+ * compte (…#invitation=…).
+ * @return Vrai si c'est l'un des deux
+ */
+function ouvrirLienRecu(texte) {
+	if (ouvrirCleDuLien(texte)) return true;
+	const invitation = invitationDuLien(texte);
+	if (invitation) afficherConnexionCompte("", invitation);
+	return Boolean(invitation);
 }
 
 /** Lien reçu à distance, collé à la connexion (ex : app installée sur iPhone, hors de Safari). */
 function validerLien(evenement) {
 	evenement.preventDefault();
-	const cle = cleDuLien($("#champ-lien").value);
-	if (!cle) {
+	if (!ouvrirLienRecu($("#champ-lien").value)) {
 		$("#erreur-connexion").textContent =
-			"Ce n'est pas un lien d'invitation de l'app Cadeaux.";
+			"Ce n'est pas un lien de connexion à l'app Cadeaux.";
 		return;
 	}
 	$("#champ-lien").value = "";
-	accepterInvitation(cle);
 }
 
 /** Clé contenue dans un lien d'invitation (…/#cle=…), ou null. */
@@ -2286,7 +2307,7 @@ async function inviter(personneInvitee) {
 	const { prenom } = personneInvitee;
 	afficherQr(
 		`Inviter ${prenom}`,
-		`Fais scanner ce QR code à ${prenom}, ou envoie-lui le lien s'il est loin : l'app s'ouvre sur son téléphone, et ${prenom} y entre avec son compte. Il sert une fois ; envoie-le à ${prenom} seulement. Un nouveau QR code (ou lien) remplace le précédent.`,
+		`Fais scanner ce QR code à ${prenom}, ou envoie-lui le lien s'il est loin : l'app s'ouvre sur son téléphone, et ${prenom} y entre avec son compte. Il reste valable pour se reconnecter (app installée, nouveau téléphone) : envoie-le à ${prenom} seulement. Un nouveau QR code (ou lien) remplace le précédent.`,
 		cle,
 		`${prenom}, voici ton invitation aux listes de cadeaux de Noël de la famille : ouvre ce lien sur ton téléphone (il est personnel, ne le transfère pas).`,
 	);
@@ -2368,10 +2389,9 @@ async function ouvrirScanner() {
 						)?.data ?? null;
 				}
 			}
-			const cle = texte ? cleDuLien(texte) : null;
-			if (cle) {
+			if (texte && (cleDuLien(texte) || invitationDuLien(texte))) {
 				arreterScanner();
-				accepterInvitation(cle);
+				ouvrirLienRecu(texte);
 			} else {
 				if (texte)
 					$("#scanner-message").textContent =
