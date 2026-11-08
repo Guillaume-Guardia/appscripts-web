@@ -92,6 +92,8 @@ function appliquerMiseAJour(worker) {
  */
 export function enregistrerServiceWorker() {
 	annoncerMiseAJour();
+	// Sur iPhone, :active (infobulles à l'appui maintenu) demande un écouteur tactile.
+	document.addEventListener("touchstart", () => {}, { passive: true });
 	if (!("serviceWorker" in navigator)) return;
 	// updateViaCache "none" : sw.js et version.js sont relus sans le cache HTTP de Pages.
 	navigator.serviceWorker
@@ -123,25 +125,12 @@ export function enregistrerServiceWorker() {
 	});
 }
 
-/**
- * Cherche une nouvelle version sans attendre le cache (menu, retour sur l'app).
- * @param silencieux Sans notification (retour sur l'app)
- */
-export async function chercherMiseAJour({ silencieux = false } = {}) {
-	if (!enregistrement) return;
+/** Cherche une nouvelle version sans attendre le cache (retour sur l'app). */
+export async function chercherMiseAJour() {
 	try {
-		await enregistrement.update();
+		await enregistrement?.update();
 	} catch {
-		if (!silencieux) {
-			notifier("Impossible de vérifier : pas de connexion ?", true);
-		}
-		return;
-	}
-	if (silencieux) return;
-	if (enregistrement.waiting || enregistrement.installing) {
-		notifier("Nouvelle version en cours de chargement…");
-	} else {
-		notifier(`Tu as la dernière version (${window.VERSION_APP}).`);
+		// Hors ligne : la recherche se refera au prochain retour sur l'app.
 	}
 }
 

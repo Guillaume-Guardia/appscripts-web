@@ -192,6 +192,7 @@ h3 {
 }
 
 .bouton-icone {
+	position: relative;
 	display: grid;
 	place-items: center;
 	width: 44px;
@@ -212,6 +213,35 @@ h3 {
 	stroke-width: 2;
 	stroke-linecap: round;
 	stroke-linejoin: round;
+}
+
+/* Infobulle d'une icône de l'en-tête : au survol, au clavier, ou appui maintenu sur téléphone */
+.infobulle {
+	display: none;
+	position: absolute;
+	top: 100%;
+	right: 0;
+	z-index: 30;
+	margin-top: 4px;
+	padding: 4px 8px;
+	border-radius: 6px;
+	background: #222;
+	color: #fff;
+	font-size: 12px;
+	font-weight: 400;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+:active > .infobulle,
+:focus-visible > .infobulle {
+	display: block;
+}
+
+@media (hover: hover) {
+	:hover > .infobulle {
+		display: block;
+	}
 }
 
 #bouton-actualiser.tourne svg {
@@ -252,43 +282,6 @@ h3 {
 
 .menu button:hover {
 	background: var(--surface-2);
-}
-
-/* Groupe « Apps » (shared/apps.js) : des liens, présentés comme les boutons du menu */
-.menu-apps {
-	display: contents;
-}
-
-.menu a {
-	display: flex;
-	align-items: center;
-	min-height: 40px;
-	padding: 8px 16px;
-	border-radius: 10px;
-	color: inherit;
-	text-decoration: none;
-}
-
-.menu a:hover {
-	background: var(--surface-2);
-}
-
-/* Titre d'un groupe d'actions (« Connexion », « Application »), séparé du groupe précédent */
-.menu-titre {
-	margin: 4px 0 0;
-	padding: 10px 12px 2px;
-	border-top: 1px solid var(--bord);
-	color: var(--texte-doux);
-	font-size: 12px;
-	font-weight: 600;
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
-}
-
-.menu-titre:first-child {
-	margin-top: 0;
-	padding-top: 6px;
-	border-top: 0;
 }
 
 .menu .version {

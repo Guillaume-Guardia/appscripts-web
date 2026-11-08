@@ -1,5 +1,4 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
-import { brancherMenuApps } from "../shared/apps.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	compteConnecte,
@@ -455,14 +454,9 @@ function brancherEvenements() {
 	});
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), { connexion: true });
-	brancherMenuApps($("#menu-apps"), "calendrier");
-	$("#menu-signalement").addEventListener("click", () => {
+	$("#bouton-signalement").addEventListener("click", () => {
 		fermerMenu();
 		ouvrirSignalement({ app: "Calendrier", prenom: compteConnecte()?.prenom });
-	});
-	$("#menu-maj").addEventListener("click", () => {
-		fermerMenu();
-		chercherMiseAJour();
 	});
 	$("#menu-deconnecter").addEventListener("click", seDeconnecter);
 	$("#bouton-deconnecter-refus").addEventListener("click", seDeconnecter);
@@ -472,7 +466,7 @@ function brancherEvenements() {
 	document.addEventListener("visibilitychange", () => {
 		if (document.visibilityState !== "visible") return;
 		actualiser({ silencieux: true });
-		chercherMiseAJour({ silencieux: true });
+		chercherMiseAJour();
 	});
 	window.addEventListener("online", () => actualiser({ silencieux: true }));
 	setInterval(() => {

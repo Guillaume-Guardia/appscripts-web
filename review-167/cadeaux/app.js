@@ -1,5 +1,4 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
-import { brancherMenuApps } from "../shared/apps.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	compteConnecte,
@@ -1348,7 +1347,6 @@ const RENDUS = {
 function rendreEntete() {
 	const { moi: membre, familles } = app.etat;
 	$("#titre-onglet").textContent = TITRES[app.onglet];
-	$("#bouton-menu").textContent = membre.prenom.charAt(0).toUpperCase();
 	$("#menu-nom").textContent = `Connecté en tant que ${membre.prenom}`;
 
 	// Plusieurs familles : des pastilles dans l'en-tête, chacune s'active ou se désactive (plusieurs
@@ -2549,15 +2547,11 @@ function brancherEvenements() {
 	document.addEventListener("visibilitychange", () => {
 		if (document.visibilityState !== "visible") return;
 		actualiser({ silencieux: true });
-		chercherMiseAJour({ silencieux: true });
+		chercherMiseAJour();
 	});
-	$("#menu-signalement").addEventListener("click", () => {
+	$("#bouton-signalement").addEventListener("click", () => {
 		fermerMenu();
 		ouvrirSignalement({ app: "Cadeaux", prenom: app.etat?.moi.prenom });
-	});
-	$("#menu-maj").addEventListener("click", () => {
-		fermerMenu();
-		chercherMiseAJour();
 	});
 	window.addEventListener("online", () => actualiser({ silencieux: true }));
 }
@@ -2576,7 +2570,6 @@ function demarrer() {
 	brancherEvenements();
 	enregistrerServiceWorker();
 	brancherInstallation($("#menu-installer"), { connexion: true });
-	brancherMenuApps($("#menu-apps"), "cadeaux");
 	// Ancienne connexion par code famille et Id (avant les clés) : plus utilisée.
 	ecrireStockage("cadeaux.code", null);
 	ecrireStockage("cadeaux.membre", null);
