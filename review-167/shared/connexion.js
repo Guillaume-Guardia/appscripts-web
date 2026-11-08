@@ -131,7 +131,7 @@ export function invitationDuLien(texte) {
 }
 
 /** Lien de connexion de l'app pour une invitation (le code après « # » n'est pas envoyé au site). */
-const lienInvitation = (
+export const lienInvitation = (
 	code,
 	page = `${location.origin}${location.pathname}`,
 ) => `${page}#invitation=${code}`;
@@ -252,7 +252,7 @@ export async function connecterUnAutreAppareil(nomApp) {
 }
 
 /** Description de l'appareil, pour s'y retrouver dans les onglets Sessions et Biométrie. */
-function appareil(nomApp) {
+export function decrireAppareil(nomApp) {
 	const plateforme =
 		navigator.userAgentData?.platform || navigator.platform || "appareil";
 	return `${nomApp} · ${plateforme}`;
@@ -282,7 +282,7 @@ async function activerBiometrie(preparation, nomApp) {
 	const cle = await creerCleBiometrie(preparation);
 	await appelerDroits("activer-biometrie", {
 		...cle,
-		appareil: appareil(nomApp),
+		appareil: decrireAppareil(nomApp),
 	});
 	ecrireStockage(CLES.biometrie, "oui");
 }
@@ -375,11 +375,21 @@ async function accueillir(nomApp, modes) {
 export async function creerCompteInvite(prenom, nomApp) {
 	const connexion = await appelerDroits("creer-compte", {
 		prenom,
-		appareil: appareil(nomApp),
+		appareil: decrireAppareil(nomApp),
 	});
+	garderConnexionInvitee(connexion, nomApp);
+	return connexion.compte;
+}
+
+/**
+ * Connexion obtenue par le lien d'invitation d'une app (compte créé, ou retrouvé sur un appareil
+ * sans session) : gardée sur l'appareil, puis l'app propose la biométrie et l'installation.
+ * @param connexion Session et compte ({ session, compte })
+ * @param nomApp Nom de l'app, pour décrire l'appareil
+ */
+export function garderConnexionInvitee(connexion, nomApp) {
 	garderConnexion(connexion);
 	accueillir(nomApp, lireStockageJson(CLES.modes) ?? MODES_PAR_DEFAUT);
-	return connexion.compte;
 }
 
 /**
@@ -513,10 +523,20 @@ export async function ouvrirMesConnexions(nomApp) {
  * @param message Message à afficher (ex : session expirée)
  * @param invitation Code d'un lien de connexion ouvert sur l'appareil (invitationDuLien) : utilisé
  * aussitôt (celui d'une nouvelle personne crée son compte), puis l'app propose de s'installer
+ * @param ouvrirLienApp Reçoit un lien collé dans un format propre à l'app (ex : « #cle= » de
+ * Cadeaux) et rend vrai s'il l'a pris en charge
+ * @param scanner Ouvre le lecteur de QR code de l'app (bouton absent sans lui)
  */
 export function afficherConnexion(
 	conteneur,
-	{ nomApp, surConnecte, message = "", invitation = null },
+	{
+		nomApp,
+		surConnecte,
+		message = "",
+		invitation = null,
+		ouvrirLienApp = null,
+		scanner = null,
+	},
 ) {
 	const erreur = el("p", { class: "erreur", role: "alert" }, message);
 	const { garde, frais } = modesConnexion();
@@ -563,7 +583,7 @@ export function afficherConnexion(
 			await terminer(
 				await appelerDroits(action, {
 					...parametres,
-					appareil: appareil(nomApp),
+					appareil: decrireAppareil(nomApp),
 				}),
 			);
 		} catch (e) {
@@ -597,12 +617,14 @@ export function afficherConnexion(
 					onclick: async (e) => {
 						const bouton = e.currentTarget;
 						erreur.textContent = "";
-						let code = null;
+						let texte = "";
 						try {
-							code = invitationDuLien(await navigator.clipboard.readText());
+							texte = await navigator.clipboard.readText();
 						} catch {
 							// Collage refusé : le message ci-dessous.
 						}
+						if (ouvrirLienApp?.(texte)) return;
+						const code = invitationDuLien(texte);
 						if (!code) {
 							erreur.textContent =
 								"Pas de lien de connexion copié : connecte-toi autrement ci-dessous.";
@@ -626,7 +648,7 @@ export function afficherConnexion(
 			await terminer(
 				await appelerDroits("connecter-biometrie", {
 					...signature,
-					appareil: appareil(nomApp),
+					appareil: decrireAppareil(nomApp),
 				}),
 				true,
 			);
@@ -770,7 +792,7 @@ export function afficherConnexion(
 			inputmode: "url",
 			required: true,
 			autocomplete: "off",
-			placeholder: "https://…#invitation=…",
+			placeholder: "https://…",
 		});
 		return el(
 			"form",
@@ -778,10 +800,10 @@ export function afficherConnexion(
 				class: "carte formulaire",
 				onsubmit: (e) => {
 					e.preventDefault();
+					if (ouvrirLienApp?.(lien.value)) return;
 					const code = invitationDuLien(lien.value);
 					if (!code) {
-						erreur.textContent =
-							"Ce n'est pas un lien de connexion : il contient « #invitation= ».";
+						erreur.textContent = "Ce n'est pas un lien de connexion.";
 						return;
 					}
 					connecter(
@@ -801,6 +823,13 @@ export function afficherConnexion(
 			el("label", { for: "connexion-lien" }, "Lien de connexion"),
 			lien,
 			el("button", { type: "submit" }, "Connecter cet appareil"),
+			scanner
+				? el(
+						"button",
+						{ type: "button", onclick: scanner },
+						"Scanner un QR code",
+					)
+				: null,
 		);
 	}
 

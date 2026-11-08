@@ -4,8 +4,8 @@
 // version.js, généré à la publication (scripts/publier-web.mjs), donne VERSION_APP (version des
 // fronts, web/package.json), EMPREINTE_APP (empreinte des fichiers de l'app et de shared/) et
 // FICHIERS_APP (fichiers à mettre en cache dès l'installation). Toute modification change donc
-// version.js : le navigateur, qui compare aussi les scripts importés par sw.js, propose la mise à
-// jour aux téléphones.
+// version.js : le navigateur, qui compare aussi les scripts importés par sw.js, installe la nouvelle
+// version, active dès qu'elle est en cache (voir shared/pwa.js pour le rechargement de la page).
 
 /**
  * Installe les gestionnaires du service worker.
@@ -33,7 +33,8 @@ function installerServiceWorker(nomApp, { seulementSesFichiers = false } = {}) {
 					cache.addAll(
 						fichiers.map((f) => new Request(f, { cache: "reload" })),
 					),
-				),
+				)
+				.then(() => self.skipWaiting()),
 		);
 	});
 
@@ -50,11 +51,6 @@ function installerServiceWorker(nomApp, { seulementSesFichiers = false } = {}) {
 				)
 				.then(() => self.clients.claim()),
 		);
-	});
-
-	// L'app demande l'activation quand l'utilisateur accepte la mise à jour.
-	self.addEventListener("message", (evenement) => {
-		if (evenement.data === "activer") self.skipWaiting();
 	});
 
 	// Fichiers du site : depuis le cache, rafraîchi en arrière-plan. L'API (autre origine, POST)
