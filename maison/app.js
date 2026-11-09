@@ -70,6 +70,8 @@ const app = {
 		: "entretiens",
 	/** Ligne en cours de modification dans un formulaire (null : nouvel objet). */
 	edition: null,
+	/** Photo prise ou choisie dans le formulaire d'objet, pas encore envoyée. */
+	photoSaisie: null,
 	horsLigne: false,
 	occupe: false,
 	versionApi: lireStockage(CLES.versionApi),
@@ -586,7 +588,7 @@ function ouvrirObjet(objet = null) {
 	$("#champ-date-achat").value = objet?.dateAchat ?? "";
 	$("#champ-prix-achat").value = objet?.prixAchat ?? "";
 	$("#champ-facture").value = "";
-	$("#champ-photo").value = "";
+	app.photoSaisie = null;
 	afficherLienFichier("#lien-facture", "Facture actuelle : ", objet?.facture);
 	afficherLienFichier("#lien-photo", "Photo actuelle : ", objet?.photo);
 	const miniature = objet?.photo?.url && app.miniatures[objet.photo.url];
@@ -620,7 +622,7 @@ async function factureChoisie() {
 
 /** Photo choisie, réduite pour un envoi rapide, avec sa vignette ; undefined s'il n'y en a pas. */
 async function photoChoisie() {
-	const fichier = $("#champ-photo").files[0];
+	const fichier = app.photoSaisie;
 	if (!fichier) return undefined;
 	const [base64, miniature] = await Promise.all([
 		reduireImage(fichier, TAILLE_PHOTO_PX, 0.85),
@@ -1064,10 +1066,22 @@ function brancherEvenements() {
 			afficherChampTaille(tailleSaisie()),
 		);
 	}
-	$("#champ-photo").addEventListener("change", (e) => {
-		const fichier = e.target.files[0];
-		if (fichier) afficherApercuPhoto(URL.createObjectURL(fichier));
-	});
+	$("#bouton-camera").addEventListener("click", () =>
+		$("#champ-camera").click(),
+	);
+	$("#bouton-galerie").addEventListener("click", () =>
+		$("#champ-photo").click(),
+	);
+	for (const champ of ["#champ-camera", "#champ-photo"]) {
+		$(champ).addEventListener("change", (e) => {
+			const fichier = e.target.files[0];
+			if (!fichier) return;
+			app.photoSaisie = fichier;
+			afficherApercuPhoto(URL.createObjectURL(fichier));
+			// Vidé aussitôt : la même image peut être choisie de nouveau.
+			e.target.value = "";
+		});
+	}
 	$("#recherche-objets").addEventListener("input", rendreListeObjets);
 	$("#filtre-categorie").addEventListener("change", rendreListeObjets);
 	for (const bouton of document.querySelectorAll("[data-fermer]")) {
