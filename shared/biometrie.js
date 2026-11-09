@@ -98,11 +98,13 @@ export async function creerCleBiometrie({ defi, compte, existantes }) {
 }
 
 /**
- * Signe un défi de connexion avec la clé de l'appareil (le navigateur propose les clés du site).
+ * Signe un défi de connexion avec la clé de l'appareil.
+ * @param identifiant Clé à utiliser, si l'appareil la connaît ; sans elle, le navigateur propose
+ * toutes les clés du site, y compris d'anciennes clés que le serveur ne connaît plus
  * @return Ce qu'attend connecter-biometrie : defi, identifiant, donneesClient,
  * donneesAuthentificateur, signature
  */
-export async function signerDefiBiometrie(defi) {
+export async function signerDefiBiometrie(defi, identifiant = null) {
 	let credential;
 	try {
 		credential = await navigator.credentials.get({
@@ -110,6 +112,11 @@ export async function signerDefiBiometrie(defi) {
 				challenge: encoder(defi),
 				userVerification: "required",
 				timeout: 120000,
+				...(identifiant && {
+					allowCredentials: [
+						{ type: "public-key", id: depuisBase64Url(identifiant) },
+					],
+				}),
 			},
 		});
 	} catch (erreur) {

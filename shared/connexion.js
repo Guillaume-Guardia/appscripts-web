@@ -35,6 +35,8 @@ const CLES = {
 	modes: "appscripts.modes",
 	/** Biométrie de l'appareil : « oui » (activée), « non » (proposée et refusée). */
 	biometrie: "appscripts.biometrie",
+	/** Identifiant de la clé biométrique qui a marché ici : la seule proposée à la connexion. */
+	cleBiometrie: "appscripts.cleBiometrie",
 };
 
 /** Modes de connexion d'un compte existant, tant que l'API ne les a pas donnés : tous. */
@@ -43,6 +45,8 @@ const MODES_PAR_DEFAUT = { qr: true, biometrie: true };
 /** Le défi de la biométrie vit 5 minutes sur le serveur : renouvelé avant, écran resté ouvert. */
 const DELAI_RENOUVELLEMENT_DEFI_MS = 4 * 60 * 1000;
 let renouvellementDefi = null;
+/** Renouvelle le défi au retour sur l'app, pour le dernier écran de connexion affiché. */
+let surRetourApp = null;
 
 /** Clé de session de l'appareil, ou null s'il n'est pas connecté. */
 export const lireSession = () => lireStockage(CLES.session);
@@ -279,6 +283,7 @@ async function activerBiometrie(preparation, nomApp) {
 		appareil: decrireAppareil(nomApp),
 	});
 	ecrireStockage(CLES.biometrie, "oui");
+	ecrireStockage(CLES.cleBiometrie, cle.identifiant);
 }
 
 /**
@@ -477,6 +482,7 @@ export function afficherConnexion(
 	 * pas demandée aussitôt après le toucher. Le bouton reste inactif tant que le défi n'est pas là.
 	 */
 	let defi = null;
+	let defiObtenuLe = 0;
 	let defiEnCours = false;
 	let boutonBiometrie = null;
 
@@ -497,6 +503,7 @@ export function afficherConnexion(
 		actualiserBoutonBiometrie();
 		try {
 			defi = await appelerDroits("defi-biometrie", {}, { discret: true });
+			defiObtenuLe = Date.now();
 			renouvellementDefi = setTimeout(() => {
 				if (conteneur.isConnected && !lireSession()) demanderDefi();
 			}, DELAI_RENOUVELLEMENT_DEFI_MS);
@@ -506,6 +513,17 @@ export function afficherConnexion(
 		defiEnCours = false;
 		actualiserBoutonBiometrie();
 	}
+
+	// App mise en arrière-plan : le téléphone suspend le minuteur, et le défi expire sans être
+	// renouvelé. Au retour, il est redemandé avant que le bouton ne redevienne actif.
+	document.removeEventListener("visibilitychange", surRetourApp);
+	surRetourApp = () => {
+		if (document.hidden || !defi || lireSession()) return;
+		if (Date.now() - defiObtenuLe >= DELAI_RENOUVELLEMENT_DEFI_MS) {
+			demanderDefi();
+		}
+	};
+	document.addEventListener("visibilitychange", surRetourApp);
 	/**
 	 * Invitation d'une nouvelle personne dont le prénom est déjà pris : une fois l'appareil connecté
 	 * (à son compte, ou à un nouveau), elle ouvre ses apps à ce compte.
@@ -609,19 +627,25 @@ export function afficherConnexion(
 		e.currentTarget.disabled = true;
 		try {
 			// Rien à attendre avant cet appel : il doit suivre le toucher (voir defi).
-			const signature = await signerDefiBiometrie(valeur);
-			await terminer(
-				await appelerDroits("connecter-biometrie", {
-					...signature,
-					appareil: decrireAppareil(nomApp),
-				}),
-				true,
+			const signature = await signerDefiBiometrie(
+				valeur,
+				lireStockage(CLES.cleBiometrie),
 			);
+			const connexion = await appelerDroits("connecter-biometrie", {
+				...signature,
+				appareil: decrireAppareil(nomApp),
+			});
+			ecrireStockage(CLES.cleBiometrie, signature.identifiant);
+			await terminer(connexion, true);
 		} catch (erreurBiometrie) {
 			erreur.textContent = erreurBiometrie.message;
 			// Clé supprimée côté serveur : l'activation sera reproposée.
 			if (/Biométrie inconnue/.test(erreurBiometrie.message)) {
 				ecrireStockage(CLES.biometrie, null);
+			}
+			// Clé refusée, absente de l'appareil ou geste annulé : toutes les clés au prochain essai.
+			if (/Biométrie (inconnue|annulée)/.test(erreurBiometrie.message)) {
+				ecrireStockage(CLES.cleBiometrie, null);
 			}
 			// Le défi a pu servir : un neuf pour le prochain essai.
 			demanderDefi();
