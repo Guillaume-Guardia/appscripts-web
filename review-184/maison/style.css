@@ -157,8 +157,20 @@
 
 .choix-photo {
 	display: flex;
-	flex-wrap: wrap;
+	align-items: center;
 	gap: 8px;
+}
+
+.choix-photo span {
+	flex: 1;
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.choix-photo .bouton-icone {
+	border: 1px solid var(--bord);
+	border-radius: 50%;
+	background: var(--surface);
 }
 
 /* Sur ordinateur, capture est ignoré : le bouton ouvrirait le même sélecteur de fichiers. */
