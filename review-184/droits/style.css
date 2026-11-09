@@ -1,0 +1,38 @@
+/* Styles propres à Droits ; le reste est dans ../shared/base.css. */
+
+#ecran-comptes > .aide {
+	margin-bottom: 12px;
+}
+
+.carte-modes {
+	padding: 4px 16px 14px;
+	margin-bottom: 12px;
+}
+
+.carte-modes .aide {
+	margin-top: 8px;
+}
+
+.carte-compte {
+	padding: 14px 16px;
+	margin-bottom: 12px;
+}
+
+.carte-compte h3 {
+	font-size: 18px;
+}
+
+.carte-compte .detail {
+	color: var(--texte-doux);
+	font-size: 14px;
+	margin: 2px 0 10px;
+}
+
+.carte-compte.bloque h3 {
+	text-decoration: line-through;
+}
+
+.carte-compte .boutons {
+	justify-content: flex-start;
+	margin-top: 12px;
+}
