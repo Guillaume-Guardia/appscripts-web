@@ -1,0 +1,727 @@
+/* Styles propres à Perudo ; le reste est dans ../shared/base.css. */
+
+/* Palette : bleu de table, dés ivoire, pacos dorés ; polices de carnet de partie. */
+:root {
+	--fond: #ebeff4;
+	--surface: #ffffff;
+	--surface-2: #dfe5ee;
+	--texte: #18202e;
+	--texte-doux: #5a6578;
+	--bord: #d3dae4;
+	--accent: #2648c4;
+	--accent-fonce: #1b3596;
+	--accent-doux: #e1e7fa;
+	--sur-accent: #ffffff;
+	--entete: #2648c4;
+	--sur-entete: #ffffff;
+	--paco: #c77e00;
+	--bon: #1b7f52;
+	--bon-doux: #ddf1e7;
+	--mauvais: #be3434;
+	--mauvais-doux: #f8e1e1;
+	--vert: var(--bon);
+	--vert-fond: var(--bon-doux);
+	--danger: var(--mauvais);
+	--de: #fbfaf6;
+	--point: #18202e;
+	--ombre-de: rgb(24 32 46 / 0.14);
+	--police-titre: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+	--police-texte: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+	--police-chiffres: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--fond: #0f131b;
+		--surface: #181e29;
+		--surface-2: #232b3a;
+		--texte: #e7ebf2;
+		--texte-doux: #98a2b5;
+		--bord: #2a3242;
+		--accent: #87a2ff;
+		--accent-fonce: #b4c5ff;
+		--accent-doux: #1f2a4a;
+		--sur-accent: #0f131b;
+		--entete: #1a2550;
+		--sur-entete: #e7ebf2;
+		--paco: #f2b33d;
+		--bon: #52c88e;
+		--bon-doux: #15302a;
+		--mauvais: #f27373;
+		--mauvais-doux: #3a1e22;
+		--de: #ece9e0;
+		--point: #18202e;
+		--ombre-de: rgb(0 0 0 / 0.45);
+	}
+}
+
+:root[data-theme="dark"] {
+	--fond: #0f131b;
+	--surface: #181e29;
+	--surface-2: #232b3a;
+	--texte: #e7ebf2;
+	--texte-doux: #98a2b5;
+	--bord: #2a3242;
+	--accent: #87a2ff;
+	--accent-fonce: #b4c5ff;
+	--accent-doux: #1f2a4a;
+	--sur-accent: #0f131b;
+	--entete: #1a2550;
+	--sur-entete: #e7ebf2;
+	--paco: #f2b33d;
+	--bon: #52c88e;
+	--bon-doux: #15302a;
+	--mauvais: #f27373;
+	--mauvais-doux: #3a1e22;
+	--de: #ece9e0;
+	--point: #18202e;
+	--ombre-de: rgb(0 0 0 / 0.45);
+}
+
+body {
+	font-family: var(--police-texte);
+	font-size: 15px;
+}
+
+.entete h1 {
+	font-family: var(--police-titre);
+	font-weight: 800;
+	letter-spacing: -0.02em;
+}
+
+.logo {
+	display: flex;
+	gap: 4px;
+	margin-right: 8px;
+}
+
+main {
+	max-width: 560px;
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	padding-bottom: calc(env(safe-area-inset-bottom) + 40px);
+}
+
+main h2 {
+	font-family: var(--police-titre);
+	font-weight: 600;
+	font-size: 0.78rem;
+	text-transform: uppercase;
+	letter-spacing: 0.09em;
+	color: var(--texte-doux);
+}
+
+main > section {
+	background: var(--surface);
+	border: 1px solid var(--bord);
+	border-radius: var(--rayon);
+	padding: 14px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-width: 0;
+}
+
+main .aide {
+	font-size: 0.82rem;
+}
+
+.ligne {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.nom {
+	font-weight: 500;
+}
+
+/* Dés */
+
+.de {
+	--taille: 28px;
+	display: inline-grid;
+	grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+	width: var(--taille);
+	height: var(--taille);
+	/* Proportionnel au dé : un padding en % suivrait la largeur du parent (ex : un titre). */
+	padding: calc(var(--taille) * 0.13);
+	background: var(--de);
+	border-radius: 22%;
+	box-shadow:
+		inset 0 -2px 0 var(--ombre-de),
+		0 1px 2px var(--ombre-de);
+	vertical-align: middle;
+	flex: none;
+}
+
+.de i {
+	border-radius: 50%;
+	margin: 11%;
+}
+
+.de i.point {
+	background: var(--point);
+}
+
+.de.paco i.point {
+	background: var(--paco);
+	transform: scale(1.35);
+}
+
+.de.petit {
+	--taille: 20px;
+}
+
+.de.grand {
+	--taille: min(44px, 11vw);
+}
+
+/* Contrôles */
+
+.compteur {
+	display: inline-flex;
+	align-items: center;
+	border: 1px solid var(--bord);
+	border-radius: 12px;
+	overflow: hidden;
+}
+
+.compteur button {
+	width: 44px;
+	height: 44px;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: var(--fond);
+	font-size: 1.3rem;
+	font-weight: 600;
+}
+
+.compteur button:active {
+	background: var(--accent-doux);
+}
+
+.compteur output {
+	min-width: 52px;
+	text-align: center;
+	font-family: var(--police-chiffres);
+	font-weight: 600;
+	font-size: 1.2rem;
+}
+
+.interrupteur {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	cursor: pointer;
+	user-select: none;
+}
+
+.interrupteur input {
+	appearance: none;
+	width: 44px;
+	height: 26px;
+	border-radius: 13px;
+	background: var(--bord);
+	position: relative;
+	margin: 0;
+	cursor: pointer;
+	transition: background 0.15s;
+}
+
+.interrupteur input::after {
+	content: "";
+	position: absolute;
+	top: 3px;
+	left: 3px;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: var(--surface);
+	box-shadow: 0 1px 2px var(--ombre-de);
+	transition: transform 0.15s;
+}
+
+.interrupteur input:checked {
+	background: var(--accent);
+}
+
+.interrupteur input:checked::after {
+	transform: translateX(18px);
+}
+
+/* Mes 5 dés sur une ligne, même sur un petit écran (320 px) : les emplacements rétrécissent. */
+.emplacements {
+	display: grid;
+	grid-template-columns: repeat(5, minmax(0, 52px));
+	gap: 8px;
+}
+
+.emplacement {
+	aspect-ratio: 1;
+	border-radius: 12px;
+	border: 2px dashed var(--bord);
+	background: transparent;
+	display: grid;
+	place-items: center;
+	padding: 0;
+}
+
+.emplacement.rempli {
+	border-style: solid;
+	border-color: transparent;
+}
+
+.faces {
+	display: grid;
+	grid-template-columns: repeat(6, 1fr);
+	gap: 6px;
+}
+
+.faces button {
+	height: 52px;
+	border-radius: 12px;
+	border: 1px solid var(--bord);
+	background: var(--fond);
+	display: grid;
+	place-items: center;
+	padding: 0;
+}
+
+.faces button[aria-pressed="true"] {
+	border-color: var(--accent);
+	background: var(--accent-doux);
+	box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.faces button:active {
+	transform: scale(0.96);
+}
+
+.bouton-texte {
+	border: 0;
+	background: none;
+	color: var(--accent);
+	font-weight: 600;
+	padding: 6px 0;
+}
+
+/* Verdict */
+
+.verdict {
+	display: grid;
+	gap: 10px;
+}
+
+.annonce {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.annonce .coup {
+	font-family: var(--police-titre);
+	font-weight: 800;
+	font-size: 2rem;
+	letter-spacing: -0.02em;
+	line-height: 1;
+}
+
+.stats {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 8px;
+}
+
+.stat {
+	background: var(--fond);
+	border-radius: 10px;
+	padding: 8px 10px;
+	min-width: 0;
+}
+
+.stat .libelle {
+	font-size: 0.72rem;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--texte-doux);
+}
+
+.stat .valeur {
+	font-family: var(--police-chiffres);
+	font-weight: 600;
+	font-size: 1.25rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.point-bascule {
+	display: flex;
+	align-items: center;
+	gap: 6px 8px;
+	flex-wrap: wrap;
+	padding: 10px 12px;
+	border-radius: 10px;
+	border: 2px dashed var(--accent);
+	font-size: 0.9rem;
+}
+
+.point-bascule .etiquette {
+	font-size: 0.68rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--accent);
+}
+
+.point-bascule .jauge {
+	display: flex;
+	gap: 3px;
+	width: 100%;
+}
+
+.point-bascule .jauge span {
+	flex: 1;
+	height: 6px;
+	border-radius: 2px;
+	background: var(--bon);
+	opacity: 0.85;
+}
+
+.point-bascule .jauge span.depasse {
+	background: var(--mauvais);
+	opacity: 0.55;
+}
+
+.point-bascule .jauge span.actuel {
+	outline: 2px solid var(--texte);
+	outline-offset: 1px;
+}
+
+.enchere {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-family: var(--police-chiffres);
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+/* Arbre */
+
+.arbre {
+	font-size: 0.92rem;
+}
+
+.arbre ul {
+	list-style: none;
+	margin: 0;
+	padding: 0 0 0 14px;
+}
+
+.arbre li {
+	position: relative;
+	padding: 6px 0 0 18px;
+}
+
+.arbre li::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	border-left: 2px solid var(--bord);
+}
+
+.arbre li:last-child::before {
+	bottom: auto;
+	height: 26px;
+}
+
+.arbre li::after {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 26px;
+	width: 14px;
+	border-top: 2px solid var(--bord);
+}
+
+.arbre li.separateur::after {
+	display: none;
+}
+
+.noeud {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	align-items: center;
+	gap: 4px 10px;
+	padding: 8px 10px;
+	border-radius: 10px;
+	border: 1px solid var(--bord);
+	background: var(--surface);
+	min-width: 0;
+}
+
+.noeud.racine {
+	background: var(--accent-doux);
+	border-color: transparent;
+}
+
+.noeud.groupe {
+	background: var(--fond);
+	border-color: transparent;
+	font-weight: 600;
+}
+
+.noeud .quoi {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+	min-width: 0;
+}
+
+.noeud .pourquoi {
+	grid-column: 1 / -1;
+	font-size: 0.78rem;
+	font-weight: 400;
+	color: var(--texte-doux);
+}
+
+.noeud .proba {
+	font-family: var(--police-chiffres);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+}
+
+.noeud .jauge-proba {
+	grid-column: 1 / -1;
+	height: 5px;
+	border-radius: 3px;
+	background: var(--fond);
+	overflow: hidden;
+}
+
+.noeud .jauge-proba span {
+	display: block;
+	height: 100%;
+	border-radius: 3px;
+}
+
+.noeud.interdit {
+	opacity: 0.6;
+	border-style: dashed;
+}
+
+.noeud.meilleur {
+	border-color: var(--bon);
+	box-shadow: inset 0 0 0 1px var(--bon);
+}
+
+.ligne-bascule {
+	font-size: 0.7rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--accent);
+	border-top: 2px dashed var(--accent);
+	padding-top: 5px;
+	margin-top: 4px;
+}
+
+.pastille {
+	font-size: 0.68rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	padding: 2px 7px;
+	border-radius: 999px;
+	background: var(--bon-doux);
+	color: var(--bon);
+}
+
+.pastille.mauvaise {
+	background: var(--mauvais-doux);
+	color: var(--mauvais);
+}
+
+/* Distribution */
+
+.graphique-defile {
+	overflow-x: auto;
+}
+
+.graphique {
+	display: flex;
+	align-items: flex-end;
+	gap: 3px;
+	height: 150px;
+	min-width: 100%;
+	padding-top: 18px;
+}
+
+.colonne {
+	flex: 1 0 14px;
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+	align-items: center;
+	height: 100%;
+	position: relative;
+}
+
+.colonne .remplissage {
+	width: 100%;
+	border-radius: 4px 4px 1px 1px;
+	background: var(--mauvais);
+	opacity: 0.55;
+	min-height: 2px;
+}
+
+.colonne.tient .remplissage {
+	background: var(--bon);
+	opacity: 0.9;
+}
+
+.colonne.pile .remplissage {
+	outline: 2px solid var(--texte);
+	outline-offset: 1px;
+}
+
+.colonne.limite::after {
+	content: "";
+	position: absolute;
+	right: -3px;
+	top: 0;
+	bottom: 0;
+	border-right: 2px dashed var(--accent);
+}
+
+.colonne .valeur-colonne {
+	position: absolute;
+	font-family: var(--police-chiffres);
+	font-size: 0.62rem;
+	color: var(--texte-doux);
+	white-space: nowrap;
+}
+
+.axe {
+	display: flex;
+	gap: 3px;
+	min-width: 100%;
+	margin-top: 4px;
+}
+
+.axe span {
+	flex: 1 0 14px;
+	text-align: center;
+	font-family: var(--police-chiffres);
+	font-size: 0.7rem;
+	color: var(--texte-doux);
+}
+
+.axe span.actuelle {
+	color: var(--texte);
+	font-weight: 600;
+}
+
+.legende {
+	display: flex;
+	gap: 14px;
+	flex-wrap: wrap;
+	font-size: 0.78rem;
+	color: var(--texte-doux);
+}
+
+.legende i {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	border-radius: 2px;
+	margin-right: 5px;
+	vertical-align: -1px;
+}
+
+.legende i.tient {
+	background: var(--bon);
+}
+
+.legende i.dudo {
+	background: var(--mauvais);
+	opacity: 0.55;
+}
+
+.legende i.pile {
+	outline: 2px solid var(--texte);
+}
+
+.legende i.limite {
+	width: 6px;
+	border-radius: 0;
+	border-right: 2px dashed var(--accent);
+}
+
+/* Repères */
+
+.tableau-defile {
+	overflow-x: auto;
+}
+
+table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.88rem;
+}
+
+th {
+	font-size: 0.7rem;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--texte-doux);
+	font-weight: 600;
+	text-align: right;
+	padding: 6px;
+}
+
+th:first-child,
+td:first-child {
+	text-align: left;
+}
+
+td {
+	padding: 7px 6px;
+	border-top: 1px solid var(--bord);
+	text-align: right;
+	font-family: var(--police-chiffres);
+	font-variant-numeric: tabular-nums;
+}
+
+tr.actuelle td {
+	background: var(--accent-doux);
+}
+
+footer {
+	color: var(--texte-doux);
+	font-size: 0.8rem;
+	display: grid;
+	gap: 6px;
+	padding-inline: 4px;
+}
+
+footer p {
+	margin: 0;
+	max-width: 65ch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	* {
+		/* biome-ignore lint/complexity/noImportantStyles: coupe toutes les transitions. */
+		transition: none !important;
+	}
+}
