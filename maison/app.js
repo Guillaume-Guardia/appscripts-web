@@ -12,7 +12,13 @@ import {
 	ouvrirInvitation,
 	ouvrirMesConnexions,
 } from "../shared/connexion.js";
-import { aujourdhui, joursEntre, pluriel, versDate } from "../shared/dates.js";
+import {
+	aujourdhui,
+	joursEntre,
+	pluriel,
+	versChampDate,
+	versDate,
+} from "../shared/dates.js";
 import {
 	$,
 	afficherBandeau,
@@ -34,6 +40,7 @@ import {
 	lireStockage,
 	lireStockageJson,
 } from "../shared/stockage.js";
+import { calculerProchaineFois } from "./prochaine-fois.js";
 import { calculerStats } from "./stats.js";
 import { taillesDuProduit } from "./tailles.js";
 
@@ -325,13 +332,32 @@ function ouvrirEntretien(entretien = null) {
 	$("#champ-unite").value = entretien?.unite ?? "mois";
 	$("#champ-derniere").value = entretien?.derniereFois ?? "";
 	$("#champ-prochaine").value = entretien?.prochaineFois ?? "";
-	$("#bloc-prochaine").hidden = !entretien;
 	$("#aide-entretien").textContent = entretien
 		? "La tâche Google apparaît le jour de la prochaine fois."
-		: "Sans dernière fois, la tâche Google est créée aujourd'hui.";
+		: "Sans aucune date, la tâche Google est créée aujourd'hui.";
 	$("#bouton-supprimer-entretien").hidden = !entretien;
 	$("#form-entretien .erreur").textContent = "";
 	$("#dialogue-entretien").showModal();
+}
+
+/**
+ * Recalcule Prochaine fois quand Dernière fois, la fréquence ou l'unité change. Tant qu'il manque
+ * l'une d'elles, une date déjà enregistrée est gardée ; à l'ajout, le champ se vide.
+ */
+function actualiserProchaineFois() {
+	const derniere = $("#champ-derniere").value;
+	const frequence = Number($("#champ-frequence").value);
+	if (derniere && frequence > 0) {
+		$("#champ-prochaine").value = versChampDate(
+			calculerProchaineFois(
+				versDate(derniere),
+				frequence,
+				$("#champ-unite").value,
+			),
+		);
+	} else if (!app.edition) {
+		$("#champ-prochaine").value = "";
+	}
 }
 
 async function enregistrerEntretien(e) {
@@ -341,6 +367,7 @@ async function enregistrerEntretien(e) {
 		frequence: $("#champ-frequence").value,
 		unite: $("#champ-unite").value,
 		derniereFois: $("#champ-derniere").value,
+		prochaineFois: $("#champ-prochaine").value,
 	};
 	const surErreur = (message) => {
 		$("#form-entretien .erreur").textContent = message;
@@ -351,10 +378,7 @@ async function enregistrerEntretien(e) {
 				{
 					ligne: app.edition.ligne,
 					attendu: app.edition.tache,
-					entretien: {
-						...entretien,
-						prochaineFois: $("#champ-prochaine").value,
-					},
+					entretien,
 				},
 				"Entretien enregistré.",
 				surErreur,
@@ -1015,6 +1039,9 @@ function brancherEvenements() {
 		);
 	}
 	$("#form-entretien").addEventListener("submit", enregistrerEntretien);
+	for (const champ of ["#champ-derniere", "#champ-frequence", "#champ-unite"]) {
+		$(champ).addEventListener("input", actualiserProchaineFois);
+	}
 	$("#form-objet").addEventListener("submit", enregistrerObjet);
 	$("#form-parametrage").addEventListener("submit", enregistrerParametrage);
 	$("#form-categorie").addEventListener("submit", enregistrerCategorie);

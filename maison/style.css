@@ -150,7 +150,6 @@
 }
 
 .apercu-photo[hidden],
-#bloc-prochaine[hidden],
 #champ-taille[hidden],
 #champ-taille-liste[hidden] {
 	display: none;
