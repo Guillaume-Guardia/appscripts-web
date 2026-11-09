@@ -5,8 +5,25 @@
 	font-size: 1.05rem;
 }
 
-#ecran-suivi h2:first-child {
-	margin-top: 0;
+.resume {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+	gap: 8px;
+}
+
+.tuile {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 12px 14px;
+}
+
+.tuile strong {
+	font-size: 1.25rem;
+}
+
+.tuile.alerte strong {
+	color: var(--danger);
 }
 
 .ligne-suivi {

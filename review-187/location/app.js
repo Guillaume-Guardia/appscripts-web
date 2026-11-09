@@ -14,7 +14,7 @@ import {
 	oublierConnexion,
 	ouvrirMesConnexions,
 } from "../shared/connexion.js";
-import { versDate } from "../shared/dates.js";
+import { aujourdhui, joursEntre, pluriel, versDate } from "../shared/dates.js";
 import { $, el, notifier, remplacerContenu } from "../shared/dom.js";
 import {
 	brancherInstallation,
@@ -22,6 +22,12 @@ import {
 	enregistrerServiceWorker,
 } from "../shared/pwa.js";
 import { ouvrirSignalement } from "../shared/signalement.js";
+
+const STATUT_LITIGE = "Litige";
+const EUROS = new Intl.NumberFormat("fr-FR", {
+	style: "currency",
+	currency: "EUR",
+});
 
 let versionApi = null;
 
@@ -38,13 +44,54 @@ function dateFr(texte) {
 	return versDate(texte).toLocaleDateString("fr-FR");
 }
 
-function ligneSuivi(titre, detail, enAlerte = false) {
+/** Une ligne d'une liste ; enAlerte colore son premier détail. Les détails vides sont ignorés. */
+function ligneSuivi(titre, details, enAlerte = false) {
 	return el(
 		"div",
 		{ class: "ligne-suivi" },
 		el("strong", {}, titre),
-		el("span", { class: enAlerte ? "alerte" : "aide" }, detail),
+		details
+			.filter(Boolean)
+			.map((detail, i) =>
+				el("span", { class: enAlerte && i === 0 ? "alerte" : "aide" }, detail),
+			),
 	);
+}
+
+function tuile(valeur, libelle, enAlerte = false) {
+	return el(
+		"div",
+		{ class: `carte tuile${enAlerte ? " alerte" : ""}` },
+		el("strong", {}, valeur),
+		el("span", { class: "aide" }, libelle),
+	);
+}
+
+function rendreResume({ resume, avenants, chaudieres }) {
+	const enRetard = chaudieres.filter((c) => c.enRetard).length;
+	remplacerContenu(
+		$("#resume"),
+		tuile(EUROS.format(resume.mensuel), "Loyers et charges par mois"),
+		tuile(resume.locataires, "Locataires"),
+		tuile(resume.enAttenteLoyer, "Loyers en attente"),
+		tuile(resume.litiges, "Litiges", resume.litiges > 0),
+		tuile(avenants.length, "Avenants à signer"),
+		tuile(enRetard, "Chaudières en retard", enRetard > 0),
+	);
+}
+
+function detailEcheance(echeance, enRetard) {
+	const ecart = Math.abs(joursEntre(aujourdhui(), versDate(echeance)));
+	const jours = pluriel(ecart, "jour");
+	return enRetard
+		? `En retard depuis le ${dateFr(echeance)} (${jours})`
+		: `À faire d'ici le ${dateFr(echeance)} (${ecart === 0 ? "aujourd'hui" : `dans ${jours}`})`;
+}
+
+function detailBail({ debut, fin }) {
+	if (debut && fin) return `Bail du ${dateFr(debut)} au ${dateFr(fin)}`;
+	if (debut) return `Bail depuis le ${dateFr(debut)}`;
+	return fin ? `Bail jusqu'au ${dateFr(fin)}` : "";
 }
 
 function rendreListe(selecteur, lignes, messageVide) {
@@ -54,23 +101,31 @@ function rendreListe(selecteur, lignes, messageVide) {
 	);
 }
 
-function rendreSuivi({ avenants, chaudieres, locataires }) {
+function rendreSuivi(suivi) {
+	const { avenants, chaudieres, locataires } = suivi;
+	rendreResume(suivi);
 	rendreListe(
 		"#liste-avenants",
-		avenants.map(({ locataire, envoi, relance }) =>
-			ligneSuivi(
-				locataire,
-				`Envoyé le ${dateFr(envoi)}${relance ? `, relancé le ${dateFr(relance)}` : ""}`,
-			),
+		avenants.map(({ locataire, type, logement, envoi, relance }) =>
+			ligneSuivi(locataire, [
+				`${type} · ${logement}`,
+				envoi && `Envoyé le ${dateFr(envoi)}`,
+				relance && `Relancé le ${dateFr(relance)}`,
+			]),
 		),
 		"Aucun avenant en attente de signature.",
 	);
 	rendreListe(
 		"#liste-chaudieres",
-		chaudieres.map(({ logement, echeance, enRetard }) =>
+		chaudieres.map(({ logement, echeance, enRetard, occupants }) =>
 			ligneSuivi(
 				logement,
-				`${enRetard ? "En retard depuis le" : "À faire d'ici le"} ${dateFr(echeance)}`,
+				[
+					detailEcheance(echeance, enRetard),
+					occupants.length > 0
+						? `Occupé par ${occupants.join(", ")}`
+						: "Sans locataire : aucun rappel envoyé",
+				],
 				enRetard,
 			),
 		),
@@ -78,10 +133,19 @@ function rendreSuivi({ avenants, chaudieres, locataires }) {
 	);
 	rendreListe(
 		"#liste-locataires",
-		locataires.map(({ nom, statut, logement, fin }) =>
+		locataires.map((locataire) =>
 			ligneSuivi(
-				nom,
-				`${statut} · ${logement}${fin ? ` · jusqu'au ${dateFr(fin)}` : ""}`,
+				locataire.nom,
+				[
+					locataire.statut,
+					locataire.logement,
+					`Loyer ${EUROS.format(locataire.loyer)} + charges ${EUROS.format(locataire.charges)} · caution ${EUROS.format(locataire.caution)}`,
+					detailBail(locataire),
+					locataire.derniereQuittance
+						? `Dernière quittance le ${dateFr(locataire.derniereQuittance)}`
+						: "Aucune quittance",
+				],
+				locataire.statut === STATUT_LITIGE,
 			),
 		),
 		"Aucun locataire en place.",
