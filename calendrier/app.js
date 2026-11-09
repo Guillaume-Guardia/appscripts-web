@@ -12,7 +12,12 @@ import {
 	ouvrirInvitation,
 	ouvrirMesConnexions,
 } from "../shared/connexion.js";
-import { aujourdhui, versChampDate, versDate } from "../shared/dates.js";
+import {
+	aujourdhui,
+	pluriel,
+	versChampDate,
+	versDate,
+} from "../shared/dates.js";
 import {
 	$,
 	afficherBandeau,
@@ -32,6 +37,9 @@ import { ecrireStockage, lireStockage } from "../shared/stockage.js";
 /** Relecture du planning tant que l'app est à l'écran (le planning peut changer à tout moment). */
 const INTERVALLE_ACTUALISATION_MS = 2 * 60 * 1000;
 
+/** Plus grand côté d'une photo envoyée : envoi plus rapide, largement assez net pour l'OCR. */
+const TAILLE_MAX_PHOTO_PX = 3000;
+
 const CLES = { planning: "calendrier.planning" };
 
 // ---------------------------------------------------------------------------
@@ -39,7 +47,7 @@ const CLES = { planning: "calendrier.planning" };
 // ---------------------------------------------------------------------------
 
 const app = {
-	/** { jours, joursFeries } renvoyé par l'API (action planning), gardé pour le hors ligne. */
+	/** { jours, joursFeries, droitsConges } renvoyé par l'API (action planning), gardé pour le hors ligne. */
 	planning: null,
 	/** Le même, en texte : un planning inchangé n'est pas redessiné. */
 	planningTexte: null,
@@ -50,6 +58,12 @@ const app = {
 	mois: premierDuMois(aujourdhui()),
 	/** Jour dont le détail est affiché (« aaaa-mm-jj »). */
 	jourChoisi: versChampDate(aujourdhui()),
+	/** Droit à congés ouvert dans la fenêtre de modification. */
+	droitModifie: null,
+	/** Vrai pendant l'import d'une photo : sa fenêtre reste ouverte jusqu'au récapitulatif. */
+	importEnCours: false,
+	/** Photo lue, renvoyée à la validation pour être sauvegardée avec le planning. */
+	photoImport: null,
 	/** Heure de la dernière lecture réussie. */
 	misAJourLe: null,
 	horsLigne: false,
@@ -193,6 +207,14 @@ const formatHeure = new Intl.DateTimeFormat("fr-FR", {
 	minute: "2-digit",
 });
 
+const formatJourRevue = new Intl.DateTimeFormat("fr-FR", {
+	weekday: "short",
+	day: "numeric",
+});
+const formatNombre = new Intl.NumberFormat("fr-FR");
+
+const majuscule = (texte) => texte.charAt(0).toUpperCase() + texte.slice(1);
+
 function caseJour(date) {
 	const cle = versChampDate(date);
 	const jours = app.parDate.get(cle) ?? [];
@@ -229,8 +251,7 @@ function caseJour(date) {
 
 function rendreGrille() {
 	const { mois } = app;
-	const titre = formatMois.format(mois);
-	$("#titre-mois").textContent = titre.charAt(0).toUpperCase() + titre.slice(1);
+	$("#titre-mois").textContent = majuscule(formatMois.format(mois));
 	// Lundi en premier : cases vides avant le 1er.
 	const decalage = (mois.getDay() + 6) % 7;
 	const nbJours = new Date(
@@ -252,10 +273,9 @@ function rendreDetail() {
 	const date = versDate(app.jourChoisi);
 	const jours = app.parDate.get(app.jourChoisi) ?? [];
 	const ferie = app.feries.get(app.jourChoisi);
-	const titre = formatJour.format(date);
 	remplacerContenu(
 		$("#detail-jour"),
-		el("h3", {}, titre.charAt(0).toUpperCase() + titre.slice(1)),
+		el("h3", {}, majuscule(formatJour.format(date))),
 		ferie && el("p", { class: "nom-ferie" }, `Férié : ${ferie}`),
 		jours.length
 			? jours.map((jour) =>
@@ -279,6 +299,323 @@ function rendreDetail() {
 	);
 }
 
+/** Nombre de jours par titre, du plus fréquent au moins fréquent. */
+function compterParTitre(jours) {
+	const parTitre = new Map();
+	for (const jour of jours) {
+		const entree = parTitre.get(jour.titre) ?? { jour, nombre: 0 };
+		entree.nombre++;
+		parTitre.set(jour.titre, entree);
+	}
+	return [...parTitre.values()].sort((a, b) => b.nombre - a.nombre);
+}
+
+function blocRepartition(titre, jours) {
+	return el(
+		"section",
+		{ class: "bloc-statistiques" },
+		el("h3", {}, titre),
+		jours.length
+			? el(
+					"ul",
+					{ class: "repartition" },
+					compterParTitre(jours).map(({ jour, nombre }) =>
+						el(
+							"li",
+							{},
+							pastille(jour, codeCourt(jour.titre)),
+							el("span", {}, `${nombre} j`),
+						),
+					),
+				)
+			: el("p", { class: "aide" }, "Rien au planning."),
+	);
+}
+
+function rangeeDroit(droit, joursAnnee) {
+	const poses = joursAnnee.filter(
+		(jour) => codeCourt(jour.titre) === codeCourt(droit.code),
+	).length;
+	const reste = droit.jours - poses;
+	const solde =
+		reste >= 0
+			? `reste ${formatNombre.format(reste)}`
+			: `dépassé de ${formatNombre.format(-reste)}`;
+	return el(
+		"li",
+		{},
+		el("span", { class: "droit-code" }, droit.code),
+		el(
+			"span",
+			{ class: "droit-solde" },
+			`${pluriel(poses, "posé")} sur ${formatNombre.format(droit.jours)}, ${solde}`,
+		),
+		droit.modifiable &&
+			el(
+				"button",
+				{
+					type: "button",
+					class: "puce",
+					"aria-label": `Modifier ${droit.code} ${droit.annee}`,
+					onclick: () => ouvrirDroit(droit),
+				},
+				"Modifier",
+			),
+	);
+}
+
+function rendreStatistiques() {
+	const { mois } = app;
+	const annee = mois.getFullYear();
+	const prefixeMois = versChampDate(mois).slice(0, 7);
+	// Une ligne de la feuille peut être datée sans titre (jour pas encore rempli).
+	const joursAnnee = app.planning.jours.filter(
+		(jour) => jour.titre && jour.date.startsWith(`${annee}-`),
+	);
+	const droits = (app.planning.droitsConges ?? []).filter(
+		(droit) => droit.annee === annee,
+	);
+	remplacerContenu(
+		$("#statistiques"),
+		blocRepartition(
+			majuscule(formatMois.format(mois)),
+			joursAnnee.filter((jour) => jour.date.startsWith(prefixeMois)),
+		),
+		blocRepartition(`Année ${annee}`, joursAnnee),
+		el(
+			"section",
+			{ class: "bloc-statistiques" },
+			el("h3", {}, "Congés à poser"),
+			droits.length
+				? el(
+						"ul",
+						{ class: "droits" },
+						droits.map((droit) => rangeeDroit(droit, joursAnnee)),
+					)
+				: el(
+						"p",
+						{ class: "aide" },
+						`Aucun droit renseigné pour ${annee} dans DroitsCongés.`,
+					),
+		),
+	);
+}
+
+function ouvrirDroit(droit) {
+	app.droitModifie = droit;
+	const form = $("#form-droit");
+	form.reset();
+	form.querySelector(".erreur").textContent = "";
+	$("#titre-dialogue-droit").textContent = `${droit.code} ${droit.annee}`;
+	$("#champ-jours-droit").value = droit.jours;
+	$("#dialogue-droit").showModal();
+	$("#champ-jours-droit").focus();
+}
+
+async function enregistrerDroit(evenement) {
+	evenement.preventDefault();
+	const form = evenement.target;
+	const erreur = form.querySelector(".erreur");
+	const bouton = form.querySelector('button[type="submit"]');
+	erreur.textContent = "";
+	bouton.disabled = true;
+	const { ligne, code, annee } = app.droitModifie;
+	try {
+		appliquerPlanning(
+			await appelerApi("modifier-droit-conge", {
+				droit: {
+					ligne,
+					code,
+					annee,
+					jours: Number($("#champ-jours-droit").value),
+				},
+			}),
+		);
+		$("#dialogue-droit").close();
+		notifier(`${code} ${annee} enregistré.`);
+	} catch (probleme) {
+		erreur.textContent = probleme.message;
+	} finally {
+		bouton.disabled = false;
+	}
+}
+
+/** Réduit la photo (le navigateur applique l'orientation de l'appareil) : son JPEG en base64. */
+function reduirePhoto(fichier) {
+	return new Promise((resoudre, rejeter) => {
+		const url = URL.createObjectURL(fichier);
+		const image = new Image();
+		image.onload = () => {
+			const echelle = Math.min(
+				1,
+				TAILLE_MAX_PHOTO_PX / Math.max(image.width, image.height),
+			);
+			const canvas = document.createElement("canvas");
+			canvas.width = Math.round(image.width * echelle);
+			canvas.height = Math.round(image.height * echelle);
+			canvas
+				.getContext("2d")
+				.drawImage(image, 0, 0, canvas.width, canvas.height);
+			URL.revokeObjectURL(url);
+			resoudre(canvas.toDataURL("image/jpeg", 0.9).split(",")[1]);
+		};
+		image.onerror = () => {
+			URL.revokeObjectURL(url);
+			rejeter(new Error("Le navigateur n'arrive pas à lire cette photo."));
+		};
+		image.src = url;
+	});
+}
+
+/** Lien de téléchargement des mots lus par l'OCR ; ocr absent : pas de lien. */
+function afficherLienOcr(ocr) {
+	const zone = $("#lien-ocr");
+	const ancien = zone.querySelector("a");
+	if (ancien) URL.revokeObjectURL(ancien.href);
+	remplacerContenu(
+		zone,
+		ocr &&
+			el(
+				"a",
+				{
+					href: URL.createObjectURL(
+						new Blob([ocr.content], { type: "application/json" }),
+					),
+					download: ocr.name,
+				},
+				"Télécharger les mots lus sur la photo (pour analyse)",
+			),
+	);
+}
+
+function afficherRapportImport(lignes) {
+	remplacerContenu(
+		$("#rapport-import"),
+		lignes.map((ligne) => el("li", {}, ligne)),
+	);
+}
+
+/** Pendant un appel : fenêtre impossible à fermer, validation bloquée. */
+function signalerImportEnCours(enCours) {
+	app.importEnCours = enCours;
+	$("#fermer-import").disabled = enCours;
+	$("#valider-import").disabled = enCours;
+}
+
+function masquerRevue() {
+	app.photoImport = null;
+	$("#form-revue").hidden = true;
+	$("#valider-import").hidden = true;
+	$("#fermer-import").textContent = "Fermer";
+	remplacerContenu($("#jours-revue"));
+	$("#form-revue .erreur").textContent = "";
+}
+
+/** Un jour de la revue : sa date et la liste des codes, avec le code lu sur la photo présélectionné. */
+function ligneRevue(jour, codes, cleAujourdhui) {
+	const id = `revue-${jour.date}`;
+	return el(
+		"div",
+		{ class: "ligne-revue" },
+		el(
+			"label",
+			{ for: id },
+			majuscule(formatJourRevue.format(versDate(jour.date))),
+		),
+		el(
+			"select",
+			{ id, "data-date": jour.date, disabled: jour.date < cleAujourdhui },
+			el("option", { value: "", selected: !jour.titre }, "Non renseigné"),
+			codes.map((code) =>
+				el("option", { value: code, selected: code === jour.titre }, code),
+			),
+		),
+	);
+}
+
+function afficherRevue({ jours, codes }) {
+	const cleAujourdhui = versChampDate(aujourdhui());
+	$("#titre-dialogue-import").textContent = majuscule(
+		formatMois.format(versDate(jours[0].date)),
+	);
+	remplacerContenu(
+		$("#jours-revue"),
+		jours.map((jour) => ligneRevue(jour, codes, cleAujourdhui)),
+	);
+	$("#form-revue").hidden = false;
+	$("#valider-import").hidden = false;
+	$("#fermer-import").textContent = "Annuler";
+}
+
+async function importerPhoto() {
+	const champ = $("#champ-photo");
+	const fichier = champ.files[0];
+	if (!fichier) return;
+	// Vidé aussitôt : la même photo peut être choisie de nouveau.
+	champ.value = "";
+	const etat = $("#etat-import");
+	masquerRevue();
+	remplacerContenu($("#rapport-import"));
+	afficherLienOcr(null);
+	$("#titre-dialogue-import").textContent = "Import du planning";
+	etat.textContent = "Préparation de la photo…";
+	signalerImportEnCours(true);
+	$("#dialogue-import").showModal();
+	try {
+		const photo = {
+			base64: await reduirePhoto(fichier),
+			nom: `${fichier.name.replace(/\.[^.]+$/, "")}.jpg`,
+		};
+		etat.textContent = "Lecture du planning…";
+		const { report, ocrFile, revue } = await appelerApi("lire-photo", {
+			photo,
+		});
+		afficherRapportImport(report);
+		afficherLienOcr(ocrFile);
+		if (revue) {
+			app.photoImport = photo;
+			afficherRevue(revue);
+			etat.textContent = "";
+		} else {
+			etat.textContent = "Photo illisible : rien n'a été importé.";
+		}
+	} catch (probleme) {
+		etat.textContent = `Erreur : ${probleme.message}`;
+	} finally {
+		signalerImportEnCours(false);
+	}
+}
+
+/** Bouton Valider : reporte les jours dans la feuille et crée les événements de l'agenda. */
+async function validerImport(evenement) {
+	evenement.preventDefault();
+	const etat = $("#etat-import");
+	const erreur = $("#form-revue .erreur");
+	const jours = [...document.querySelectorAll("#jours-revue select")]
+		.filter((choix) => choix.value)
+		.map((choix) => ({ date: choix.dataset.date, titre: choix.value }));
+	erreur.textContent = "";
+	etat.textContent = "Création des événements…";
+	signalerImportEnCours(true);
+	try {
+		const { report, planning } = await appelerApi("valider-import", {
+			photo: app.photoImport,
+			jours,
+		});
+		appliquerPlanning(planning);
+		masquerRevue();
+		afficherLienOcr(null);
+		afficherRapportImport(report);
+		etat.textContent = "Terminé.";
+	} catch (probleme) {
+		// La revue reste affichée : rien de ce qui a été corrigé n'est perdu.
+		etat.textContent = "";
+		erreur.textContent = probleme.message;
+	} finally {
+		signalerImportEnCours(false);
+	}
+}
+
 function afficherMiseAJour() {
 	$("#mise-a-jour").textContent = app.misAJourLe
 		? `Mis à jour à ${formatHeure.format(app.misAJourLe)}${app.horsLigne ? " (hors ligne)" : ""}`
@@ -289,6 +626,7 @@ function rendrePlanning() {
 	if (!app.planning) return;
 	rendreGrille();
 	rendreDetail();
+	rendreStatistiques();
 	afficherMiseAJour();
 }
 
@@ -424,6 +762,19 @@ function brancherEvenements() {
 		choisirJour(versChampDate(aujourdhui())),
 	);
 	brancherGlissement();
+	$("#form-droit").addEventListener("submit", enregistrerDroit);
+	$("#bouton-import").addEventListener("click", () =>
+		$("#champ-photo").click(),
+	);
+	$("#champ-photo").addEventListener("change", importerPhoto);
+	$("#form-revue").addEventListener("submit", validerImport);
+	$("#dialogue-import").addEventListener("cancel", (e) => {
+		if (app.importEnCours) e.preventDefault();
+	});
+	$("#dialogue-import").addEventListener("close", masquerRevue);
+	for (const bouton of document.querySelectorAll("[data-fermer]")) {
+		bouton.addEventListener("click", () => bouton.closest("dialog").close());
+	}
 	$("#bouton-menu").addEventListener("click", (e) => {
 		e.stopPropagation();
 		basculerMenu();

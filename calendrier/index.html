@@ -78,10 +78,42 @@
 					</div>
 					<div id="grille" class="grille"></div>
 				</div>
+				<button type="button" id="bouton-import" class="bouton-import">Importer une photo du planning</button>
+				<input type="file" id="champ-photo" accept="image/*" hidden />
 				<div id="detail-jour" class="carte detail-jour" aria-live="polite"></div>
+				<div id="statistiques" class="carte statistiques"></div>
 				<p id="mise-a-jour" class="aide mise-a-jour"></p>
 			</section>
 		</main>
+
+		<dialog id="dialogue-droit" class="dialogue" aria-labelledby="titre-dialogue-droit">
+			<form id="form-droit" class="formulaire">
+				<h2 id="titre-dialogue-droit">Droit à congés</h2>
+				<label for="champ-jours-droit">Jours pour l'année</label>
+				<input id="champ-jours-droit" type="number" inputmode="decimal" min="0" max="366" step="any" required />
+				<p class="erreur" role="alert"></p>
+				<div class="boutons">
+					<button type="button" data-fermer>Annuler</button>
+					<button type="submit" class="bouton-principal">Enregistrer</button>
+				</div>
+			</form>
+		</dialog>
+
+		<dialog id="dialogue-import" class="dialogue" aria-labelledby="titre-dialogue-import">
+			<h2 id="titre-dialogue-import">Import du planning</h2>
+			<p id="etat-import" role="status"></p>
+			<ul id="rapport-import" class="rapport-import"></ul>
+			<div id="lien-ocr" class="lien-ocr"></div>
+			<form id="form-revue" hidden>
+				<p class="aide">Vérifie chaque jour. Un jour « Non renseigné » n'est pas importé, et les jours passés ne changent pas.</p>
+				<div id="jours-revue" class="jours-revue"></div>
+				<p class="erreur" role="alert"></p>
+			</form>
+			<div class="boutons">
+				<button type="button" id="fermer-import" data-fermer>Fermer</button>
+				<button type="submit" form="form-revue" id="valider-import" class="bouton-principal" hidden>Valider et créer les événements</button>
+			</div>
+		</dialog>
 
 		<div id="toasts" class="toasts" aria-live="polite"></div>
 
