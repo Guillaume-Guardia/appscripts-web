@@ -26,6 +26,7 @@ import {
 	notifier,
 	remplacerContenu,
 } from "../shared/dom.js";
+import { reduireImage } from "../shared/image.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -440,33 +441,6 @@ async function enregistrerDroit(evenement) {
 	}
 }
 
-/** Réduit la photo (le navigateur applique l'orientation de l'appareil) : son JPEG en base64. */
-function reduirePhoto(fichier) {
-	return new Promise((resoudre, rejeter) => {
-		const url = URL.createObjectURL(fichier);
-		const image = new Image();
-		image.onload = () => {
-			const echelle = Math.min(
-				1,
-				TAILLE_MAX_PHOTO_PX / Math.max(image.width, image.height),
-			);
-			const canvas = document.createElement("canvas");
-			canvas.width = Math.round(image.width * echelle);
-			canvas.height = Math.round(image.height * echelle);
-			canvas
-				.getContext("2d")
-				.drawImage(image, 0, 0, canvas.width, canvas.height);
-			URL.revokeObjectURL(url);
-			resoudre(canvas.toDataURL("image/jpeg", 0.9).split(",")[1]);
-		};
-		image.onerror = () => {
-			URL.revokeObjectURL(url);
-			rejeter(new Error("Le navigateur n'arrive pas à lire cette photo."));
-		};
-		image.src = url;
-	});
-}
-
 /** Lien de téléchargement des mots lus par l'OCR ; ocr absent : pas de lien. */
 function afficherLienOcr(ocr) {
 	const zone = $("#lien-ocr");
@@ -563,7 +537,7 @@ async function importerPhoto() {
 	$("#dialogue-import").showModal();
 	try {
 		const photo = {
-			base64: await reduirePhoto(fichier),
+			base64: await reduireImage(fichier, TAILLE_MAX_PHOTO_PX),
 			nom: `${fichier.name.replace(/\.[^.]+$/, "")}.jpg`,
 		};
 		etat.textContent = "Lecture du planning…";
