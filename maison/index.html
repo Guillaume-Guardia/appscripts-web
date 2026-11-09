@@ -64,7 +64,13 @@
 					<button type="button" role="tab" data-onglet="stats">Stats</button>
 				</div>
 
-				<div id="onglet-entretiens" hidden></div>
+				<div id="onglet-entretiens" hidden>
+					<div id="liste-entretiens"></div>
+					<button type="button" id="bouton-nouvel-entretien" class="bouton-flottant">
+						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+						Ajouter un entretien
+					</button>
+				</div>
 
 				<div id="onglet-objets" hidden>
 					<div class="filtres">
@@ -78,7 +84,13 @@
 					</button>
 				</div>
 
-				<div id="onglet-stats" hidden></div>
+				<div id="onglet-stats" hidden>
+					<div id="contenu-stats"></div>
+					<button type="button" id="bouton-nouvelle-categorie" class="bouton-flottant">
+						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+						Ajouter une catégorie
+					</button>
+				</div>
 			</section>
 		</main>
 
@@ -107,12 +119,12 @@
 						<label for="champ-derniere">Dernière fois</label>
 						<input id="champ-derniere" type="date" />
 					</div>
-					<div>
+					<div id="bloc-prochaine">
 						<label for="champ-prochaine">Prochaine fois</label>
 						<input id="champ-prochaine" type="date" />
 					</div>
 				</div>
-				<p class="aide">La tâche Google apparaît le jour de la prochaine fois.</p>
+				<p id="aide-entretien" class="aide"></p>
 				<p class="erreur" role="alert"></p>
 				<div class="boutons">
 					<button type="button" id="bouton-supprimer-entretien" class="danger">Supprimer</button>
@@ -182,6 +194,39 @@
 				</div>
 			</form>
 		</dialog>
+
+		<dialog id="dialogue-categorie" class="dialogue" aria-labelledby="titre-dialogue-categorie">
+			<form id="form-categorie" class="formulaire">
+				<h2 id="titre-dialogue-categorie">Ajouter une catégorie</h2>
+				<label for="champ-nouvelle-categorie">Nom</label>
+				<input id="champ-nouvelle-categorie" maxlength="60" autocomplete="off" required />
+				<p class="aide">Son dossier est créé dans Drive, à côté du classeur. Sa décote se règle ensuite depuis sa ligne.</p>
+				<p class="erreur" role="alert"></p>
+				<div class="boutons">
+					<button type="button" data-fermer>Annuler</button>
+					<button type="submit" class="bouton-principal">Ajouter</button>
+				</div>
+			</form>
+		</dialog>
+
+		<dialog id="dialogue-migration" class="dialogue" aria-labelledby="titre-dialogue-migration">
+			<form id="form-migration" class="formulaire">
+				<h2 id="titre-dialogue-migration">Supprimer la catégorie</h2>
+				<p id="info-migration"></p>
+				<label for="champ-categorie-migration">Déplacer vers</label>
+				<select id="champ-categorie-migration" required></select>
+				<p class="aide">Leurs factures et photos suivent, et la décote de la catégorie choisie s'applique. Le dossier vidé part à la corbeille Drive.</p>
+				<p class="erreur" role="alert"></p>
+				<div class="boutons">
+					<button type="button" data-fermer>Annuler</button>
+					<button type="submit" class="bouton-principal">Déplacer et supprimer</button>
+				</div>
+			</form>
+		</dialog>
+
+		<template id="icone-corbeille">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" /></svg>
+		</template>
 
 		<div id="toasts" class="toasts" aria-live="polite"></div>
 

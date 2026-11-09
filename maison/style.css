@@ -150,6 +150,7 @@
 }
 
 .apercu-photo[hidden],
+#bloc-prochaine[hidden],
 #champ-taille[hidden],
 #champ-taille-liste[hidden] {
 	display: none;
@@ -164,9 +165,20 @@
 	background: var(--surface-2);
 }
 
-/* La place du bouton flottant, sous le dernier objet. */
-#liste-objets {
+/* La place du bouton flottant, sous le dernier élément. */
+#liste-entretiens,
+#liste-objets,
+#contenu-stats {
 	padding-bottom: 76px;
+}
+
+.supprimer-categorie {
+	margin-right: 4px;
+	color: var(--texte-doux);
+}
+
+.supprimer-categorie:hover {
+	color: var(--danger);
 }
 
 .carte-objet {

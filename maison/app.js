@@ -294,13 +294,9 @@ function rendreEntretiens() {
 	const actifs = entretiens.filter((e) => e.actif).sort(parDate);
 	const inactifs = entretiens.filter((e) => !e.actif);
 	remplacerContenu(
-		$("#onglet-entretiens"),
+		$("#liste-entretiens"),
 		entretiens.length === 0
-			? el(
-					"p",
-					{ class: "vide" },
-					"Aucun entretien : ajoute-les dans l'onglet Entretien du classeur.",
-				)
+			? el("p", { class: "vide" }, "Aucun entretien pour l'instant.")
 			: null,
 		actifs.map(carteEntretien),
 		inactifs.length > 0
@@ -319,37 +315,56 @@ async function basculerEntretien(entretien, actif) {
 	if (!reussi) rendre();
 }
 
-function ouvrirEntretien(entretien) {
+function ouvrirEntretien(entretien = null) {
 	app.edition = entretien;
-	$("#champ-tache").value = entretien.tache;
-	$("#champ-frequence").value = entretien.frequence ?? "";
-	$("#champ-unite").value = entretien.unite ?? "mois";
-	$("#champ-derniere").value = entretien.derniereFois ?? "";
-	$("#champ-prochaine").value = entretien.prochaineFois ?? "";
+	$("#titre-dialogue-entretien").textContent = entretien
+		? "Modifier l'entretien"
+		: "Ajouter un entretien";
+	$("#champ-tache").value = entretien?.tache ?? "";
+	$("#champ-frequence").value = entretien?.frequence ?? "";
+	$("#champ-unite").value = entretien?.unite ?? "mois";
+	$("#champ-derniere").value = entretien?.derniereFois ?? "";
+	$("#champ-prochaine").value = entretien?.prochaineFois ?? "";
+	$("#bloc-prochaine").hidden = !entretien;
+	$("#aide-entretien").textContent = entretien
+		? "La tâche Google apparaît le jour de la prochaine fois."
+		: "Sans dernière fois, la tâche Google est créée aujourd'hui.";
+	$("#bouton-supprimer-entretien").hidden = !entretien;
 	$("#form-entretien .erreur").textContent = "";
 	$("#dialogue-entretien").showModal();
 }
 
 async function enregistrerEntretien(e) {
 	e.preventDefault();
-	const reussi = await modifier(
-		"modifier-entretien",
-		{
-			ligne: app.edition.ligne,
-			attendu: app.edition.tache,
-			entretien: {
-				tache: $("#champ-tache").value,
-				frequence: $("#champ-frequence").value,
-				unite: $("#champ-unite").value,
-				derniereFois: $("#champ-derniere").value,
-				prochaineFois: $("#champ-prochaine").value,
-			},
-		},
-		"Entretien enregistré.",
-		(message) => {
-			$("#form-entretien .erreur").textContent = message;
-		},
-	);
+	const entretien = {
+		tache: $("#champ-tache").value,
+		frequence: $("#champ-frequence").value,
+		unite: $("#champ-unite").value,
+		derniereFois: $("#champ-derniere").value,
+	};
+	const surErreur = (message) => {
+		$("#form-entretien .erreur").textContent = message;
+	};
+	const reussi = app.edition
+		? await modifier(
+				"modifier-entretien",
+				{
+					ligne: app.edition.ligne,
+					attendu: app.edition.tache,
+					entretien: {
+						...entretien,
+						prochaineFois: $("#champ-prochaine").value,
+					},
+				},
+				"Entretien enregistré.",
+				surErreur,
+			)
+		: await modifier(
+				"creer-entretien",
+				{ entretien },
+				"Entretien ajouté.",
+				surErreur,
+			);
 	if (reussi) $("#dialogue-entretien").close();
 }
 
@@ -684,15 +699,15 @@ function ligneParametrage(categorie) {
 	) ?? { categorie, anneesGarantie: null, anneesDecoteTotale: null };
 	const { anneesGarantie, anneesDecoteTotale } = parametrage;
 	return el(
-		"button",
-		{
-			type: "button",
-			class: "carte carte-objet",
-			onclick: () => ouvrirParametrage(parametrage),
-		},
+		"div",
+		{ class: "carte ligne-carte" },
 		el(
-			"div",
-			{ class: "texte-objet" },
+			"button",
+			{
+				type: "button",
+				class: "contenu-carte",
+				onclick: () => ouvrirParametrage(parametrage),
+			},
 			el("h3", {}, categorie),
 			anneesDecoteTotale === null
 				? el("p", { class: "a-completer" }, "À régler")
@@ -702,13 +717,24 @@ function ligneParametrage(categorie) {
 						`Garantie : ${anneesGarantie ? `${nombreDecimal(anneesGarantie)} an(s)` : "aucune"} · décote totale à ${nombreDecimal(anneesDecoteTotale)} an(s)`,
 					),
 		),
+		el(
+			"button",
+			{
+				type: "button",
+				class: "bouton-icone supprimer-categorie",
+				title: "Supprimer la catégorie",
+				"aria-label": `Supprimer la catégorie ${categorie}`,
+				onclick: () => supprimerCategorie(categorie),
+			},
+			$("#icone-corbeille").content.cloneNode(true),
+		),
 	);
 }
 
 function rendreStats() {
 	const stats = calculerStats(app.etat.objets);
 	remplacerContenu(
-		$("#onglet-stats"),
+		$("#contenu-stats"),
 		el(
 			"div",
 			{ class: "tuiles" },
@@ -743,7 +769,7 @@ function rendreStats() {
 					barres(stats.parAnnee),
 				]
 			: null,
-		el("h2", { class: "titre-section" }, "Réglage de la décote"),
+		el("h2", { class: "titre-section" }, "Catégories et décote"),
 		app.etat.categories.map(ligneParametrage),
 	);
 }
@@ -775,6 +801,82 @@ async function enregistrerParametrage(e) {
 		},
 	);
 	if (reussi) $("#dialogue-parametrage").close();
+}
+
+function ouvrirNouvelleCategorie() {
+	$("#champ-nouvelle-categorie").value = "";
+	$("#form-categorie .erreur").textContent = "";
+	$("#dialogue-categorie").showModal();
+}
+
+async function enregistrerCategorie(e) {
+	e.preventDefault();
+	const reussi = await modifier(
+		"creer-categorie",
+		{ categorie: $("#champ-nouvelle-categorie").value },
+		"Catégorie ajoutée.",
+		(message) => {
+			$("#form-categorie .erreur").textContent = message;
+		},
+	);
+	if (reussi) $("#dialogue-categorie").close();
+}
+
+async function supprimerCategorie(categorie) {
+	const nombre = app.etat.objets.filter(
+		(objet) => normaliser(objet.categorie) === normaliser(categorie),
+	).length;
+	if (nombre > 0) {
+		ouvrirMigration(categorie, nombre);
+		return;
+	}
+	if (
+		!confirm(
+			`Supprimer la catégorie « ${categorie} » ? Son dossier Drive part à la corbeille.`,
+		)
+	) {
+		return;
+	}
+	await modifier("supprimer-categorie", { categorie }, "Catégorie supprimée.");
+}
+
+/** Une catégorie qui a des objets : ils doivent d'abord passer dans une autre. */
+function ouvrirMigration(categorie, nombre) {
+	const autres = app.etat.categoriesDossiers.filter(
+		(nom) => normaliser(nom) !== normaliser(categorie),
+	);
+	if (autres.length === 0) {
+		notifier(
+			"Ajoute d'abord une autre catégorie pour y déplacer ses objets.",
+			true,
+		);
+		return;
+	}
+	app.edition = categorie;
+	$("#titre-dialogue-migration").textContent = `Supprimer « ${categorie} »`;
+	$("#info-migration").textContent =
+		`${pluriel(nombre, "objet")} dans cette catégorie : choisis où les déplacer.`;
+	remplacerContenu(
+		$("#champ-categorie-migration"),
+		el("option", { value: "" }, "Choisir…"),
+		autres.map((nom) => el("option", { value: nom }, nom)),
+	);
+	$("#form-migration .erreur").textContent = "";
+	$("#dialogue-migration").showModal();
+}
+
+async function migrerCategorie(e) {
+	e.preventDefault();
+	const remplacement = $("#champ-categorie-migration").value;
+	const reussi = await modifier(
+		"supprimer-categorie",
+		{ categorie: app.edition, remplacement },
+		`Catégorie supprimée, objets déplacés dans « ${remplacement} ».`,
+		(message) => {
+			$("#form-migration .erreur").textContent = message;
+		},
+	);
+	if (reussi) $("#dialogue-migration").close();
 }
 
 // ---------------------------------------------------------------------------
@@ -915,6 +1017,15 @@ function brancherEvenements() {
 	$("#form-entretien").addEventListener("submit", enregistrerEntretien);
 	$("#form-objet").addEventListener("submit", enregistrerObjet);
 	$("#form-parametrage").addEventListener("submit", enregistrerParametrage);
+	$("#form-categorie").addEventListener("submit", enregistrerCategorie);
+	$("#form-migration").addEventListener("submit", migrerCategorie);
+	$("#bouton-nouvel-entretien").addEventListener("click", () =>
+		ouvrirEntretien(),
+	);
+	$("#bouton-nouvelle-categorie").addEventListener(
+		"click",
+		ouvrirNouvelleCategorie,
+	);
 	$("#bouton-supprimer-entretien").addEventListener(
 		"click",
 		supprimerEntretien,
