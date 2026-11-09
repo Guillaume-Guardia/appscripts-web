@@ -1,7 +1,7 @@
-// Connexion aux apps : un compte par personne (projet droits), créé avec son prénom. Un appareil se
-// connecte ensuite au même compte par la biométrie, un code ou un lien reçu par e-mail, ou le QR
-// code (ou le lien) affiché par un appareil déjà connecté, selon les modes activés par l'admin
-// (app Droits). Juste après une connexion, l'app propose d'activer la biométrie sur l'appareil.
+// Connexion aux apps : un compte par personne (projet droits), créé par un lien d'invitation. Un
+// appareil se connecte par un QR code ou un lien (affiché par un appareil déjà connecté, ou généré
+// dans l'app Droits), ou par la biométrie une fois activée. Juste après une connexion, l'app
+// propose d'activer la biométrie sur l'appareil.
 // Un lien d'invitation (QR code) ouvert sur l'appareil le connecte aussitôt, en créant le compte
 // d'une nouvelle personne invitée, puis l'app propose la biométrie et l'installation.
 // La clé de session est gardée par le navigateur, dans le stockage que partagent les apps de
@@ -38,7 +38,7 @@ const CLES = {
 };
 
 /** Modes de connexion d'un compte existant, tant que l'API ne les a pas donnés : tous. */
-const MODES_PAR_DEFAUT = { code: true, lien: true, qr: true, biometrie: true };
+const MODES_PAR_DEFAUT = { qr: true, biometrie: true };
 
 /** Le défi de la biométrie vit 5 minutes sur le serveur : renouvelé avant, écran resté ouvert. */
 const DELAI_RENOUVELLEMENT_DEFI_MS = 4 * 60 * 1000;
@@ -47,7 +47,7 @@ let renouvellementDefi = null;
 /** Clé de session de l'appareil, ou null s'il n'est pas connecté. */
 export const lireSession = () => lireStockage(CLES.session);
 
-/** Compte connecté ({ id, prenom, email }), tel qu'à la dernière connexion, ou null. */
+/** Compte connecté ({ id, prenom }), tel qu'à la dernière connexion, ou null. */
 export const compteConnecte = () => lireStockageJson(CLES.compte);
 
 function garderConnexion({ session, compte }) {
@@ -358,24 +358,6 @@ async function accueillir(nomApp, modes) {
 }
 
 /**
- * Lien d'invitation d'une app (ex : Cadeaux) ouvert sur un appareil sans compte : le compte est
- * créé avec le prénom de la personne invitée et l'appareil connecté, puis l'app propose la
- * biométrie et l'installation.
- * @param prenom Prénom de la personne invitée (donné par l'API de l'app)
- * @param nomApp Nom de l'app, pour décrire l'appareil
- * @return Le compte créé
- * @throws Si l'API refuse (prénom déjà pris : l'app affiche alors la connexion)
- */
-export async function creerCompteInvite(prenom, nomApp) {
-	const connexion = await appelerDroits("creer-compte", {
-		prenom,
-		appareil: decrireAppareil(nomApp),
-	});
-	garderConnexionInvitee(connexion, nomApp);
-	return connexion.compte;
-}
-
-/**
  * Connexion obtenue par le lien d'invitation d'une app (compte créé, ou retrouvé sur un appareil
  * sans session) : gardée sur l'appareil, puis l'app propose la biométrie et l'installation.
  * @param connexion Session et compte ({ session, compte })
@@ -387,16 +369,11 @@ export function garderConnexionInvitee(connexion, nomApp) {
 }
 
 /**
- * Fenêtre « Mes connexions » : adresse e-mail du compte (pour se connecter par un code ou un lien)
- * et biométrie de cet appareil.
+ * Fenêtre « Mes connexions » : biométrie de cet appareil.
  * @param nomApp Nom de l'app, pour décrire l'appareil
- * @throws Si l'API refuse (hors ligne, session fermée)
  */
 export async function ouvrirMesConnexions(nomApp) {
-	const [moi, modes] = await Promise.all([
-		appelerDroits("moi"),
-		modesConnexion().frais,
-	]);
+	const modes = await modesConnexion().frais;
 	const disponible = modes.biometrie && (await biometrieDisponible());
 	let preparation = null;
 	const demanderPreparation = () =>
@@ -407,14 +384,6 @@ export async function ouvrirMesConnexions(nomApp) {
 			.catch(() => {});
 	if (disponible) demanderPreparation();
 
-	const email = el("input", {
-		id: "mes-connexions-email",
-		type: "email",
-		inputmode: "email",
-		autocomplete: "email",
-		maxlength: "120",
-		value: moi.email ?? "",
-	});
 	const etatBiometrie = el("p", { class: "aide" });
 	const boutonBiometrie = el(
 		"button",
@@ -456,38 +425,6 @@ export async function ouvrirMesConnexions(nomApp) {
 		"dialog",
 		{ class: "dialogue", onclose: () => dialogue.remove() },
 		el("h2", {}, "Mes connexions"),
-		el(
-			"form",
-			{
-				class: "formulaire",
-				onsubmit: async (e) => {
-					e.preventDefault();
-					const bouton = e.submitter ?? e.target.querySelector("[type=submit]");
-					bouton.disabled = true;
-					try {
-						const compte = await appelerDroits("modifier-profil", {
-							email: email.value,
-						});
-						ecrireStockage(CLES.compte, JSON.stringify(compte));
-						notifier(
-							compte.email ? "Adresse enregistrée." : "Adresse retirée.",
-						);
-					} catch (erreur) {
-						notifier(erreur.message, true);
-					} finally {
-						bouton.disabled = false;
-					}
-				},
-			},
-			el("label", { for: "mes-connexions-email" }, "Mon adresse e-mail"),
-			el(
-				"p",
-				{ class: "aide" },
-				"Pour recevoir un code ou un lien de connexion (nouvel appareil, appareil perdu).",
-			),
-			email,
-			el("button", { type: "submit" }, "Enregistrer"),
-		),
 		el("h3", { class: "titre-section" }, "Biométrie"),
 		etatBiometrie,
 		el(
@@ -510,8 +447,8 @@ export async function ouvrirMesConnexions(nomApp) {
 }
 
 /**
- * Affiche la connexion dans `conteneur` : compte existant (biométrie, code ou lien par e-mail,
- * lien d'un QR code collé, selon les modes activés), ou nouveau compte (prénom).
+ * Affiche la connexion dans `conteneur` : biométrie (si le mode est activé), ou lien d'un QR code
+ * collé. Un compte ne se crée que par un lien d'invitation (paramètre invitation).
  * @param nomApp Nom de l'app, pour décrire l'appareil
  * @param surConnecte Appelée avec le compte, une fois connecté
  * @param message Message à afficher (ex : session expirée)
@@ -710,105 +647,6 @@ export function afficherConnexion(
 		);
 	}
 
-	/** Message une fois l'e-mail envoyé, selon ce qu'il contient. */
-	function messageEnvoi({ code, lien }) {
-		const suite =
-			code && lien
-				? "Touche son lien sur cet appareil, ou saisis son code :"
-				: code
-					? "Saisis son code :"
-					: "Touche son lien sur cet appareil.";
-		return `Si c'est l'adresse d'un compte, un e-mail vient de partir (regarde aussi dans les spams). ${suite}`;
-	}
-
-	function carteEmail() {
-		const envoi =
-			modes.code && modes.lien
-				? "un code ou un lien"
-				: modes.code
-					? "un code"
-					: "un lien";
-		const email = el("input", {
-			id: "connexion-email",
-			type: "email",
-			inputmode: "email",
-			required: true,
-			autocomplete: "email",
-			maxlength: "120",
-		});
-		const code = el("input", {
-			id: "connexion-code",
-			inputmode: "numeric",
-			autocomplete: "one-time-code",
-			pattern: "[0-9 ]{6,7}",
-			maxlength: "7",
-			required: true,
-		});
-		const formulaireCode = el(
-			"form",
-			{
-				class: "formulaire",
-				hidden: true,
-				onsubmit: (e) => {
-					e.preventDefault();
-					connecter(
-						e.submitter ?? e.target.querySelector("[type=submit]"),
-						"utiliser-code",
-						{
-							email: email.value,
-							code: code.value,
-						},
-					);
-				},
-			},
-			el("label", { for: "connexion-code" }, "Code reçu (6 chiffres)"),
-			code,
-			el(
-				"button",
-				{ type: "submit", class: "bouton-principal" },
-				"Me connecter",
-			),
-		);
-		const aide = el("p", { class: "aide", hidden: true });
-		return el(
-			"div",
-			{ class: "carte formulaire" },
-			el(
-				"form",
-				{
-					class: "formulaire",
-					onsubmit: async (e) => {
-						e.preventDefault();
-						const bouton =
-							e.submitter ?? e.target.querySelector("[type=submit]");
-						bouton.disabled = true;
-						erreur.textContent = "";
-						try {
-							const envoye = await appelerDroits("envoyer-email", {
-								email: email.value,
-								retour: `${location.origin}${location.pathname}`,
-							});
-							aide.textContent = messageEnvoi(envoye);
-							aide.hidden = false;
-							formulaireCode.hidden = !envoye.code;
-							bouton.textContent = "Renvoyer";
-							if (envoye.code) code.focus();
-						} catch (erreurEnvoi) {
-							erreur.textContent = erreurEnvoi.message;
-						} finally {
-							bouton.disabled = false;
-						}
-					},
-				},
-				el("label", { for: "connexion-email" }, "Ton adresse e-mail"),
-				email,
-				el("button", { type: "submit" }, `Recevoir ${envoi}`),
-			),
-			aide,
-			formulaireCode,
-		);
-	}
-
 	function carteLien() {
 		const lien = el("input", {
 			id: "connexion-lien",
@@ -841,8 +679,13 @@ export function afficherConnexion(
 				"p",
 				{ class: "aide" },
 				modes.qr
-					? "Connecté sur un autre appareil ? Sur celui-là : menu → « Connecter un autre appareil », puis scanne le QR code avec l'appareil photo. Ou colle ici le lien reçu :"
-					: "Tu as reçu un lien de connexion ? Touche-le, ou colle-le ici :",
+					? "Scanne le QR code reçu avec l'appareil photo, ou touche le lien reçu. Connecté sur un autre appareil ? Sur celui-là : menu → « Connecter un autre appareil »."
+					: "Scanne le QR code reçu avec l'appareil photo, ou touche le lien reçu.",
+			),
+			el(
+				"p",
+				{ class: "aide" },
+				"Si le lien n'ouvre pas cette app, colle-le ici. Pas de QR code ni de lien ? Demande-le à Guillaume.",
 			),
 			el("label", { for: "connexion-lien" }, "Lien de connexion"),
 			lien,
@@ -857,33 +700,6 @@ export function afficherConnexion(
 		);
 	}
 
-	function carteNouveauCompte() {
-		const prenom = el("input", {
-			id: "connexion-prenom",
-			required: true,
-			autocomplete: "given-name",
-			maxlength: "40",
-		});
-		return el(
-			"form",
-			{
-				class: "carte formulaire",
-				onsubmit: (e) => {
-					e.preventDefault();
-					connecter(
-						e.submitter ?? e.target.querySelector("[type=submit]"),
-						"creer-compte",
-						{ prenom: prenom.value },
-					);
-				},
-			},
-			el("p", { class: "aide" }, "Pas encore de compte ?"),
-			el("label", { for: "connexion-prenom" }, "Ton prénom"),
-			prenom,
-			el("button", { type: "submit" }, "Créer mon compte"),
-		);
-	}
-
 	async function afficher() {
 		const biometrie = modes.biometrie && (await biometrieDisponible());
 		if (biometrie && !defi && !defiEnCours) demanderDefi();
@@ -892,9 +708,7 @@ export function afficherConnexion(
 			biometrie && carteBiometrie(),
 			// App installée (iPhone) : elle ne partage pas la connexion du navigateur.
 			estInstallee && !lireSession() && carteInstallee(),
-			(modes.code || modes.lien) && carteEmail(),
 			carteLien(),
-			carteNouveauCompte(),
 			erreur,
 			// Le menu (et son « Installer l'app ») n'est pas affiché avant la connexion.
 			boutonInstallation({ connexion: true }),
@@ -927,7 +741,64 @@ export function afficherConnexion(
 		}
 	});
 	if (invitation) {
+		if (lireSession()) confirmerLienSurAppareilConnecte(invitation);
+		else utiliserLien(invitation);
+	}
+
+	function utiliserLien(code) {
 		erreur.textContent = "Connexion…";
-		connecter(null, "utiliser-invitation", { invitation });
+		connecter(null, "utiliser-invitation", { invitation: code });
+	}
+
+	/**
+	 * Lien ouvert sur un appareil déjà connecté : il remplacerait sa connexion, et l'invitation d'une
+	 * autre personne serait consommée. L'appareil ne l'utilise que si on le confirme.
+	 */
+	function confirmerLienSurAppareilConnecte(code) {
+		let utiliser = false;
+		const prenom = compteConnecte()?.prenom ?? "ton compte";
+		const dialogue = el(
+			"dialog",
+			{
+				class: "dialogue",
+				onclose: () => {
+					dialogue.remove();
+					if (utiliser) utiliserLien(code);
+					else location.reload();
+				},
+			},
+			el("h2", {}, "Cet appareil est déjà connecté"),
+			el(
+				"p",
+				{ class: "aide" },
+				`Ce lien remplacerait la connexion de ${prenom}. S'il est pour quelqu'un d'autre, garde ce compte : le lien restera valable.`,
+			),
+			el(
+				"div",
+				{ class: "boutons" },
+				el(
+					"button",
+					{
+						type: "button",
+						onclick: () => {
+							utiliser = true;
+							dialogue.close();
+						},
+					},
+					"Utiliser ce lien",
+				),
+				el(
+					"button",
+					{
+						type: "button",
+						class: "bouton-principal",
+						onclick: () => dialogue.close(),
+					},
+					"Garder ce compte",
+				),
+			),
+		);
+		document.body.append(dialogue);
+		dialogue.showModal();
 	}
 }

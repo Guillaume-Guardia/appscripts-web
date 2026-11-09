@@ -245,7 +245,7 @@ function ouvrirAideIos(connexion) {
 	const remarque = el(
 		"p",
 		{ class: "aide" },
-		`L'app installée ne partage pas la connexion de ${navigateurIos} : il faudra t'y reconnecter au premier lancement (biométrie, code par e-mail ou QR code depuis un appareil connecté).`,
+		`L'app installée ne partage pas la connexion de ${navigateurIos} : il faudra t'y reconnecter au premier lancement (biométrie, ou lien de connexion à coller).`,
 	);
 	const safari = navigateurIos === "Safari";
 	if (connexion) {

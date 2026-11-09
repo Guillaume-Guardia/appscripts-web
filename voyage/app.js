@@ -1009,7 +1009,7 @@ async function enregistrerVoyage(evenement) {
 }
 
 // ---------------------------------------------------------------------------
-// Connexion : compte par e-mail (shared/connexion.js, projet droits)
+// Connexion : compte du projet droits (shared/connexion.js)
 // ---------------------------------------------------------------------------
 
 function afficherEcran(nom) {
@@ -1061,7 +1061,7 @@ async function chargerApresConnexion() {
 	rejoindreEnAttente();
 }
 
-/** Prénom et e-mail du compte, en tête du menu. */
+/** Prénom du compte, en tête du menu. */
 function afficherCompte() {
 	const compte = app.etat?.moi ?? compteConnecte();
 	$("#menu-compte").textContent = compte ? `Connecté : ${compte.prenom}` : "";

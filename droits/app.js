@@ -175,58 +175,22 @@ function supprimerCompte(compte) {
 	);
 }
 
-function changerEmail(compte) {
-	const email = prompt(
-		`Adresse e-mail de ${compte.prenom} (vide : aucune), pour se connecter par un code ou un lien :`,
-		compte.email,
-	);
-	if (email === null) return;
-	modifier(
-		"changer-email",
-		{ compteId: compte.id, email },
-		`Adresse de ${compte.prenom} ${email.trim() ? "enregistrée" : "retirée"}.`,
-	);
-}
-
-function envoyerLien(compte) {
-	if (
-		!confirm(
-			`Envoyer à ${compte.email} un lien qui connecte un appareil au compte de ${compte.prenom} (10 minutes, une fois) ?`,
-		)
-	) {
-		return;
-	}
-	modifier(
-		"envoyer-lien",
-		// Le site vu d'ici (front de review compris) : le lien ouvre une app du même site.
-		{ compteId: compte.id, site: new URL("../", location.href).href },
-		`Lien envoyé à ${compte.prenom}.`,
-	);
-}
-
 /**
- * Nouveau lien de connexion d'un compte : QR code, ou lien à copier. Il ouvre la première app du
- * compte ; collé ou scanné dans une app installée, il connecte cette app.
+ * Nouveau lien de connexion d'un compte : QR code, ou lien à copier, qui ouvre l'app choisie ;
+ * collé ou scanné dans une app installée, il connecte cette app.
+ * @param appChoisie Clé et nom de l'app que le lien ouvre
  */
-async function afficherLienConnexion(compte) {
-	if (
-		!confirm(
-			`Créer un lien de connexion pour ${compte.prenom} ? Il remplace le précédent et donne accès à son compte.`,
-		)
-	) {
-		return;
-	}
+async function afficherLienConnexion(compte, appChoisie) {
 	try {
 		const code = await appelerApi("lien-connexion", { compteId: compte.id });
 		// Le site vu d'ici (front de review compris).
-		const page = new URL(`../${compte.apps[0] ?? "droits"}/`, location.href)
-			.href;
+		const page = new URL(`../${appChoisie.cle}/`, location.href).href;
 		const lien = lienInvitation(code, page);
 		ouvrirQr({
-			titre: `Connecter ${compte.prenom}`,
+			titre: `Connecter ${compte.prenom} à ${appChoisie.nom}`,
 			aide: `À scanner ou à coller dans l'app (sur iPhone, dans l'app installée : toucher le lien ouvre Safari). Il reste valable jusqu'à ce qu'un nouveau le remplace ou que ses appareils soient déconnectés. Il donne accès à son compte : à ${compte.prenom} seulement.`,
 			lien,
-			texteEnvoi: `${compte.prenom}, voici ton lien de connexion (il est personnel, ne le transfère pas) :`,
+			texteEnvoi: `${compte.prenom}, voici ton lien de connexion à ${appChoisie.nom} (il est personnel, ne le transfère pas) :`,
 			actions: [
 				{
 					libelle: "Copier le lien",
@@ -244,6 +208,62 @@ async function afficherLienConnexion(compte) {
 	} catch (erreur) {
 		traiterErreur(erreur);
 	}
+}
+
+/** Fenêtre « Lien de connexion » : choix de l'app ouverte, parmi celles du compte, puis QR code. */
+function choisirAppDuLien(compte) {
+	const appsDuCompte = app.administration.apps.filter(({ cle }) =>
+		compte.apps.includes(cle),
+	);
+	if (!appsDuCompte.length) {
+		notifier(`Ouvre d'abord une app à ${compte.prenom}.`, true);
+		return;
+	}
+	const choix = el(
+		"select",
+		{ id: "lien-connexion-app" },
+		appsDuCompte.map(({ cle, nom }) => el("option", { value: cle }, nom)),
+	);
+	const dialogue = el(
+		"dialog",
+		{ class: "dialogue", onclose: () => dialogue.remove() },
+		el("h2", {}, `Lien de connexion de ${compte.prenom}`),
+		el(
+			"form",
+			{
+				class: "formulaire",
+				onsubmit: (e) => {
+					e.preventDefault();
+					const appChoisie = appsDuCompte.find((a) => a.cle === choix.value);
+					dialogue.close();
+					afficherLienConnexion(compte, appChoisie);
+				},
+			},
+			el("label", { for: "lien-connexion-app" }, "App à ouvrir"),
+			choix,
+			el(
+				"p",
+				{ class: "aide" },
+				`Le nouveau lien remplace le précédent. Une fois connecté, ${compte.prenom} a accès à toutes ses apps.`,
+			),
+			el(
+				"div",
+				{ class: "boutons" },
+				el(
+					"button",
+					{ type: "button", onclick: () => dialogue.close() },
+					"Annuler",
+				),
+				el(
+					"button",
+					{ type: "submit", class: "bouton-principal" },
+					"Créer le lien",
+				),
+			),
+		),
+	);
+	document.body.append(dialogue);
+	dialogue.showModal();
 }
 
 /** Modes de connexion d'un compte existant, activés ou non pour tous. */
@@ -275,7 +295,7 @@ function rendreModes() {
 			el(
 				"p",
 				{ class: "aide" },
-				"Pour tous les comptes, aussitôt. Un appareil déjà connecté le reste ; créer un compte (prénom) et le QR code du classeur restent possibles.",
+				"Pour tous les comptes, aussitôt. Un appareil déjà connecté le reste ; les invitations, les liens de connexion ci-dessous et le QR code du classeur restent possibles.",
 			),
 		),
 		el("h2", { class: "titre-section" }, "Inviter une personne"),
@@ -346,13 +366,9 @@ function formulaireInvitation() {
 
 function carteCompte(compte, apps) {
 	const moi = compte.id === compteConnecte()?.id;
-	const lienActif = app.administration.modes.some(
-		(mode) => mode.cle === "lien" && mode.actif,
-	);
 	const detail = [
 		`Appareils connectés : ${compte.appareils}`,
 		compte.biometrie ? `biométrie : ${compte.biometrie}` : "",
-		compte.email || "sans e-mail",
 		compte.bloque ? "bloqué" : "",
 		compte.toutes ? "toutes les apps (onglet Droits)" : "",
 		moi ? "toi" : "",
@@ -366,31 +382,17 @@ function carteCompte(compte, apps) {
 		el("p", { class: "detail" }, detail),
 		casesDesApps(compte, apps, moi),
 		caseTableaux(compte, moi),
-		el(
-			"div",
-			{ class: "boutons" },
+		!moi &&
+			!compte.bloque &&
 			el(
-				"button",
-				{ type: "button", onclick: () => changerEmail(compte) },
-				compte.email ? "Changer l'e-mail" : "Ajouter un e-mail",
-			),
-			!moi &&
-				!compte.bloque &&
+				"div",
+				{ class: "boutons" },
 				el(
 					"button",
-					{ type: "button", onclick: () => afficherLienConnexion(compte) },
+					{ type: "button", onclick: () => choisirAppDuLien(compte) },
 					"Lien de connexion (QR code)",
 				),
-			!moi &&
-				compte.email &&
-				lienActif &&
-				!compte.bloque &&
-				el(
-					"button",
-					{ type: "button", onclick: () => envoyerLien(compte) },
-					"Envoyer un lien de connexion",
-				),
-		),
+			),
 		!moi &&
 			el(
 				"div",
@@ -453,7 +455,7 @@ function afficherEcran(nom) {
 }
 
 /**
- * Écran de connexion : nouveau compte (prénom), ou appareil à connecter à un compte existant.
+ * Écran de connexion : appareil à connecter à un compte existant.
  * @param message Message à afficher (ex : session expirée)
  * @param invitation Code d'un lien de connexion (QR code d'un autre appareil), utilisé aussitôt
  */

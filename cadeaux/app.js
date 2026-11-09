@@ -3,7 +3,6 @@ import {
 	afficherConnexion as afficherFormulaireConnexion,
 	compteConnecte,
 	connecterUnAutreAppareil,
-	creerCompteInvite,
 	deconnecter as deconnecterAppareil,
 	decrireAppareil,
 	estAccesRefuse,
@@ -2191,20 +2190,18 @@ async function chargerApresConnexion() {
  * Lien d'invitation (QR code d'un proche, ou du classeur), valable tant qu'il n'est pas remplacé :
  * la clé est gardée, puis envoyée jusqu'à ce que le compte soit lié à sa personne. Si cette
  * personne a déjà un compte, l'appareil y est connecté (app installée, nouveau téléphone). Sinon,
- * sans compte sur l'appareil, il est créé avec son prénom (shared/connexion.js propose ensuite la
+ * sans compte sur l'appareil, l'API le crée avec son prénom (shared/connexion.js propose ensuite la
  * biométrie et l'installation) ; si ce prénom est déjà pris, la personne se connecte au sien.
  */
 async function accepterInvitation(cle) {
 	garderCle(cle);
 	afficherAccueil("Connexion…");
 	try {
-		const { prenom, connexion } = await appelerApi("invitation", {
+		const { connexion } = await appelerApi("invitation", {
 			appareil: decrireAppareil("Cadeaux"),
 		});
 		if (connexion) garderConnexionInvitee(connexion, "Cadeaux");
-		else if (prenom && !estConnecte()) {
-			await creerCompteInvite(prenom, "Cadeaux");
-		} else proposerInstallation({ connexion: true });
+		else proposerInstallation({ connexion: true });
 	} catch (erreur) {
 		if (estInvitationRefusee(erreur)) garderCle(null);
 		if (!estConnecte()) {
@@ -2568,7 +2565,7 @@ function demarrer() {
 	if (invitation || !estConnecte()) {
 		afficherConnexionCompte(
 			app.cle
-				? "Pour accepter l'invitation, crée ton compte (ou connecte cet appareil au tien)."
+				? "Pour accepter l'invitation, connecte cet appareil à ton compte."
 				: "",
 			invitation,
 		);
