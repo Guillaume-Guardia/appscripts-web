@@ -267,6 +267,8 @@ function rendreDetail() {
 							"div",
 							{},
 							el("p", { class: "poste-titre" }, jour.titre),
+							jour.explication &&
+								el("p", { class: "poste-detail" }, jour.explication),
 							jour.lieu && el("p", { class: "poste-detail" }, jour.lieu),
 							jour.description &&
 								el("p", { class: "poste-detail" }, jour.description),
