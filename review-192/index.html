@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="theme-color" content="#0f5f66" />
+		<meta name="description" content="Toutes les apps dans une seule fenêtre installée, avec une seule connexion." />
+		<title>Mes apps</title>
+		<link rel="manifest" href="manifest.webmanifest" />
+		<link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="Mes apps" />
+		<link rel="stylesheet" href="shared/base.css" />
+		<style>
+			/* Sur ordinateur, les cartes remplissent la largeur (plusieurs colonnes). */
+			main { max-width: none; }
+			.apps { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); }
+			.app { position: relative; display: flex; align-items: center; gap: 16px; padding: 14px 16px; }
+			/* Le lien du titre couvre toute la carte ; les liens des tableaux passent au-dessus. */
+			.lien-app { color: inherit; text-decoration: none; }
+			.lien-app::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+			.lien-app:focus-visible { outline: none; }
+			.app:has(.lien-app:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+			.tableaux { position: relative; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+			.tableaux a { padding: 2px 10px; border: 1px solid var(--bord); border-radius: 999px; color: var(--accent); font-size: 13px; text-decoration: none; }
+			.app img { width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0; }
+			.app h2 { font-size: 18px; }
+			.app p { margin: 2px 0 0; color: var(--texte-doux); font-size: 14px; }
+			.sans-acces { opacity: 0.45; filter: grayscale(1); }
+			.sans-acces p::after { content: " · Pas encore accès"; }
+			.a-venir { box-shadow: none; background: transparent; border-style: dashed; }
+			.a-venir .icone { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0; background: var(--surface-2); color: var(--texte-doux); }
+			.entete .installer { min-height: 36px; padding: 6px 14px; border-color: currentColor; background: transparent; }
+			.a-venir svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+		</style>
+	</head>
+	<body>
+		<header class="entete">
+			<h1>Mes apps</h1>
+			<!-- Installé, le portail ouvre toutes les apps dans sa fenêtre : une icône, une connexion. -->
+			<button type="button" id="installer" class="installer" hidden>Installer</button>
+		</header>
+		<div id="bandeau" class="bandeau" hidden></div>
+		<main>
+			<!-- Une carte par app ; chacune s'installe séparément sur le téléphone, depuis sa page. -->
+			<div class="apps">
+				<div class="carte app" data-app="voyage" data-projet="voyage">
+					<img src="voyage/icons/icon-192.png" alt="" />
+					<div>
+						<h2><a class="lien-app" href="voyage/">Voyage</a></h2>
+						<p>Les listes de bagages, selon la destination, la durée et le transport.</p>
+					</div>
+				</div>
+				<div class="carte app" data-app="cuisine" data-projet="cuisine">
+					<img src="cuisine/icons/icon-192.png" alt="" />
+					<div>
+						<h2><a class="lien-app" href="cuisine/">Cuisine</a></h2>
+						<p>Le journal alimentaire : calories, macros, recettes et poids.</p>
+					</div>
+				</div>
+				<div class="carte app" data-projet="investissement">
+					<img src="investissement/icons/icon-192.png" alt="" />
+					<div>
+						<h2><a class="lien-app" href="investissement/">Investissement</a></h2>
+						<p>Simuler un bien locatif : frais, crédit, cash-flow et rendement.</p>
+					</div>
+				</div>
+				<div class="carte app" data-app="cadeaux" data-projet="cadeaux">
+					<img src="cadeaux/icons/icon-192.png" alt="" />
+					<div>
+						<h2><a class="lien-app" href="cadeaux/">Cadeaux</a></h2>
+						<p>Les listes de cadeaux de Noël de la famille.</p>
+					</div>
+				</div>
+				<div class="carte app" data-app="calendrier" data-projet="calendrier">
+					<img src="calendrier/icons/icon.svg" alt="" />
+					<div>
+						<h2><a class="lien-app" href="calendrier/">Calendrier</a></h2>
+						<p>Le planning de Marianne, mois par mois, à jour en temps réel.</p>
+					</div>
+				</div>
+				<div class="carte app" data-app="maison" data-projet="maison">
+					<img src="maison/icons/icon-192.png" alt="" />
+					<div>
+						<h2><a class="lien-app" href="maison/">Maison</a></h2>
+						<p>Les entretiens de la maison et la valeur des biens.</p>
+					</div>
+				</div>
+				<div class="carte app" data-app="location" data-projet="location">
+					<img src="location/icons/icon-192.png" alt="" />
+					<div>
+						<h2><a class="lien-app" href="location/">Location</a></h2>
+						<p>Le suivi de la gestion locative : locataires, avenants à signer, chaudières.</p>
+					</div>
+				</div>
+				<div class="carte app" data-projet="perudo">
+					<img src="perudo/icons/icon-192.png" alt="" />
+					<div>
+						<h2><a class="lien-app" href="perudo/">Perudo</a></h2>
+						<p>Dudo, Calza ou surenchère : les probabilités à partir de tes dés.</p>
+					</div>
+				</div>
+				<div class="carte app" data-app="droits" data-projet="droits">
+					<img src="droits/icons/icon.svg" alt="" />
+					<div>
+						<h2><a class="lien-app" href="droits/">Droits</a></h2>
+						<p>Les comptes des apps et les apps ouvertes à chacun.</p>
+					</div>
+				</div>
+			</div>
+
+			<!-- Projets du dépôt (projets/) qui n'ont pas encore d'app : ils tournent dans leur classeur Google. -->
+			<h2 class="titre-section">À venir</h2>
+			<div class="apps">
+				<div class="carte app a-venir" data-projet="budget">
+					<span class="icone"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h15a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a2 2 0 0 1 2-2h11v3M16 14h1" /></svg></span>
+					<div>
+						<h2>Budget</h2>
+						<p>Le budget du mois, envoyé en PDF.</p>
+					</div>
+				</div>
+				<div class="carte app a-venir" data-projet="bulletin-salaire">
+					<span class="icone"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5" /></svg></span>
+					<div>
+						<h2>Bulletins de salaire</h2>
+						<p>Les bulletins de salaire de chacun, classés par entreprise.</p>
+					</div>
+				</div>
+				<div class="carte app a-venir" data-projet="drive">
+					<span class="icone"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h6l2 2h10v11H3zM3 11h18" /></svg></span>
+					<div>
+						<h2>Drive</h2>
+						<p>Les scans déposés dans Drive, rangés et renommés tout seuls.</p>
+					</div>
+				</div>
+				<div class="carte app a-venir" data-projet="travail">
+					<span class="icone"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h18v12H3zM9 8V5h6v3M3 13h18" /></svg></span>
+					<div>
+						<h2>Travail</h2>
+						<p>Les candidatures, les activités et le temps passé.</p>
+					</div>
+				</div>
+				<div class="carte app a-venir" data-projet="voiture">
+					<span class="icone"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v-4l2-6h14l2 6v4zM3 13h18M7 17v2M17 17v2M7 15h1M16 15h1" /></svg></span>
+					<div>
+						<h2>Voiture</h2>
+						<p>Les entretiens à prévoir pour chaque voiture.</p>
+					</div>
+				</div>
+			</div>
+			<button type="button" id="signalement" class="lien-signalement">Une suggestion ou un bug ?</button>
+		</main>
+		<div id="toasts" class="toasts" aria-live="polite"></div>
+		<script src="shared/config.js"></script>
+		<script src="version.js"></script>
+		<script type="module">
+			import { accesDuCompte, accesGardes, lireSession } from "./shared/connexion.js";
+			import { el } from "./shared/dom.js";
+			import { brancherInstallation, enregistrerServiceWorker } from "./shared/pwa.js";
+			import { ouvrirSignalement } from "./shared/signalement.js";
+
+			enregistrerServiceWorker();
+			// Sur iPhone, un lien de connexion est copié pour le portail installé (qui ne partage pas la
+			// connexion de Safari) : collé dans la première app ouverte, il connecte toutes les autres.
+			brancherInstallation(document.querySelector("#installer"), { connexion: true });
+
+			// Compte connecté : les apps qu'il n'a pas encore (onglet Droits) sont grisées, et s'il a le
+			// droit de les voir, chaque carte a les liens de ses classeurs. Sans compte, ou hors ligne,
+			// rien ne change : chaque app propose la connexion. Les accès gardés sur l'appareil
+			// s'affichent aussitôt, puis la réponse de l'API les remplace.
+			function afficherAcces({ apps, tableaux }) {
+				for (const carte of document.querySelectorAll("[data-app]")) {
+					carte.classList.toggle("sans-acces", !apps.includes(carte.dataset.app));
+				}
+				for (const carte of document.querySelectorAll("[data-projet]")) {
+					carte.querySelector(".tableaux")?.remove();
+					const liens = tableaux.filter((t) => t.projet === carte.dataset.projet);
+					if (!liens.length) continue;
+					carte.querySelector("div").append(
+						el(
+							"div",
+							{ class: "tableaux" },
+							liens.map(({ nom, url }) => el("a", { href: url, target: "_blank", rel: "noopener" }, nom)),
+						),
+					);
+				}
+			}
+
+			if (lireSession()) {
+				const gardes = accesGardes();
+				if (gardes) afficherAcces(gardes);
+				accesDuCompte()
+					.then(afficherAcces)
+					.catch(() => {});
+			}
+
+			document.querySelector("#signalement").addEventListener("click", () =>
+				ouvrirSignalement({
+					app: "Portail",
+					projets: [
+						"Budget",
+						"BulletinSalaire",
+						"Cadeaux",
+						"Calendrier",
+						"Cuisine",
+						"Drive",
+						"Droits",
+						"Investissement",
+						"Location",
+						"Maison",
+						"Perudo",
+						"Travail",
+						"Voiture",
+						"Voyage",
+					],
+				}),
+			);
+		</script>
+	</body>
+</html>
