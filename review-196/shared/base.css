@@ -296,6 +296,28 @@ h3 {
 	background: var(--surface-2);
 }
 
+/* Interrupteur d'un menu (Biométrie) : le libellé à gauche, la bascule à droite */
+.menu .bascule {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 16px;
+}
+.bascule::after {
+	content: "";
+	flex: none;
+	width: 36px;
+	height: 20px;
+	border-radius: 999px;
+	background: var(--texte-doux)
+		radial-gradient(circle at 10px 50%, #fff 7px, transparent 7.5px);
+	transition: background-color 0.15s;
+}
+.bascule[aria-checked="true"]::after {
+	background: var(--vert)
+		radial-gradient(circle at 26px 50%, #fff 7px, transparent 7.5px);
+}
+
 .menu .version {
 	margin: 4px 0 0;
 	padding: 8px 12px 2px;

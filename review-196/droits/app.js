@@ -1,6 +1,7 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
+	brancherBiometrie,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
@@ -9,7 +10,6 @@ import {
 	inviterPersonne,
 	lienInvitation,
 	lireSession,
-	ouvrirMesConnexions,
 } from "../shared/connexion.js";
 import { $, el, notifier, remplacerContenu } from "../shared/dom.js";
 import {
@@ -530,14 +530,7 @@ function brancherEvenements() {
 			notifier(erreur.message, true);
 		}
 	});
-	$("#menu-connexions").addEventListener("click", async () => {
-		fermerMenu();
-		try {
-			await ouvrirMesConnexions("Droits");
-		} catch (erreur) {
-			notifier(erreur.message, true);
-		}
-	});
+	brancherBiometrie($("#menu-biometrie"), "Droits");
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), { connexion: true });
 	$("#bouton-signalement").addEventListener("click", () => {

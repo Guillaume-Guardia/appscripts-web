@@ -5,6 +5,7 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
+	brancherBiometrie,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
@@ -13,7 +14,6 @@ import {
 	invitationDuLien,
 	lireSession,
 	oublierConnexion,
-	ouvrirMesConnexions,
 } from "../shared/connexion.js";
 import { aujourdhui, joursEntre, pluriel, versDate } from "../shared/dates.js";
 import { $, el, notifier, remplacerContenu } from "../shared/dom.js";
@@ -335,9 +335,7 @@ function brancherEvenements() {
 	$("#menu-autre-appareil").addEventListener("click", () =>
 		lancerDepuisMenu(connecterUnAutreAppareil),
 	);
-	$("#menu-connexions").addEventListener("click", () =>
-		lancerDepuisMenu(ouvrirMesConnexions),
-	);
+	brancherBiometrie($("#menu-biometrie"), "Location");
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), { connexion: true });
 	$("#bouton-signalement").addEventListener("click", () => {

@@ -2,6 +2,7 @@ import { creerApi, ErreurReseau } from "../shared/api.js";
 import { brancherBalayage, voisin } from "../shared/balayage.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
+	brancherBiometrie,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
@@ -12,7 +13,6 @@ import {
 	invitationDuLien,
 	lireSession,
 	oublierConnexion,
-	ouvrirMesConnexions,
 } from "../shared/connexion.js";
 import { aujourdhui, joursEntre, versChampDate } from "../shared/dates.js";
 import {
@@ -892,16 +892,12 @@ function rendreFamille() {
 				p.prenom,
 			),
 		),
-		el(
-			"button",
-			{
-				type: "button",
-				class: "puce-ajout",
-				onclick: ouvrirAjoutPersonne,
-				"aria-label": "Ajouter une personne sans compte",
-			},
-			"+",
-		),
+		el("button", {
+			type: "button",
+			class: "puce-ajout",
+			onclick: ouvrirAjoutPersonne,
+			"aria-label": "Ajouter une personne sans compte",
+		}),
 	);
 	const leursCadeaux = app.etat.cadeaux
 		.filter(
@@ -1513,16 +1509,12 @@ function rendreEntete() {
 					),
 				)
 			: []),
-		el(
-			"button",
-			{
-				type: "button",
-				class: "puce-ajout",
-				"aria-label": "Rejoindre ou créer une famille",
-				onclick: () => $("#dialogue-ajout-famille").showModal(),
-			},
-			"+",
-		),
+		el("button", {
+			type: "button",
+			class: "puce-ajout",
+			"aria-label": "Rejoindre ou créer une famille",
+			onclick: () => $("#dialogue-ajout-famille").showModal(),
+		}),
 	);
 }
 
@@ -2822,14 +2814,7 @@ function brancherEvenements() {
 			notifier(erreur.message, true);
 		}
 	});
-	$("#menu-connexions").addEventListener("click", async () => {
-		fermerMenu();
-		try {
-			await ouvrirMesConnexions("Cadeaux");
-		} catch (erreur) {
-			notifier(erreur.message, true);
-		}
-	});
+	brancherBiometrie($("#menu-biometrie"), "Cadeaux");
 	$("#menu-deconnecter").addEventListener("click", seDeconnecter);
 	$("#bouton-offrir-selection").addEventListener("click", () =>
 		reserver([...app.selection]),

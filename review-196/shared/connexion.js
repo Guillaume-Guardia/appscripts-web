@@ -374,81 +374,79 @@ export function garderConnexionInvitee(connexion, nomApp) {
 }
 
 /**
- * Fenêtre « Mes connexions » : biométrie de cet appareil.
+ * Interrupteur « Biométrie » du menu d'une app : active ou désactive la biométrie sur cet appareil.
+ * Masqué si l'admin l'a désactivée pour toutes les apps, ou si l'appareil n'en est pas capable.
+ * Rien n'est demandé à l'API à l'ouverture de l'app : les modes de connexion et le défi de
+ * l'activation (à avoir avant le toucher, le navigateur veut la biométrie aussitôt après le geste)
+ * sont demandés quand le menu s'ouvre.
+ * @param bouton Bouton du menu (aria-checked : activée ou non)
  * @param nomApp Nom de l'app, pour décrire l'appareil
  */
-export async function ouvrirMesConnexions(nomApp) {
-	const modes = await modesConnexion().frais;
-	const disponible = modes.biometrie && (await biometrieDisponible());
+export function brancherBiometrie(bouton, nomApp) {
 	let preparation = null;
-	const demanderPreparation = () =>
-		appelerDroits("preparer-biometrie")
-			.then((p) => {
-				preparation = p;
-			})
-			.catch(() => {});
-	if (disponible) demanderPreparation();
-
-	const etatBiometrie = el("p", { class: "aide" });
-	const boutonBiometrie = el(
-		"button",
-		{ type: "button" },
-		"Activer sur cet appareil",
-	);
-	function afficherBiometrie() {
-		const activee = lireStockage(CLES.biometrie) === "oui";
-		etatBiometrie.textContent = !modes.biometrie
-			? "Désactivée pour toutes les apps."
-			: !disponible
-				? "Pas disponible sur cet appareil."
-				: activee
-					? "Activée sur cet appareil."
-					: "Pas encore activée sur cet appareil.";
-		boutonBiometrie.hidden = !disponible || activee;
-	}
-	afficherBiometrie();
-	boutonBiometrie.addEventListener("click", async () => {
-		boutonBiometrie.disabled = true;
+	let preparationObtenueLe = 0;
+	let enCours = false;
+	const activee = () => lireStockage(CLES.biometrie) === "oui";
+	const afficher = () => {
+		bouton.setAttribute("aria-checked", String(activee()));
+	};
+	const montrer = async (modes) => {
+		bouton.hidden = !(modes.biometrie && (await biometrieDisponible()));
+	};
+	const preparer = async () => {
+		const fraiche =
+			preparation &&
+			Date.now() - preparationObtenueLe < DELAI_RENOUVELLEMENT_DEFI_MS;
+		if (bouton.hidden || activee() || fraiche) return;
+		preparation = null;
 		try {
-			await activerBiometrie(
-				preparation ?? (await appelerDroits("preparer-biometrie")),
-				nomApp,
-			);
-			notifier("Biométrie activée.");
+			preparation = await appelerDroits("preparer-biometrie");
+			preparationObtenueLe = Date.now();
+		} catch {
+			// Sans défi (hors ligne) : il sera redemandé au toucher.
+		}
+	};
+
+	afficher();
+	montrer(lireStockageJson(CLES.modes) ?? MODES_PAR_DEFAUT);
+	const menu = bouton.closest(".menu") ?? bouton.parentElement;
+	new MutationObserver(async () => {
+		if (menu.hidden) return;
+		afficher();
+		await montrer(await modesConnexion().frais);
+		preparer();
+	}).observe(menu, { attributes: true, attributeFilter: ["hidden"] });
+
+	bouton.addEventListener("click", async () => {
+		if (enCours) return;
+		enCours = true;
+		try {
+			if (activee()) {
+				await appelerDroits("desactiver-biometrie", {
+					identifiant: lireStockage(CLES.cleBiometrie),
+				});
+				ecrireStockage(CLES.biometrie, "non");
+				ecrireStockage(CLES.cleBiometrie, null);
+				notifier("Biométrie désactivée sur cet appareil.");
+			} else {
+				const defi = preparation ?? (await appelerDroits("preparer-biometrie"));
+				// Un défi ne sert qu'une fois.
+				preparation = null;
+				await activerBiometrie(defi, nomApp);
+				notifier("Biométrie activée.");
+			}
 		} catch (erreur) {
+			// La clé de l'appareil est déjà celle du compte : la biométrie y est bien activée.
+			if (/déjà activée/.test(erreur.message)) {
+				ecrireStockage(CLES.biometrie, "oui");
+			}
 			notifier(erreur.message, true);
-			// Le défi a pu servir : un neuf pour le prochain essai.
-			preparation = null;
-			demanderPreparation();
 		} finally {
-			boutonBiometrie.disabled = false;
-			afficherBiometrie();
+			enCours = false;
+			afficher();
+			preparer();
 		}
 	});
-
-	const dialogue = el(
-		"dialog",
-		{ class: "dialogue", onclose: () => dialogue.remove() },
-		el("h2", {}, "Mes connexions"),
-		el("h3", { class: "titre-section" }, "Biométrie"),
-		etatBiometrie,
-		el(
-			"div",
-			{ class: "boutons" },
-			boutonBiometrie,
-			el(
-				"button",
-				{
-					type: "button",
-					class: "bouton-principal",
-					onclick: () => dialogue.close(),
-				},
-				"Fermer",
-			),
-		),
-	);
-	document.body.append(dialogue);
-	dialogue.showModal();
 }
 
 /**
