@@ -915,8 +915,9 @@ function rendreFamille() {
 						: `${p.prenom} : ${anniversaire(p.naissance)}`,
 				),
 			),
+		// invitable absent : état gardé d'avant cette version de l'API.
 		choisies
-			.filter((p) => !p.compte)
+			.filter((p) => p.invitable ?? !p.compte)
 			.map((p) =>
 				el(
 					"div",
@@ -924,7 +925,9 @@ function rendreFamille() {
 					el(
 						"p",
 						{ class: "discret" },
-						`${p.prenom} n'a pas encore de compte : la famille tient sa liste.`,
+						p.compte
+							? `${p.prenom} utilisait l'app avant les comptes et n'a pas encore créé le sien : avec une invitation, ${p.prenom} retrouve sa liste.`
+							: `${p.prenom} n'a pas encore de compte : la famille tient sa liste.`,
 					),
 					el(
 						"button",
