@@ -1,4 +1,5 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
+import { brancherBalayage, voisin } from "../shared/balayage.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	compteConnecte,
@@ -931,6 +932,13 @@ function choisirOnglet(onglet) {
 	rendre();
 }
 
+/** Passe à l'onglet voisin (-1 : précédent, 1 : suivant) ; faux s'il n'y en a pas. */
+function choisirOngletVoisin(sens) {
+	const onglet = voisin(ONGLETS, app.onglet, sens);
+	if (onglet) choisirOnglet(onglet);
+	return Boolean(onglet);
+}
+
 function afficherEcran(nom) {
 	const connecte = nom === "app";
 	$("#ecran-connexion").hidden = connecte;
@@ -1040,6 +1048,10 @@ function brancherEvenements() {
 			choisirOnglet(bouton.dataset.onglet),
 		);
 	}
+	// Balayer l'écran vers la gauche ou la droite passe à l'onglet suivant ou précédent
+	brancherBalayage($("#ecran-app"), choisirOngletVoisin, {
+		anime: () => $(`#onglet-${app.onglet}`),
+	});
 	$("#form-entretien").addEventListener("submit", enregistrerEntretien);
 	for (const champ of ["#champ-derniere", "#champ-frequence", "#champ-unite"]) {
 		$(champ).addEventListener("input", actualiserProchaineFois);

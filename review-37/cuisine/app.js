@@ -1,4 +1,5 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
+import { brancherBalayage, voisin } from "../shared/balayage.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	compteConnecte,
@@ -1496,6 +1497,13 @@ function changerVue(vue) {
 	window.scrollTo(0, 0);
 }
 
+/** Passe à la vue voisine (-1 : précédente, 1 : suivante) ; faux s'il n'y en a pas. */
+function changerVueVoisine(sens) {
+	const vue = voisin(VUES, app.vue, sens);
+	if (vue) changerVue(vue);
+	return Boolean(vue);
+}
+
 function rendre() {
 	if (!app.etat) return;
 	const profil = profilActif();
@@ -1679,6 +1687,10 @@ function brancherEvenements() {
 	for (const bouton of document.querySelectorAll("#onglets button")) {
 		bouton.addEventListener("click", () => changerVue(bouton.dataset.vue));
 	}
+	// Balayer l'écran vers la gauche ou la droite passe à la vue suivante ou précédente
+	brancherBalayage($("#ecran-app"), changerVueVoisine, {
+		anime: () => $(`#vue-${app.vue}`),
+	});
 	$("#jour-precedent").addEventListener("click", () =>
 		allerAuJour(decalerJour(app.jour, -1)),
 	);

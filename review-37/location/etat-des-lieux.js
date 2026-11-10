@@ -6,6 +6,7 @@
 // qu'il y a du réseau, sans faire attendre la saisie. Elles ne sont gardées nulle part ailleurs.
 
 import { ErreurReseau } from "../shared/api.js";
+import { brancherBalayage, voisin } from "../shared/balayage.js";
 import { versDate } from "../shared/dates.js";
 import { $, el, notifier, remplacerContenu } from "../shared/dom.js";
 import { fileAttente } from "../shared/file-attente.js";
@@ -25,8 +26,6 @@ const PIECE_COMPTEURS = "Compteurs";
 const RELEVES = { Électricité: "electricite", Eau: "eau", Gaz: "gaz" };
 const ONGLET_GENERAL = "#general";
 const DELAI_ENREGISTREMENT_MS = 4000;
-// Balayage horizontal minimal du doigt pour changer de pièce, en pixels
-const BALAYAGE_MIN_PX = 50;
 const VIGNETTES_PAR_APPEL = 200;
 // Photo pour le PDF (plus grand côté en pixels, qualité JPEG), gardée dans une cellule du classeur
 // (45 000 caractères au plus) : 480 px, environ 20 Ko, comme les 400 photos d'un état des lieux
@@ -433,11 +432,11 @@ function ordreOnglets() {
 	return [ONGLET_GENERAL, ...piecesAOnglet().map((piece) => piece.nom)];
 }
 
-/** Passe à l'onglet voisin (-1 : précédent, +1 : suivant), s'il y en a un. */
+/** Passe à l'onglet voisin (-1 : précédent, +1 : suivant) ; faux s'il n'y en a pas. */
 function changerOngletVoisin(sens) {
-	const ordre = ordreOnglets();
-	const voisin = ordre[ordre.indexOf(onglet) + sens];
-	if (voisin) changerOnglet(voisin);
+	const cle = voisin(ordreOnglets(), onglet, sens);
+	if (cle) changerOnglet(cle);
+	return Boolean(cle);
 }
 
 /** Fait défiler la barre des onglets jusqu'à l'onglet de la pièce affichée. */
@@ -445,50 +444,6 @@ function montrerOngletActif() {
 	$("#edl-onglets .puce[aria-pressed='true']")?.scrollIntoView({
 		block: "nearest",
 		inline: "center",
-	});
-}
-
-/**
- * Balayer l'écran de saisie vers la gauche passe à la pièce suivante, vers la droite à la
- * précédente ; la nouvelle pièce arrive en glissant du côté d'où elle vient. Un balayage surtout
- * vertical (défilement) ou trop court ne compte pas, ni un balayage qui part d'un champ de
- * saisie, de la barre des photos ou de la barre des onglets (qui défile elle-même).
- */
-function brancherBalayage() {
-	let depart = null;
-	const zone = $("#ecran-saisie-edl");
-	zone.addEventListener(
-		"touchstart",
-		(evenement) => {
-			const cible = evenement.target;
-			depart =
-				evenement.touches.length === 1 &&
-				!cible.closest("input, textarea, .edl-photos, .edl-onglets")
-					? {
-							x: evenement.touches[0].clientX,
-							y: evenement.touches[0].clientY,
-						}
-					: null;
-		},
-		{ passive: true },
-	);
-	zone.addEventListener("touchend", (evenement) => {
-		if (!depart) return;
-		const fin = evenement.changedTouches[0];
-		const dx = fin.clientX - depart.x;
-		const dy = fin.clientY - depart.y;
-		depart = null;
-		if (Math.abs(dx) < BALAYAGE_MIN_PX || Math.abs(dx) < 1.5 * Math.abs(dy)) {
-			return;
-		}
-		const sens = dx < 0 ? 1 : -1;
-		const ordre = ordreOnglets();
-		if (!ordre[ordre.indexOf(onglet) + sens]) return;
-		changerOngletVoisin(sens);
-		const contenu = $("#edl-contenu");
-		contenu.classList.remove("arrive-droite", "arrive-gauche");
-		void contenu.offsetWidth; // relance l'animation
-		contenu.classList.add(sens > 0 ? "arrive-droite" : "arrive-gauche");
 	});
 }
 
@@ -1424,7 +1379,10 @@ export function initialiserEtatsDesLieux({ appelerApi, afficher, titre }) {
 	$("#edl-enregistrer").addEventListener("click", () =>
 		enregistrer().catch(() => {}),
 	);
-	brancherBalayage();
+	// Balayer l'écran de saisie vers la gauche ou la droite passe à la pièce suivante ou précédente
+	brancherBalayage($("#ecran-saisie-edl"), changerOngletVoisin, {
+		anime: () => $("#edl-contenu"),
+	});
 	$("#edl-vers-signature").addEventListener("click", () => {
 		location.hash = `#signer-etat-des-lieux/${edl.id}`;
 	});

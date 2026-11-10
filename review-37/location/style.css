@@ -295,36 +295,6 @@
 	background: var(--fond);
 }
 
-/* La pièce suivante arrive par la droite, la précédente par la gauche (balayage) */
-#edl-contenu.arrive-droite {
-	animation: arrivee-droite 0.2s ease-out;
-}
-
-#edl-contenu.arrive-gauche {
-	animation: arrivee-gauche 0.2s ease-out;
-}
-
-@keyframes arrivee-droite {
-	from {
-		transform: translateX(40px);
-		opacity: 0.4;
-	}
-}
-
-@keyframes arrivee-gauche {
-	from {
-		transform: translateX(-40px);
-		opacity: 0.4;
-	}
-}
-
-@media (prefers-reduced-motion: reduce) {
-	#edl-contenu.arrive-droite,
-	#edl-contenu.arrive-gauche {
-		animation: none;
-	}
-}
-
 #edl-enregistrement {
 	flex: 1;
 }

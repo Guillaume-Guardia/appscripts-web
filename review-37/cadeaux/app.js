@@ -1,4 +1,5 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
+import { brancherBalayage, voisin } from "../shared/balayage.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	compteConnecte,
@@ -1485,6 +1486,13 @@ function changerOnglet(onglet) {
 	window.scrollTo({ top: 0 });
 }
 
+/** Passe à l'onglet voisin (-1 : précédent, 1 : suivant) ; faux s'il n'y en a pas. */
+function changerOngletVoisin(sens) {
+	const onglet = voisin(Object.keys(RENDUS), app.onglet, sens);
+	if (onglet) changerOnglet(onglet);
+	return Boolean(onglet);
+}
+
 function enregistrerFamillesActives(ids) {
 	app.famillesActives = new Set(ids);
 	app.personnesFamille = new Set();
@@ -2657,6 +2665,8 @@ function brancherEvenements() {
 			changerOnglet(bouton.dataset.onglet),
 		);
 	}
+	// Balayer le contenu vers la gauche ou la droite passe à l'onglet suivant ou précédent
+	brancherBalayage($("#contenu"), changerOngletVoisin);
 	// Retour sur l'app (onglet ou téléphone) : les autres ont peut-être réservé entre-temps.
 	document.addEventListener("visibilitychange", () => {
 		if (document.visibilityState !== "visible") return;
