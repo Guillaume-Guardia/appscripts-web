@@ -39,39 +39,6 @@ export async function reduireImage(fichier, tailleMaxPx, qualite = 0.9) {
 }
 
 /**
- * Réduit une image, en binaire : pour l'envoyer telle quelle (ex : dans Drive), sans le tiers de
- * plus du base64.
- * @param tailleMaxPx Le plus grand côté, en pixels
- * @param qualite Qualité JPEG, de 0 à 1
- * @return Son JPEG (Blob)
- */
-export async function reduireImageEnBlob(fichier, tailleMaxPx, qualite = 0.9) {
-	const canvas = await dessinerReduite(fichier, tailleMaxPx);
-	return new Promise((resoudre, rejeter) =>
-		canvas.toBlob(
-			(blob) =>
-				blob
-					? resoudre(blob)
-					: rejeter(
-							new Error("Le navigateur n'arrive pas à réduire cette photo."),
-						),
-			"image/jpeg",
-			qualite,
-		),
-	);
-}
-
-/** Le base64 d'un Blob, sans le préfixe data: (ex : pour l'envoyer à une API JSON). */
-export function blobEnBase64(blob) {
-	return new Promise((resoudre, rejeter) => {
-		const lecteur = new FileReader();
-		lecteur.onload = () => resoudre(String(lecteur.result).split(",")[1]);
-		lecteur.onerror = () => rejeter(lecteur.error);
-		lecteur.readAsDataURL(blob);
-	});
-}
-
-/**
  * Réduit une image jusqu'à tenir dans une longueur donnée (ex : une cellule de classeur).
  * @param essais Les [plus grand côté en pixels, qualité JPEG] à essayer, du meilleur au plus léger
  * @param longueurMax Le nombre de caractères du base64 à ne pas dépasser
