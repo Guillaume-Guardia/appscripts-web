@@ -337,3 +337,22 @@
 #edl-photos-attente:empty {
 	display: none;
 }
+
+/* Compteurs (onglet Général) et description d'un élément */
+.deux-champs {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+
+.edl-element .description {
+	min-height: 36px;
+	padding: 6px 10px;
+	font-size: 14px;
+}
+
+.puces.fonctionnements .puce {
+	min-height: 32px;
+	padding: 4px 12px;
+	font-size: 13px;
+}

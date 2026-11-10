@@ -21,6 +21,12 @@ const TYPE_ENTREE = "Entrée";
 const STATUT_BROUILLON = "Brouillon";
 const NATURE_SURFACE = "Surface";
 const NATURE_OBJET = "Objet";
+const NATURE_VUE = "Vue";
+const NATURE_COMPTEUR = "Compteur";
+const ELEMENT_VUE_GENERALE = "Vue générale";
+const PIECE_COMPTEURS = "Compteurs";
+// Le relevé de chaque compteur, dans les compteurs de l'état des lieux (le reste est dans son élément)
+const RELEVES = { Électricité: "electricite", Eau: "eau", Gaz: "gaz" };
 const ONGLET_GENERAL = "#general";
 const DELAI_ENREGISTREMENT_MS = 4000;
 const VIGNETTES_PAR_APPEL = 200;
@@ -80,7 +86,9 @@ function reference(piece, element) {
 
 function resumeConstat(constat) {
 	return [
+		constat.description,
 		constat.etat || "État non constaté",
+		constat.fonctionnement,
 		constat.quantite === "" ? "" : `× ${constat.quantite}`,
 		constat.commentaire,
 	]
@@ -93,6 +101,8 @@ function estEcart(piece, constat) {
 	if (!entree) return false;
 	return (
 		(constat.etat && constat.etat !== entree.etat) ||
+		(constat.fonctionnement &&
+			constat.fonctionnement !== entree.fonctionnement) ||
 		(constat.quantite !== "" &&
 			entree.quantite !== "" &&
 			Number(constat.quantite) !== Number(entree.quantite))
@@ -320,8 +330,46 @@ export async function quitterSaisieEtatDesLieux() {
 	}
 }
 
+/** Un élément dont on note l'état (pas une vue générale ni un compteur). */
+function aConstater(constat) {
+	return constat.nature === NATURE_SURFACE || constat.nature === NATURE_OBJET;
+}
+
 function nombreConstates(piece) {
-	return piece.constats.filter((constat) => constat.etat).length;
+	return piece.constats.filter((c) => aConstater(c) && c.etat).length;
+}
+
+/** Les pièces montrées en onglets : toutes, sauf celle des compteurs (dans l'onglet Général). */
+function piecesAOnglet() {
+	return edl.pieces.filter((piece) => piece.nom !== PIECE_COMPTEURS);
+}
+
+/** La pièce des compteurs, créée avec ses trois compteurs si elle manque (ancien brouillon). */
+function pieceCompteurs() {
+	let piece = edl.pieces.find((p) => p.nom === PIECE_COMPTEURS);
+	if (!piece) {
+		piece = { nom: PIECE_COMPTEURS, constats: [] };
+		edl.pieces.unshift(piece);
+	}
+	for (const element of Object.keys(RELEVES)) {
+		if (!piece.constats.some((c) => c.element === element)) {
+			piece.constats.push(nouvelElement(element, NATURE_COMPTEUR, ""));
+		}
+	}
+	return piece;
+}
+
+function nouvelElement(element, nature, quantite = "") {
+	return {
+		element,
+		nature,
+		description: "",
+		quantite,
+		etat: "",
+		fonctionnement: "",
+		commentaire: "",
+		photos: [],
+	};
 }
 
 function rendreOnglets() {
@@ -339,10 +387,10 @@ function rendreOnglets() {
 	remplacerContenu(
 		$("#edl-onglets"),
 		puce(ONGLET_GENERAL, "Général"),
-		edl.pieces.map((piece) =>
+		piecesAOnglet().map((piece) =>
 			puce(
 				piece.nom,
-				`${piece.nom} ${nombreConstates(piece)}/${piece.constats.length}`,
+				`${piece.nom} ${nombreConstates(piece)}/${piece.constats.filter(aConstater).length}`,
 			),
 		),
 	);
@@ -381,26 +429,9 @@ function rendreGeneral() {
 		champ("Date", { type: "date", value: edl.date }, (valeur) => {
 			edl.date = valeur;
 		}),
-		champ(
-			"Compteur d'électricité",
-			{ type: "text", inputmode: "decimal", value: edl.compteurs.electricite },
-			(valeur) => {
-				edl.compteurs.electricite = valeur;
-			},
-		),
-		champ(
-			"Compteur d'eau",
-			{ type: "text", inputmode: "decimal", value: edl.compteurs.eau },
-			(valeur) => {
-				edl.compteurs.eau = valeur;
-			},
-		),
-		champ(
-			"Compteur de gaz",
-			{ type: "text", inputmode: "decimal", value: edl.compteurs.gaz },
-			(valeur) => {
-				edl.compteurs.gaz = valeur;
-			},
+		el("h3", {}, "Compteurs"),
+		pieceCompteurs().constats.map((constat) =>
+			carteCompteur(pieceCompteurs(), constat),
 		),
 		champ(
 			"Clés remises",
@@ -447,6 +478,60 @@ function rendreGeneral() {
 	);
 }
 
+/** Un compteur : numéro, relevé, observations et photos (ex : l'afficheur, l'emplacement). */
+function carteCompteur(piece, constat) {
+	const cle = RELEVES[constat.element];
+	const entree = reference(piece.nom, constat.element);
+	const photos = el("div", { class: "edl-photos" });
+	const commentaire = el("textarea", {
+		rows: "1",
+		placeholder: "Observations (emplacement, compteur coupé…)",
+		maxlength: "500",
+		oninput: (evenement) => {
+			constat.commentaire = evenement.target.value;
+			marquerModifie();
+		},
+	});
+	commentaire.value = constat.commentaire;
+	const carte = el(
+		"div",
+		{ class: "carte edl-element compteur" },
+		el("strong", {}, constat.element),
+		entree
+			? el("span", { class: "aide" }, `Entrée : ${resumeConstat(entree)}`)
+			: null,
+		el(
+			"div",
+			{ class: "deux-champs" },
+			champ(
+				"Numéro de compteur",
+				{ type: "text", value: constat.description, maxlength: "100" },
+				(valeur) => {
+					constat.description = valeur;
+				},
+			),
+			cle
+				? champ(
+						"Relevé",
+						{
+							type: "text",
+							inputmode: "decimal",
+							value: edl.compteurs[cle],
+							placeholder: "ex : 10569 kWh",
+						},
+						(valeur) => {
+							edl.compteurs[cle] = valeur;
+						},
+					)
+				: null,
+		),
+		commentaire,
+		photos,
+	);
+	rendrePhotos(photos, piece, constat);
+	return carte;
+}
+
 function ajouterPiece(nom) {
 	if (!nom) return;
 	if (edl.pieces.some((piece) => piece.nom === nom)) {
@@ -455,14 +540,10 @@ function ajouterPiece(nom) {
 	}
 	edl.pieces.push({
 		nom,
-		constats: edl.surfaces.map((surface) => ({
-			element: surface,
-			nature: NATURE_SURFACE,
-			quantite: "",
-			etat: "",
-			commentaire: "",
-			photos: [],
-		})),
+		constats: [
+			nouvelElement(ELEMENT_VUE_GENERALE, NATURE_VUE),
+			...edl.surfaces.map((surface) => nouvelElement(surface, NATURE_SURFACE)),
+		],
 	});
 	marquerModifie();
 	changerOnglet(nom);
@@ -786,26 +867,29 @@ function pomperPhotos() {
 	return pompe;
 }
 
-/** Les boutons des états d'un élément ; rendre() les remet à jour après un changement venu d'ailleurs. */
-function boutonsEtats(constat, surChoix) {
-	const zone = el("div", { class: "puces etats" });
+/**
+ * Les boutons d'un choix d'un élément (son état, son fonctionnement) : un appui choisit, un
+ * second retire le choix ; rendre() les remet à jour après un changement venu d'ailleurs.
+ */
+function boutonsChoix(constat, champ, valeurs, classe, surChoix) {
+	const zone = el("div", { class: `puces ${classe}` });
 	const rendre = () =>
 		remplacerContenu(
 			zone,
-			edl.etats.map((etat) =>
+			valeurs.map((valeur) =>
 				el(
 					"button",
 					{
 						type: "button",
 						class: "puce",
-						"aria-pressed": String(constat.etat === etat),
+						"aria-pressed": String(constat[champ] === valeur),
 						onclick: () => {
-							constat.etat = constat.etat === etat ? "" : etat;
+							constat[champ] = constat[champ] === valeur ? "" : valeur;
 							rendre();
 							surChoix();
 						},
 					},
-					etat,
+					valeur,
 				),
 			),
 		);
@@ -838,7 +922,28 @@ function carteElement(piece, constat) {
 		},
 	});
 	commentaire.value = constat.commentaire;
-	const etats = boutonsEtats(constat, () => apresChangement());
+	const vue = constat.nature === NATURE_VUE;
+	const etats = boutonsChoix(constat, "etat", edl.etats, "etats", () =>
+		apresChangement(),
+	);
+	const fonctionnements = boutonsChoix(
+		constat,
+		"fonctionnement",
+		edl.fonctionnements ?? [],
+		"fonctionnements",
+		() => apresChangement(),
+	);
+	const description = el("input", {
+		type: "text",
+		class: "description",
+		value: constat.description ?? "",
+		maxlength: "200",
+		placeholder: "Description (matériau, couleur…)",
+		oninput: (evenement) => {
+			constat.description = evenement.target.value;
+			marquerModifie();
+		},
+	});
 
 	function apresChangement() {
 		carte.classList.toggle("ecart", estEcart(piece.nom, constat));
@@ -863,7 +968,14 @@ function carteElement(piece, constat) {
 				"Retirer",
 			),
 		),
-		entree
+		vue
+			? el(
+					"span",
+					{ class: "aide" },
+					"Photos d'ensemble de la pièce, prises depuis l'entrée et les angles",
+				)
+			: description,
+		entree && !vue
 			? el(
 					"div",
 					{ class: "reference" },
@@ -882,10 +994,12 @@ function carteElement(piece, constat) {
 							class: "puce",
 							onclick: () => {
 								constat.etat = entree.etat;
+								constat.fonctionnement = entree.fonctionnement;
 								constat.quantite = entree.quantite;
 								quantite.value =
 									entree.quantite === "" ? "" : String(entree.quantite);
 								etats.rendre();
+								fonctionnements.rendre();
 								apresChangement();
 							},
 						},
@@ -901,7 +1015,8 @@ function carteElement(piece, constat) {
 					quantite,
 				)
 			: null,
-		etats.zone,
+		vue ? null : etats.zone,
+		vue ? null : fonctionnements.zone,
 		commentaire,
 		photos,
 	);
@@ -952,14 +1067,7 @@ function rendrePiece(piece) {
 								notifier(`« ${nom} » est déjà dans la pièce.`, true);
 								return;
 							}
-							piece.constats.push({
-								element: nom,
-								nature: NATURE_OBJET,
-								quantite: 1,
-								etat: "",
-								commentaire: "",
-								photos: [],
-							});
+							piece.constats.push(nouvelElement(nom, NATURE_OBJET, 1));
 							marquerModifie();
 							rendreOnglets();
 							rendreContenu();
@@ -992,7 +1100,7 @@ function rendrePiece(piece) {
 }
 
 function rendreContenu() {
-	const piece = edl.pieces.find((p) => p.nom === onglet);
+	const piece = piecesAOnglet().find((p) => p.nom === onglet);
 	if (!piece) onglet = ONGLET_GENERAL;
 	remplacerContenu(
 		$("#edl-contenu"),
@@ -1078,7 +1186,7 @@ export async function ouvrirSaisieEtatDesLieux(id) {
 function recapitulatif() {
 	const sansEtat = edl.pieces.flatMap((piece) =>
 		piece.constats
-			.filter((constat) => !constat.etat)
+			.filter((constat) => aConstater(constat) && !constat.etat)
 			.map((constat) => `${piece.nom} : ${constat.element}`),
 	);
 	const ecarts = edl.pieces.flatMap((piece) =>
@@ -1222,7 +1330,7 @@ export async function ouvrirSignatureEtatDesLieux(id) {
 
 async function signer() {
 	const sansEtat = edl.pieces.some((piece) =>
-		piece.constats.some((constat) => !constat.etat),
+		piece.constats.some((constat) => aConstater(constat) && !constat.etat),
 	);
 	if (
 		sansEtat &&
