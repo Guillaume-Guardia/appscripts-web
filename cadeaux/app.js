@@ -347,6 +347,24 @@ function famillesActives() {
 
 const nomsFamilles = (familles) => familles.map((f) => f.nom).join(" + ");
 
+/** « Famille Dupont » ; le nom seul s'il commence déjà par « Famille » (pas « Famille Famille… »). */
+function libelleFamille(famille) {
+	return /^famille(\s|$)/i.test(famille.nom)
+		? famille.nom
+		: `Famille ${famille.nom}`;
+}
+
+/** « la famille Dupont », « la famille Dupont et la famille Martin »… pour une phrase. */
+function famillesEnToutesLettres(familles) {
+	const noms = familles.map((f) => {
+		const libelle = libelleFamille(f);
+		return `la ${libelle[0].toLowerCase()}${libelle.slice(1)}`;
+	});
+	return noms.length > 1
+		? `${noms.slice(0, -1).join(", ")} et ${noms.at(-1)}`
+		: (noms[0] ?? "");
+}
+
 /** Vrai quand une partie seulement des familles est affichée : chaque onglet est alors filtré. */
 const filtreFamilles = () =>
 	famillesActives().length < app.etat.familles.length;
@@ -796,7 +814,7 @@ function rendreFamille() {
 	if (autres.length === 0) {
 		return [
 			vide(
-				`Personne d'autre dans ${nomsFamilles(famillesActives())} pour l'instant. Partage le code (menu en haut à droite, Mon profil), ou ajoute un proche qui n'utilisera pas l'app (enfant, grands-parents…).`,
+				`Pour l'instant, il n'y a que toi dans ${famillesEnToutesLettres(famillesActives())}. Invite tes proches à te rejoindre : partage-leur le code (menu en haut à droite, Mon profil). Et pour ceux qui n'utiliseront pas l'app, enfants ou grands-parents, tu peux tenir leur liste toi-même.`,
 				el(
 					"button",
 					{ type: "button", class: "bouton", onclick: ouvrirAjoutPersonne },
@@ -907,8 +925,9 @@ function rendreFamille() {
 						: `${p.prenom} : ${anniversaire(p.naissance)}`,
 				),
 			),
+		// invitable absent : état gardé d'avant cette version de l'API.
 		choisies
-			.filter((p) => !p.compte)
+			.filter((p) => p.invitable ?? !p.compte)
 			.map((p) =>
 				el(
 					"div",
@@ -916,7 +935,9 @@ function rendreFamille() {
 					el(
 						"p",
 						{ class: "discret" },
-						`${p.prenom} n'a pas encore de compte : la famille tient sa liste.`,
+						p.compte
+							? `${p.prenom} utilisait l'app avant les comptes et n'a pas encore créé le sien : avec une invitation, ${p.prenom} retrouve sa liste.`
+							: `${p.prenom} n'a pas encore de compte : la famille tient sa liste.`,
 					),
 					el(
 						"button",
@@ -1422,19 +1443,23 @@ const RENDUS = {
 
 function rendreEntete() {
 	const { moi: membre, familles } = app.etat;
-	$("#titre-onglet").textContent = TITRES[app.onglet];
+	const seule = familles.length === 1 ? familles[0] : null;
+	// Onglet Famille d'une seule famille : son nom devient le titre, plutôt que « Famille Dupont »
+	// au-dessus de « La famille ».
+	const titreFamille = seule && app.onglet === "famille";
+	$("#titre-onglet").textContent = titreFamille
+		? libelleFamille(seule)
+		: TITRES[app.onglet];
 	$("#menu-nom").textContent = `Connecté en tant que ${membre.prenom}`;
 
 	// Plusieurs familles : des pastilles dans l'en-tête, chacune s'active ou se désactive (plusieurs
-	// à la fois). Une seule : son nom au-dessus du titre. Dans tous les cas, « + » pour en rejoindre
+	// à la fois). Une seule : son nom au-dessus du titre (en titre sur l'onglet Famille). Dans tous
+	// les cas, « + » pour en rejoindre
 	// ou en créer une.
 	const actives = new Set(famillesActives().map((f) => f.id));
 	const plusieurs = familles.length > 1;
-	$("#libelle-famille").textContent = plusieurs
-		? "Cadeaux de Noël"
-		: familles[0]
-			? `Famille ${familles[0].nom}`
-			: "Cadeaux de Noël";
+	$("#libelle-famille").textContent =
+		seule && !titreFamille ? libelleFamille(seule) : "Cadeaux de Noël";
 	$("#familles-entete").replaceChildren(
 		...(plusieurs
 			? familles.map((f) =>
@@ -2209,10 +2234,13 @@ function afficherEcran(nom) {
 	$("#ecran-app").hidden = nom !== "app";
 }
 
-/** Affiche une des parties de l'écran de connexion (compte, refus, accueil, choix-membre). */
+/**
+ * Affiche une des parties de l'écran de connexion (compte, refus, accueil, choix-membre, attente).
+ */
 function afficherPartieConnexion(partie, message = "") {
 	afficherEcran("connexion");
 	$("#connexion-compte").hidden = partie !== "compte";
+	$("#attente-connexion").hidden = partie !== "attente";
 	$("#refus").hidden = partie !== "refus";
 	$("#accueil-connexion").hidden = partie !== "accueil";
 	$("#choix-membre").hidden = partie !== "choix-membre";
@@ -2246,6 +2274,15 @@ function afficherRefus(message) {
 /** Compte qui n'est encore personne de Cadeaux : code famille, ou lien d'invitation. */
 function afficherAccueil(message = "") {
 	afficherPartieConnexion("accueil", message);
+}
+
+/**
+ * Invitation ou connexion en cours, avant l'ouverture des listes : un simple message, sans le code
+ * famille ni le scanner de l'accueil, qui ne concernent pas la personne invitée.
+ */
+function afficherAttente() {
+	afficherPartieConnexion("attente");
+	$("#attente-connexion").textContent = "Ouverture des listes de ta famille…";
 }
 
 /** Code famille d'un nouveau venu : on vérifie le code, puis il s'ajoute. */
@@ -2309,7 +2346,7 @@ async function ajouterMoi(evenement) {
 async function chargerApresConnexion() {
 	app.etat = null;
 	ecrireStockage(CLES.etat, null);
-	afficherAccueil("Connexion…");
+	afficherAttente();
 	try {
 		ouvrirApp(await appelerApi("etat"));
 	} catch (erreur) {
@@ -2326,7 +2363,7 @@ async function chargerApresConnexion() {
  */
 async function accepterInvitation(cle) {
 	garderCle(cle);
-	afficherAccueil("Connexion…");
+	afficherAttente();
 	try {
 		const { connexion } = await appelerApi("invitation", {
 			appareil: decrireAppareil("Cadeaux"),

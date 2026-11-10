@@ -729,7 +729,9 @@ button:focus-visible {
 	padding: 3px 12px;
 	cursor: pointer;
 }
-.bandeau ~ .app .entete {
+/* Le bandeau affiché prend la barre d'état à sa charge. Masqué, il reste dans la page :
+   sans :not([hidden]), l'en-tête perdait sa marge et passait sous l'heure et la batterie. */
+.bandeau:not([hidden]) ~ .app .entete {
 	padding-top: 12px;
 }
 
@@ -973,7 +975,8 @@ input[type="date"] {
 .chargement {
 	position: fixed;
 	z-index: 30;
-	top: 0;
+	/* Sous l'heure et la batterie de l'iPhone, où elle ne se voyait pas */
+	top: var(--haut-securise, env(safe-area-inset-top));
 	left: 0;
 	right: 0;
 	height: 3px;
