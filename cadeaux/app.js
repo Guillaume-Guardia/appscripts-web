@@ -22,6 +22,7 @@ import {
 	notifier,
 	remplacerContenu,
 } from "../shared/dom.js";
+import { reduireImageSous } from "../shared/image.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -47,8 +48,20 @@ const CLES = {
 	etat: "cadeaux.etat",
 	onglet: "cadeaux.onglet",
 	familles: "cadeaux.familles",
+	/** Photos des idées déjà reçues, par empreinte. */
+	photos: "cadeaux.photos",
 	versionApi: "cadeaux.versionApi",
 };
+
+/** Réductions essayées pour une photo : [plus grand côté en pixels, qualité JPEG]. */
+const REDUCTIONS_PHOTO = [
+	[480, 0.7],
+	[400, 0.6],
+	[320, 0.5],
+	[240, 0.4],
+];
+/** Une photo est gardée dans une cellule du classeur (limite vérifiée aussi par l'API). */
+const LONGUEUR_MAX_PHOTO = 45000;
 
 function lireFamillesActives() {
 	const ids = lireStockageJson(CLES.familles);
@@ -78,6 +91,14 @@ const app = {
 	selection: new Set(),
 	/** Idée en cours d'édition : { cadeau, pourIds }. */
 	edition: null,
+	/** Photo prise ou choisie dans le formulaire d'une idée, pas encore envoyée. */
+	photoSaisie: null,
+	/** Vrai quand le formulaire demande de retirer la photo de l'idée. */
+	photoRetiree: false,
+	/** Photos des idées, par empreinte : une photo changée a une autre empreinte. */
+	photos: lireStockageJson(CLES.photos) ?? {},
+	/** Empreintes déjà demandées à l'API, pour ne pas les redemander à chaque état. */
+	photosDemandees: new Set(),
 	/** Secret Santa dont le membre a affiché le tirage (masqué par défaut). */
 	revele: new Set(),
 	occupe: false,
@@ -158,6 +179,48 @@ function appliquerEtat(etat) {
 	for (const id of app.selection) if (!ids.has(id)) app.selection.delete(id);
 	afficherBandeauHorsLigne();
 	rendre();
+	chargerPhotos();
+}
+
+const urlPhoto = (base64) => `data:image/jpeg;base64,${base64}`;
+
+/**
+ * Charge les photos qui manquent, sans gêner l'affichage : seules les images des cartes sont mises
+ * à jour, pour ne pas faire perdre sa saisie ou sa place à celui qui lit les listes.
+ */
+async function chargerPhotos() {
+	const manquantes = [
+		...new Set(app.etat.cadeaux.flatMap((c) => c.photo || [])),
+	].filter((e) => !app.photos[e] && !app.photosDemandees.has(e));
+	if (manquantes.length === 0) return;
+	for (const empreinte of manquantes) app.photosDemandees.add(empreinte);
+	let recues;
+	try {
+		recues = await appelerApi(
+			"photos",
+			{ empreintes: manquantes },
+			{ discret: true },
+		);
+	} catch {
+		// Sans photo, la carte s'affiche sans image : rien à signaler, on réessaiera.
+		for (const empreinte of manquantes) app.photosDemandees.delete(empreinte);
+		return;
+	}
+	if (!app.etat) return;
+	// Seulement les photos de l'état : celles des idées disparues ne restent pas sur l'appareil.
+	app.photos = Object.fromEntries(
+		app.etat.cadeaux.flatMap(({ photo }) => {
+			const base64 = photo && (recues[photo] ?? app.photos[photo]);
+			return base64 ? [[photo, base64]] : [];
+		}),
+	);
+	ecrireStockage(CLES.photos, JSON.stringify(app.photos));
+	for (const image of document.querySelectorAll("img[data-photo]")) {
+		const base64 = app.photos[image.dataset.photo];
+		if (!base64) continue;
+		image.src = urlPhoto(base64);
+		image.hidden = false;
+	}
 }
 
 async function actualiser({ silencieux = false } = {}) {
@@ -385,6 +448,19 @@ function lienCadeau(cadeau) {
 	);
 }
 
+/** Masquée tant que la photo n'est pas chargée (voir chargerPhotos). */
+function photoCadeau(cadeau) {
+	if (!cadeau.photo) return null;
+	const base64 = app.photos[cadeau.photo];
+	return el("img", {
+		class: "carte-photo",
+		alt: `Photo : ${cadeau.titre}`,
+		"data-photo": cadeau.photo,
+		src: base64 ? urlPhoto(base64) : null,
+		hidden: !base64,
+	});
+}
+
 /**
  * @param options.pour "moi" (ma liste), "autre" (liste d'un autre) ou "reservation"
  * @param options.selectionnable case à cocher pour la réservation multiple
@@ -601,6 +677,7 @@ function carteCadeau(cadeau, { pour, selectionnable = false }) {
 				el("h3", { class: "carte-titre" }, cadeau.titre),
 				el("span", { class: "carte-prix" }, prix(cadeau.prix)),
 			),
+			photoCadeau(cadeau),
 			cadeau.description
 				? el("p", { class: "carte-description" }, cadeau.description)
 				: null,
@@ -1515,11 +1592,51 @@ async function annuler(ids, message) {
 // Idées : ajout (pour soi ou pour un proche), modification, suppression
 // ---------------------------------------------------------------------------
 
+function afficherApercuPhoto(source) {
+	const apercu = $("#apercu-photo");
+	apercu.hidden = !source;
+	if (source) apercu.src = source;
+	else apercu.removeAttribute("src");
+	$("#bouton-retirer-photo").hidden = !source;
+}
+
+function photoChoisieDansFormulaire(evenement) {
+	const fichier = evenement.target.files[0];
+	if (!fichier) return;
+	app.photoSaisie = fichier;
+	app.photoRetiree = false;
+	afficherApercuPhoto(URL.createObjectURL(fichier));
+	// Vidé aussitôt : la même image peut être choisie de nouveau.
+	evenement.target.value = "";
+}
+
+function retirerPhotoDuFormulaire() {
+	app.photoSaisie = null;
+	app.photoRetiree = Boolean(app.edition.cadeau?.photo);
+	afficherApercuPhoto(null);
+}
+
+/** La photo à envoyer : l'image réduite, "" pour la retirer, undefined si elle ne change pas. */
+async function photoDuFormulaire() {
+	if (app.photoRetiree) return "";
+	if (!app.photoSaisie) return undefined;
+	return reduireImageSous(
+		app.photoSaisie,
+		REDUCTIONS_PHOTO,
+		LONGUEUR_MAX_PHOTO,
+	);
+}
+
 /** @param pourIds destinataires de l'idée (plusieurs : idée commune) */
 function ouvrirFormulaireCadeau(cadeau, pourIds = cadeau?.pourIds ?? [moi()]) {
 	app.edition = { cadeau, pourIds };
 	const form = $("#form-cadeau");
 	form.reset();
+	app.photoSaisie = null;
+	app.photoRetiree = false;
+	const photoActuelle = cadeau?.photo && app.photos[cadeau.photo];
+	afficherApercuPhoto(photoActuelle ? urlPhoto(photoActuelle) : null);
+	$("#bouton-retirer-photo").hidden = !cadeau?.photo;
 	const pourMoi = pourIds.includes(moi());
 	const comptes = pourIds.filter((id) => id !== moi() && personne(id)?.compte);
 	$("#titre-dialogue").textContent = cadeau
@@ -1588,6 +1705,12 @@ async function enregistrerCadeau(evenement) {
 	}
 	const { cadeau: existant, pourIds } = app.edition;
 	$("#erreur-cadeau").textContent = "";
+	try {
+		cadeau.photo = await photoDuFormulaire();
+	} catch (erreur) {
+		$("#erreur-cadeau").textContent = erreur.message;
+		return;
+	}
 	const reussi = await modifier(
 		existant ? "modifier-cadeau" : "ajouter-cadeau",
 		existant ? { cadeauId: existant.id, cadeau } : { cadeau, pourIds },
@@ -2398,6 +2521,8 @@ function deconnecter(message = "") {
 	fermerMenu();
 	oublierConnexion();
 	app.etat = null;
+	app.photos = {};
+	app.photosDemandees.clear();
 	// La version de l'API reste : elle ne dit rien du membre.
 	for (const cle of Object.values(CLES))
 		if (cle !== CLES.versionApi) ecrireStockage(cle, null);
@@ -2467,6 +2592,19 @@ function brancherEvenements() {
 		supprimerDepuisFormulaire,
 	);
 	$("#form-cadeau").addEventListener("submit", enregistrerCadeau);
+	$("#bouton-camera").addEventListener("click", () =>
+		$("#champ-camera").click(),
+	);
+	$("#bouton-galerie").addEventListener("click", () =>
+		$("#champ-photo").click(),
+	);
+	for (const champ of ["#champ-camera", "#champ-photo"]) {
+		$(champ).addEventListener("change", photoChoisieDansFormulaire);
+	}
+	$("#bouton-retirer-photo").addEventListener(
+		"click",
+		retirerPhotoDuFormulaire,
+	);
 	$("#form-historique").addEventListener("submit", enregistrerHistorique);
 	$("#form-secret-santa").addEventListener("submit", enregistrerSecretSanta);
 	for (const bouton of document.querySelectorAll("[data-fermer]")) {

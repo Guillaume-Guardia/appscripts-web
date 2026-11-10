@@ -172,6 +172,17 @@
 					</select>
 				</div>
 			</div>
+			<fieldset class="destinataires">
+				<legend>Photo <span class="discret">(facultative)</span></legend>
+				<img id="apercu-photo" class="apercu-photo" alt="" hidden>
+				<div class="choix-photo">
+					<button type="button" id="bouton-camera" class="bouton petit">Prendre une photo</button>
+					<button type="button" id="bouton-galerie" class="bouton petit">Choisir une image</button>
+					<button type="button" id="bouton-retirer-photo" class="bouton petit danger" hidden>Retirer</button>
+				</div>
+				<input id="champ-camera" type="file" accept="image/*" capture="environment" hidden>
+				<input id="champ-photo" type="file" accept="image/*" hidden>
+			</fieldset>
 			<fieldset id="champ-visible-par" class="destinataires">
 				<legend>Visible par</legend>
 				<div id="cadeau-familles" class="cases"></div>

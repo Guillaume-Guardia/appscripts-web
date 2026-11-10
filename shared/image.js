@@ -31,3 +31,18 @@ export function reduireImage(fichier, tailleMaxPx, qualite = 0.9) {
 		image.src = url;
 	});
 }
+
+/**
+ * Réduit une image jusqu'à tenir dans une longueur donnée (ex : une cellule de classeur).
+ * @param essais Les [plus grand côté en pixels, qualité JPEG] à essayer, du meilleur au plus léger
+ * @param longueurMax Le nombre de caractères du base64 à ne pas dépasser
+ * @return Son JPEG en base64
+ * @throws Si aucun essai ne tient dans cette longueur
+ */
+export async function reduireImageSous(fichier, essais, longueurMax) {
+	for (const [tailleMaxPx, qualite] of essais) {
+		const base64 = await reduireImage(fichier, tailleMaxPx, qualite);
+		if (base64.length <= longueurMax) return base64;
+	}
+	throw new Error("Photo trop lourde : choisis-en une autre.");
+}

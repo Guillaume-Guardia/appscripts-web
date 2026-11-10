@@ -509,6 +509,32 @@ button:focus-visible {
 	white-space: pre-line;
 	overflow-wrap: anywhere;
 }
+.carte-photo {
+	display: block;
+	width: 100%;
+	max-height: 220px;
+	object-fit: contain;
+	border-radius: 10px;
+	background: var(--fond);
+}
+.apercu-photo {
+	display: block;
+	width: 96px;
+	height: 96px;
+	object-fit: cover;
+	border-radius: 10px;
+}
+.choix-photo {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+/* Sur ordinateur, capture est ignoré : le bouton ouvrirait le même sélecteur de fichiers. */
+@media (hover: hover) and (pointer: fine) {
+	#bouton-camera {
+		display: none;
+	}
+}
 .carte-lien {
 	color: var(--rouge);
 	font-size: 0.95rem;
