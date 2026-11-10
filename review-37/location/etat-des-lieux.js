@@ -25,6 +25,8 @@ const PIECE_COMPTEURS = "Compteurs";
 const RELEVES = { Électricité: "electricite", Eau: "eau", Gaz: "gaz" };
 const ONGLET_GENERAL = "#general";
 const DELAI_ENREGISTREMENT_MS = 4000;
+// Glissement horizontal minimal du doigt pour changer de pièce, en pixels
+const GLISSEMENT_MIN_PX = 80;
 const VIGNETTES_PAR_APPEL = 200;
 // Photo pour le PDF (plus grand côté en pixels, qualité JPEG), gardée dans une cellule du classeur
 // (45 000 caractères au plus) : 480 px, environ 20 Ko, comme les 400 photos d'un état des lieux
@@ -393,6 +395,81 @@ function changerOnglet(cle) {
 	rendreContenu();
 	window.scrollTo({ top: 0 });
 	enregistrer().catch(() => {});
+}
+
+/** Les onglets dans l'ordre : Général, puis les pièces. */
+function ordreOnglets() {
+	return [ONGLET_GENERAL, ...piecesAOnglet().map((piece) => piece.nom)];
+}
+
+function libelleOnglet(cle) {
+	return cle === ONGLET_GENERAL ? "Général" : cle;
+}
+
+/** Passe à l'onglet voisin (-1 : précédent, +1 : suivant), s'il y en a un. */
+function changerOngletVoisin(sens) {
+	const ordre = ordreOnglets();
+	const voisin = ordre[ordre.indexOf(onglet) + sens];
+	if (voisin) changerOnglet(voisin);
+}
+
+/**
+ * Les boutons « pièce précédente / suivante » de la barre du bas, toujours à portée de pouce (après
+ * la dernière pièce : les signatures) ; l'onglet actif défile aussi jusqu'à être visible dans la
+ * barre des onglets.
+ */
+function rendreNavigation() {
+	const ordre = ordreOnglets();
+	const position = ordre.indexOf(onglet);
+	const precedente = ordre[position - 1];
+	const suivante = ordre[position + 1];
+	$("#edl-precedente").hidden = !precedente;
+	$("#edl-precedente").textContent = precedente
+		? `‹ ${libelleOnglet(precedente)}`
+		: "";
+	// Après la dernière pièce : les signatures
+	$("#edl-suivante").textContent = suivante
+		? `${libelleOnglet(suivante)} ›`
+		: "Signatures ›";
+	$("#edl-onglets .puce[aria-pressed='true']")?.scrollIntoView({
+		block: "nearest",
+		inline: "center",
+	});
+}
+
+/**
+ * Glisser le doigt vers la gauche ou la droite sur le contenu change de pièce, comme les boutons
+ * du bas. Un glissement surtout vertical (défilement) ou trop court ne compte pas, ni un
+ * glissement sur un champ de saisie ou dans la barre des photos.
+ */
+function brancherGlissement() {
+	let depart = null;
+	const zone = $("#edl-contenu");
+	zone.addEventListener(
+		"touchstart",
+		(evenement) => {
+			const cible = evenement.target;
+			depart =
+				evenement.touches.length === 1 &&
+				!cible.closest("input, textarea, .edl-photos")
+					? {
+							x: evenement.touches[0].clientX,
+							y: evenement.touches[0].clientY,
+						}
+					: null;
+		},
+		{ passive: true },
+	);
+	zone.addEventListener("touchend", (evenement) => {
+		if (!depart) return;
+		const fin = evenement.changedTouches[0];
+		const dx = fin.clientX - depart.x;
+		const dy = fin.clientY - depart.y;
+		depart = null;
+		if (Math.abs(dx) > GLISSEMENT_MIN_PX && Math.abs(dx) > 2 * Math.abs(dy)) {
+			changerOngletVoisin(dx < 0 ? 1 : -1);
+		}
+	});
 }
 
 function champ(libelle, attributs, surSaisie) {
@@ -1015,6 +1092,7 @@ function rendreContenu() {
 		$("#edl-contenu"),
 		piece ? rendrePiece(piece) : rendreGeneral(),
 	);
+	rendreNavigation();
 	chargerVignettesManquantes();
 }
 
@@ -1326,6 +1404,13 @@ export function initialiserEtatsDesLieux({ appelerApi, afficher, titre }) {
 	$("#edl-enregistrer").addEventListener("click", () =>
 		enregistrer().catch(() => {}),
 	);
+	$("#edl-precedente").addEventListener("click", () => changerOngletVoisin(-1));
+	$("#edl-suivante").addEventListener("click", () => {
+		const ordre = ordreOnglets();
+		if (ordre.indexOf(onglet) < ordre.length - 1) changerOngletVoisin(1);
+		else location.hash = `#signer-etat-des-lieux/${edl.id}`;
+	});
+	brancherGlissement();
 	$("#edl-vers-signature").addEventListener("click", () => {
 		location.hash = `#signer-etat-des-lieux/${edl.id}`;
 	});

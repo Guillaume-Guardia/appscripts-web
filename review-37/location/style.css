@@ -290,9 +290,38 @@
 .barre-edl {
 	position: sticky;
 	bottom: 0;
-	align-items: center;
-	padding: 10px 0 calc(env(safe-area-inset-bottom) + 10px);
+	padding: 8px 0 calc(env(safe-area-inset-bottom) + 8px);
 	background: var(--fond);
+	border-top: 1px solid var(--bord);
+}
+
+.barre-edl .boutons {
+	align-items: center;
+	margin-top: 8px;
+}
+
+/* Pièce précédente à gauche, suivante à droite, assez grandes pour le pouce */
+.navigation-edl {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.pas-piece {
+	flex: 1;
+	max-width: 50%;
+	min-height: 48px;
+	font-weight: 600;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pas-piece#edl-suivante {
+	margin-left: auto;
+	background: var(--accent);
+	border-color: var(--accent);
+	color: var(--sur-accent);
 }
 
 #edl-enregistrement {
