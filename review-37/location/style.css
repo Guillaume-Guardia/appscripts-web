@@ -318,3 +318,22 @@
 	border-radius: 10px;
 	background: #fff;
 }
+
+/* Photo encore sur le téléphone : visible, mais pas encore dans Drive */
+.vignette.en-attente img {
+	opacity: 0.55;
+}
+
+.vignette.en-attente::after {
+	content: "…";
+	position: absolute;
+	left: 4px;
+	bottom: 2px;
+	color: #fff;
+	font-weight: 700;
+	text-shadow: 0 0 3px #000;
+}
+
+#edl-photos-attente:empty {
+	display: none;
+}

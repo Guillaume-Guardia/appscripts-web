@@ -1,11 +1,19 @@
 // États des lieux, sur le téléphone du propriétaire : liste par logement, saisie pièce par pièce
 // (état, quantité, commentaire et photos de chaque élément) et signature des locataires sur place.
 // La saisie est envoyée à l'API à chaque pause ; tant qu'elle ne l'est pas, elle est gardée sur
-// l'appareil (sans nom de locataire), pour ne rien perdre sans réseau.
+// l'appareil (sans nom de locataire), pour ne rien perdre sans réseau. Les photos passent par une
+// file sur l'appareil (file-attente.js) : envoyées directement dans Drive, deux à la fois, dès qu'il
+// y a du réseau, sans faire attendre la saisie ; leur miniature (240 px) va dans le classeur.
 
+import { ErreurReseau } from "../shared/api.js";
 import { versDate } from "../shared/dates.js";
 import { $, el, notifier, remplacerContenu } from "../shared/dom.js";
-import { reduireImage } from "../shared/image.js";
+import { fileAttente } from "../shared/file-attente.js";
+import {
+	blobEnBase64,
+	reduireImage,
+	reduireImageEnBlob,
+} from "../shared/image.js";
 import { creerPaveSignature } from "../shared/signature.js";
 import { ecrireStockage, lireStockageJson } from "../shared/stockage.js";
 
@@ -15,10 +23,21 @@ const NATURE_SURFACE = "Surface";
 const NATURE_OBJET = "Objet";
 const ONGLET_GENERAL = "#general";
 const DELAI_ENREGISTREMENT_MS = 4000;
-const VIGNETTES_PAR_APPEL = 20;
-// Photo envoyée (plus grand côté en pixels, qualité JPEG), et sa vignette pour l'écran et le PDF
-const PHOTO = [1600, 0.85];
-const VIGNETTE = [480, 0.6];
+const VIGNETTES_PAR_APPEL = 200;
+// Photo envoyée dans Drive (plus grand côté en pixels, qualité JPEG), et sa version pour l'écran et
+// le PDF, gardée dans une cellule du classeur (45 000 caractères au plus) : 480 px, environ 15 Ko,
+// comme les 400 photos d'un état des lieux d'agence en 6 Mo
+const PHOTO = [1280, 0.8];
+const MINIATURES = [
+	[480, 0.5],
+	[400, 0.45],
+	[320, 0.4],
+];
+const LONGUEUR_MAX_MINIATURE = 45000;
+const SESSIONS_PAR_APPEL = 20;
+const MINIATURES_PAR_APPEL = 50;
+const ENVOIS_EN_PARALLELE = 2;
+const DELAI_NOUVEL_ESSAI_MS = 30000;
 
 let api;
 let definirTitre;
@@ -33,6 +52,12 @@ let minuterie = null;
 let ciblePhoto = null;
 let paves = [];
 const vignettes = new Map();
+const photosEnAttente = fileAttente("location");
+// Les photos de la file, gardées en mémoire pour l'affichage (voir rafraichirAttente)
+let attente = [];
+let pompe = null;
+// Drive refuse l'envoi direct depuis ce navigateur : les photos passent par l'API
+let envoiDirectIndisponible = false;
 
 function cleBrouillon(id) {
 	return `location.etat-des-lieux.${id}`;
@@ -231,6 +256,7 @@ function saisie() {
 		date: edl.date,
 		compteurs: edl.compteurs,
 		cles: edl.cles,
+		observations: edl.observations,
 		pieces: edl.pieces,
 	};
 }
@@ -383,6 +409,18 @@ function rendreGeneral() {
 				edl.cles = valeur;
 			},
 		),
+		champ(
+			"Observations générales",
+			{
+				rows: "3",
+				value: edl.observations,
+				maxlength: "2000",
+				placeholder: "ex : détecteur de fumée présent, non testé",
+			},
+			(valeur) => {
+				edl.observations = valeur;
+			},
+		),
 		el("h3", {}, "Ajouter une pièce"),
 		el(
 			"div",
@@ -441,6 +479,9 @@ async function supprimerBrouillon() {
 	modifie = false;
 	try {
 		await api("supprimer-etat-des-lieux", { id: edl.id });
+		for (const photo of attente.filter((p) => p.edl === edl.id)) {
+			await photosEnAttente.retirer(photo.cle);
+		}
 		ecrireStockage(cleBrouillon(edl.id), null);
 		edl = null;
 		location.hash = "#etats-des-lieux";
@@ -457,18 +498,31 @@ function imageVignette(url, surRetrait) {
 		"div",
 		{ class: "vignette" },
 		el("a", { href: url, target: "_blank", rel: "noopener" }, image),
-		surRetrait
-			? el(
-					"button",
-					{
-						type: "button",
-						class: "retirer-photo",
-						"aria-label": "Retirer la photo",
-						onclick: surRetrait,
-					},
-					"×",
-				)
-			: null,
+		surRetrait ? boutonRetirerPhoto(surRetrait) : null,
+	);
+}
+
+function boutonRetirerPhoto(surRetrait) {
+	return el(
+		"button",
+		{
+			type: "button",
+			class: "retirer-photo",
+			"aria-label": "Retirer la photo",
+			onclick: surRetrait,
+		},
+		"×",
+	);
+}
+
+/** Les photos d'un élément encore dans la file (pas encore envoyées, ou pas encore rattachées). */
+function enAttenteDe(piece, constat) {
+	return attente.filter(
+		(photo) =>
+			photo.edl === edl?.id &&
+			photo.piece === piece.nom &&
+			photo.element === constat.element &&
+			!constat.photos.includes(photo.url),
 	);
 }
 
@@ -481,6 +535,21 @@ function rendrePhotos(zone, piece, constat) {
 				rendrePhotos(zone, piece, constat);
 				marquerModifie();
 			}),
+		),
+		enAttenteDe(piece, constat).map((photo) =>
+			el(
+				"div",
+				{ class: "vignette en-attente", title: "En attente d'envoi" },
+				el("img", {
+					alt: "",
+					src: `data:image/jpeg;base64,${photo.miniature}`,
+				}),
+				boutonRetirerPhoto(async () => {
+					await photosEnAttente.retirer(photo.cle);
+					await rafraichirAttente();
+					rendrePhotos(zone, piece, constat);
+				}),
+			),
 		),
 		el(
 			"button",
@@ -508,32 +577,213 @@ function choisirPhoto(selecteur, piece, constat, zone) {
 	$(selecteur).click();
 }
 
+/** La miniature d'une photo, assez petite pour une cellule du classeur. */
+async function miniatureDe(fichier) {
+	for (const [taille, qualite] of MINIATURES) {
+		const miniature = await reduireImage(fichier, taille, qualite);
+		if (miniature.length <= LONGUEUR_MAX_MINIATURE) return miniature;
+	}
+	throw new Error("Photo trop lourde : choisis-en une autre.");
+}
+
+/** Relit la file, et affiche le nombre de photos qui restent à envoyer. */
+async function rafraichirAttente() {
+	try {
+		attente = await photosEnAttente.lister();
+	} catch {
+		attente = [];
+	}
+	const restantes = attente.filter((photo) => !photo.url).length;
+	const zone = $("#edl-photos-attente");
+	if (zone) {
+		zone.textContent = restantes > 0 ? `${restantes} photo(s) à envoyer` : "";
+	}
+}
+
+/** Range les photos choisies dans la file : la saisie continue, elles partent en arrière-plan. */
 async function envoyerPhotos(fichiers) {
 	const cible = ciblePhoto;
 	if (!cible || !edl) return;
 	for (const fichier of fichiers) {
-		notifier("Envoi de la photo…");
 		try {
-			const [photo, vignette] = await Promise.all([
-				reduireImage(fichier, ...PHOTO),
-				reduireImage(fichier, ...VIGNETTE),
+			const [blob, miniature] = await Promise.all([
+				reduireImageEnBlob(fichier, ...PHOTO),
+				miniatureDe(fichier),
 			]);
-			const { url } = await api("photo-etat-des-lieux", {
-				id: edl.id,
+			await photosEnAttente.ajouter({
+				cle: crypto.randomUUID(),
+				edl: edl.id,
 				piece: cible.piece.nom,
 				element: cible.constat.element,
-				photo,
-				vignette,
+				blob,
+				miniature,
 			});
-			vignettes.set(url, vignette);
-			cible.constat.photos.push(url);
-			rendrePhotos(cible.zone, cible.piece, cible.constat);
-			marquerModifie();
 		} catch (erreur) {
 			notifier(erreur.message, true);
 		}
 	}
-	enregistrer().catch(() => {});
+	await rafraichirAttente();
+	rendrePhotos(cible.zone, cible.piece, cible.constat);
+	pomperPhotos();
+}
+
+/** Ouvre les sessions d'envoi Drive des photos qui n'en ont pas, par état des lieux. */
+async function ouvrirSessions(photos) {
+	const sansSession = photos
+		.filter((photo) => !photo.session)
+		.slice(0, SESSIONS_PAR_APPEL);
+	for (const id of new Set(sansSession.map((photo) => photo.edl))) {
+		const duMeme = sansSession.filter((photo) => photo.edl === id);
+		let sessions;
+		try {
+			sessions = await api(
+				"envois-photos-etat-des-lieux",
+				{
+					id,
+					photos: duMeme.map(({ piece, element }) => ({ piece, element })),
+				},
+				{ discret: true },
+			);
+		} catch (erreur) {
+			if (erreur instanceof ErreurReseau) throw erreur;
+			// État des lieux signé ou supprimé entre-temps : ses photos n'ont plus où aller.
+			for (const photo of attente.filter((p) => p.edl === id)) {
+				await photosEnAttente.retirer(photo.cle);
+			}
+			notifier(`Photos non envoyées : ${erreur.message}`, true);
+			continue;
+		}
+		for (const [i, photo] of duMeme.entries()) {
+			await photosEnAttente.modifier(photo.cle, sessions[i]);
+		}
+	}
+}
+
+/**
+ * Envoie une photo : directement dans Drive par sa session ; si le navigateur ne peut pas lire la
+ * réponse, la photo est retrouvée par son nom, ou envoyée par l'API (en base64).
+ * @return L'adresse Drive de la photo
+ * @throws Sans réseau
+ */
+async function envoyerPhoto(photo) {
+	if (!envoiDirectIndisponible) {
+		try {
+			const reponse = await fetch(photo.session, {
+				method: "PUT",
+				headers: { "Content-Type": "image/jpeg" },
+				body: photo.blob,
+			});
+			if (reponse.ok) {
+				const { id } = await reponse.json();
+				return `https://drive.google.com/file/d/${id}/view`;
+			}
+		} catch {
+			if (!navigator.onLine) throw new Error("Pas de réseau.");
+			envoiDirectIndisponible = true;
+		}
+	}
+	const { url } = await api(
+		"confirmer-photo-etat-des-lieux",
+		{ id: photo.edl, nom: photo.nom },
+		{ discret: true },
+	);
+	if (url) return url;
+	const envoi = await api(
+		"photo-etat-des-lieux",
+		{ id: photo.edl, nom: photo.nom, photo: await blobEnBase64(photo.blob) },
+		{ discret: true },
+	);
+	return envoi.url;
+}
+
+/** Envoie les miniatures des photos arrivées dans Drive, par paquets. */
+async function envoyerMiniatures() {
+	const arrivees = attente.filter(
+		(photo) => photo.url && !photo.miniatureEnvoyee,
+	);
+	for (let i = 0; i < arrivees.length; i += MINIATURES_PAR_APPEL) {
+		const paquet = arrivees.slice(i, i + MINIATURES_PAR_APPEL);
+		await api(
+			"miniatures-etat-des-lieux",
+			{
+				miniatures: paquet.map(({ url, miniature }) => ({
+					photo: url,
+					miniature,
+				})),
+			},
+			{ discret: true },
+		);
+		for (const photo of paquet) {
+			await photosEnAttente.modifier(photo.cle, { miniatureEnvoyee: true });
+		}
+	}
+}
+
+/**
+ * Ajoute à leur élément les photos envoyées de l'état des lieux ouvert, puis les retire de la file
+ * une fois la saisie enregistrée. Une photo dont l'élément a été retiré quitte la file.
+ */
+async function rattacherPhotos() {
+	if (!edl) return;
+	const pretes = attente.filter(
+		(photo) => photo.edl === edl.id && photo.url && photo.miniatureEnvoyee,
+	);
+	if (pretes.length === 0) return;
+	for (const photo of pretes) {
+		vignettes.set(photo.url, photo.miniature);
+		const constat = edl.pieces
+			.find((piece) => piece.nom === photo.piece)
+			?.constats.find((c) => c.element === photo.element);
+		if (constat && !constat.photos.includes(photo.url)) {
+			constat.photos.push(photo.url);
+		}
+	}
+	marquerModifie();
+	await enregistrer();
+	for (const photo of pretes) await photosEnAttente.retirer(photo.cle);
+}
+
+/**
+ * Vide la file des photos : sessions, envois (deux à la fois), miniatures, rattachement. Un seul
+ * passage à la fois ; sans réseau, il s'arrête et repart plus tard (voir initialiserEtatsDesLieux).
+ */
+function pomperPhotos() {
+	pompe ??= (async () => {
+		try {
+			await rafraichirAttente();
+			for (;;) {
+				const aEnvoyer = attente.filter((photo) => !photo.url);
+				if (aEnvoyer.length === 0) break;
+				await ouvrirSessions(aEnvoyer);
+				await rafraichirAttente();
+				const pretes = attente
+					.filter((photo) => !photo.url && photo.session)
+					.slice(0, ENVOIS_EN_PARALLELE);
+				if (pretes.length === 0) break;
+				await Promise.all(
+					pretes.map(async (photo) => {
+						const url = await envoyerPhoto(photo);
+						await photosEnAttente.modifier(photo.cle, { url });
+					}),
+				);
+				await rafraichirAttente();
+			}
+			await envoyerMiniatures();
+			await rafraichirAttente();
+			await rattacherPhotos();
+		} catch {
+			// Pas de réseau, ou API indisponible : nouvel essai plus tard.
+		} finally {
+			pompe = null;
+			await rafraichirAttente();
+			// Les photos arrivées s'affichent, sans interrompre une saisie en cours
+			const saisieEnCours = $("#edl-contenu").contains(document.activeElement);
+			if (edl && !$("#ecran-saisie-edl").hidden && !saisieEnCours) {
+				rendreContenu();
+			}
+		}
+	})();
+	return pompe;
 }
 
 /** Les boutons des états d'un élément ; rendre() les remet à jour après un changement venu d'ailleurs. */
@@ -796,12 +1046,15 @@ async function chargerEtatDesLieux(id) {
 			date: garde.date,
 			compteurs: garde.compteurs,
 			cles: garde.cles,
+			observations: garde.observations ?? edl.observations,
 			pieces: garde.pieces,
 		});
 		modifie = true;
 		notifier("Saisie non envoyée reprise sur ce téléphone.");
 		enregistrer().catch(() => {});
 	}
+	await rafraichirAttente();
+	pomperPhotos();
 }
 
 /** Écran de saisie d'un état des lieux. */
@@ -924,6 +1177,16 @@ export async function ouvrirSignatureEtatDesLieux(id) {
 		location.hash = "#etats-des-lieux";
 		return;
 	}
+	await pomperPhotos();
+	const restantes = attente.filter((photo) => photo.edl === id).length;
+	if (restantes > 0) {
+		notifier(
+			`${restantes} photo(s) pas encore envoyée(s) : attends le réseau avant de signer.`,
+			true,
+		);
+		location.hash = `#etat-des-lieux/${id}`;
+		return;
+	}
 	try {
 		await enregistrer();
 	} catch {
@@ -936,7 +1199,21 @@ export async function ouvrirSignatureEtatDesLieux(id) {
 	}
 	definirTitre(`Signatures · ${edl.logement}`);
 	remplacerContenu($("#edl-recapitulatif"), recapitulatif());
-	remplacerContenu($("#edl-signatures"));
+	remplacerContenu(
+		$("#edl-signatures"),
+		el(
+			"label",
+			{ class: "carte edl-general champ" },
+			el("span", {}, "Réserves des locataires (facultatif)"),
+			el("textarea", {
+				id: "edl-reserves",
+				rows: "3",
+				maxlength: "2000",
+				placeholder:
+					"Ce que les locataires veulent faire noter avant de signer",
+			}),
+		),
+	);
 	$("#edl-erreur-signature").textContent = "";
 	afficherEcran("signature-edl");
 	paves = edl.locataires.map(blocSignature);
@@ -959,6 +1236,7 @@ async function signer() {
 		const { lienPdf, erreurMail } = await api("signer-etat-des-lieux", {
 			id: edl.id,
 			consentement: true,
+			reserves: $("#edl-reserves")?.value ?? "",
 			signatures: paves.map(({ nom, pave }) => ({
 				nom,
 				image: pave.versPng(),
@@ -1039,6 +1317,12 @@ export function initialiserEtatsDesLieux({ appelerApi, afficher, titre }) {
 		if (document.visibilityState === "hidden") quitterSaisieEtatDesLieux();
 	});
 	window.addEventListener("beforeunload", (evenement) => {
-		if (modifie) evenement.preventDefault();
+		if (modifie || attente.some((photo) => !photo.url))
+			evenement.preventDefault();
 	});
+	window.addEventListener("online", () => pomperPhotos());
+	setInterval(() => {
+		if (attente.length > 0) pomperPhotos();
+	}, DELAI_NOUVEL_ESSAI_MS);
+	pomperPhotos();
 }
