@@ -227,17 +227,32 @@ button:focus-visible {
 	padding: 4px;
 }
 
+/* Icônes de l'en-tête : au trait, sans fond ; seul le profil (photo ou initiale) est un rond plein */
 .icone-bouton {
 	position: relative;
 	display: grid;
 	place-items: center;
-	width: 40px;
+	width: 36px;
 	height: 40px;
-	border-radius: 50%;
+	padding: 0;
+	border-radius: 10px;
 	border: 0;
-	background: rgb(255 255 255 / 0.15);
+	background: none;
 	color: inherit;
 	cursor: pointer;
+}
+.icone-bouton svg {
+	width: 22px;
+	height: 22px;
+	stroke-width: 1.75;
+}
+.icone-bouton:active {
+	background: rgb(255 255 255 / 0.18);
+}
+@media (hover: hover) {
+	.icone-bouton:hover {
+		background: rgb(255 255 255 / 0.18);
+	}
 }
 /* Infobulle d'une icône de l'en-tête : au survol, au clavier, ou appui maintenu sur téléphone */
 .infobulle {
@@ -350,20 +365,22 @@ button:focus-visible {
 }
 .entete-actions {
 	display: flex;
-	gap: 8px;
+	align-items: center;
+	gap: 2px;
 	position: relative;
 }
-/* Photo de profil à la place de la roue dentée : le bouton garde sa taille, la photo le remplit */
-.icone-bouton:has(> .avatar:not([hidden])) {
-	padding: 0;
+/* Menu : le profil du membre, photo ou initiale */
+#bouton-menu {
+	width: 40px;
+	margin-left: 6px;
+	border-radius: 50%;
 }
 .icone-bouton .avatar {
-	width: 100%;
-	height: 100%;
-	border: 2px solid rgb(255 255 255 / 0.6);
-}
-.avatar:not([hidden]) ~ svg {
-	display: none;
+	width: 36px;
+	height: 36px;
+	background: var(--sur-entete);
+	color: var(--entete);
+	font-size: 1rem;
 }
 .menu {
 	position: absolute;
@@ -545,20 +562,33 @@ button:focus-visible {
 .apercu-profil {
 	border-radius: 50%;
 }
-/* Photo de profil : petit rond devant le prénom (onglet Famille) */
+/* Profil en rond : l'initiale du prénom, recouverte par la photo quand il y en a une */
 .avatar {
-	display: block;
+	position: relative;
+	display: grid;
+	place-items: center;
 	flex: none;
 	width: 24px;
 	height: 24px;
 	border-radius: 50%;
+	overflow: hidden;
+	background: color-mix(in srgb, currentColor 16%, transparent);
+	font-size: 0.75rem;
+	font-weight: 700;
+	line-height: 1;
+}
+.avatar img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
 	object-fit: cover;
 }
-.puces button:has(> .avatar:not([hidden])) {
+.puces button:has(> .avatar) {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	padding-left: 5px;
+	padding-left: 6px;
 }
 .choix-photo {
 	display: flex;
@@ -859,9 +889,24 @@ button:focus-visible {
 }
 
 /* Famille : ajout d'une personne, suggestions, déjà offert */
+/* « + » dans un rond, de la hauteur des pastilles voisines */
 .puces .puce-ajout {
-	border-style: dashed;
-	color: var(--texte-doux);
+	display: inline-grid;
+	place-items: center;
+	align-self: center;
+	width: 38px;
+	height: 38px;
+	padding: 0;
+	border-radius: 50%;
+	font-size: 1.25rem;
+	font-weight: 400;
+	line-height: 1;
+}
+.puces.puces-entete .puce-ajout {
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	font-size: 1.1rem;
 }
 .carte-note {
 	font-size: 0.85rem;

@@ -503,9 +503,14 @@ function photoCadeau(cadeau) {
 	});
 }
 
-/** Photo de profil en petit rond, à côté du prénom ; rien sans photo. */
+/** Profil en rond : l'initiale du prénom, recouverte par la photo quand la personne en a une. */
 function avatar(personne) {
-	return imagePhoto(personne.photo, { class: "avatar", alt: "" });
+	return el(
+		"span",
+		{ class: "avatar", "aria-hidden": "true" },
+		[...personne.prenom.trim()][0]?.toUpperCase() ?? "?",
+		imagePhoto(personne.photo, { alt: "" }),
+	);
 }
 
 /**
@@ -882,7 +887,8 @@ function rendreFamille() {
 					"aria-pressed": String(selection.has(p.id)),
 					onclick: () => basculer(p.id),
 				},
-				avatar(p),
+				// Sa photo devant le prénom ; sans photo, le prénom seul.
+				p.photo ? avatar(p) : null,
 				p.prenom,
 			),
 		),
@@ -894,7 +900,7 @@ function rendreFamille() {
 				onclick: ouvrirAjoutPersonne,
 				"aria-label": "Ajouter une personne sans compte",
 			},
-			"+ Personne",
+			"+",
 		),
 	);
 	const leursCadeaux = app.etat.cadeaux
@@ -1480,14 +1486,10 @@ function rendreEntete() {
 		? libelleFamille(seule)
 		: TITRES[app.onglet];
 	$("#menu-nom").textContent = `Connecté en tant que ${membre.prenom}`;
-	// Sa photo à la place de la roue dentée, une fois chargée (voir chargerPhotos).
-	const photoMenu = $("#photo-menu");
-	const base64 = membre.photo && app.photos[membre.photo];
-	if (membre.photo) photoMenu.dataset.photo = membre.photo;
-	else delete photoMenu.dataset.photo;
-	if (base64) photoMenu.src = urlPhoto(base64);
-	else photoMenu.removeAttribute("src");
-	photoMenu.hidden = !base64;
+	// Bouton du menu : sa photo, ou l'initiale de son prénom.
+	const avatarMenu = avatar(membre);
+	avatarMenu.id = "avatar-menu";
+	$("#avatar-menu").replaceWith(avatarMenu);
 
 	// Plusieurs familles : des pastilles dans l'en-tête, chacune s'active ou se désactive (plusieurs
 	// à la fois). Une seule : son nom au-dessus du titre (en titre sur l'onglet Famille). Dans tous
