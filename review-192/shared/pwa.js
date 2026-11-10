@@ -17,6 +17,8 @@ const RACINE_SITE = new URL("../", import.meta.url).href;
 const DELAI_MISE_A_JOUR_MS = 5000;
 /** Attente entre deux essais de rechargement, tant que la personne est occupée. */
 const DELAI_SI_OCCUPE_MS = 2000;
+/** Dernière mesure de la barre d'état de l'iPhone, une fois la page affichée. */
+const DELAI_REMESURE_BARRE_MS = 1000;
 
 /** Une saisie, une fenêtre ou un envoi en cours : recharger ferait perdre quelque chose. */
 function estOccupe() {
@@ -92,14 +94,12 @@ function appliquerMiseAJour(worker) {
  * Le repli (--haut-securise, voir base.css) n'est posé que dans ce cas : quand iOS réserve lui-même
  * la place de la barre, la page est moins haute que l'écran.
  */
-function compenserBarreDEtat() {
+function estSousBarreDEtat() {
 	if (
-		!estIos ||
-		!estInstallee ||
 		!window.matchMedia("(orientation: portrait)").matches ||
 		window.innerHeight < window.screen.height
 	) {
-		return;
+		return false;
 	}
 	const sonde = el("div", {
 		style: "position:fixed;padding-top:env(safe-area-inset-top)",
@@ -107,7 +107,33 @@ function compenserBarreDEtat() {
 	document.body.append(sonde);
 	const zone = Number.parseFloat(getComputedStyle(sonde).paddingTop);
 	sonde.remove();
-	if (!zone) document.documentElement.dataset.sousBarreEtat = "";
+	return !zone;
+}
+
+/**
+ * Pose ou retire le repli de la barre d'état (voir estSousBarreDEtat). Une seule mesure ne suffit
+ * pas : après un rechargement, iOS n'a pas encore ses dimensions définitives quand le script
+ * démarre (la page paraît moins haute que l'écran), et le haut restait sous l'heure et la
+ * batterie. La mesure est donc refaite une fois la page chargée, puis à chaque changement de
+ * taille ou retour dans l'app.
+ */
+function compenserBarreDEtat() {
+	if (!estIos || !estInstallee) return;
+	const mesurer = () => {
+		document.documentElement.toggleAttribute(
+			"data-sous-barre-etat",
+			estSousBarreDEtat(),
+		);
+	};
+	mesurer();
+	for (const evenement of ["load", "pageshow", "resize"]) {
+		window.addEventListener(evenement, mesurer);
+	}
+	document.addEventListener("visibilitychange", () => {
+		if (!document.hidden) mesurer();
+	});
+	// Dimensions parfois corrigées après load, sans événement resize.
+	setTimeout(mesurer, DELAI_REMESURE_BARRE_MS);
 }
 
 /**
