@@ -290,38 +290,39 @@
 .barre-edl {
 	position: sticky;
 	bottom: 0;
-	padding: 8px 0 calc(env(safe-area-inset-bottom) + 8px);
-	background: var(--fond);
-	border-top: 1px solid var(--bord);
-}
-
-.barre-edl .boutons {
 	align-items: center;
-	margin-top: 8px;
+	padding: 10px 0 calc(env(safe-area-inset-bottom) + 10px);
+	background: var(--fond);
 }
 
-/* Pièce précédente à gauche, suivante à droite, assez grandes pour le pouce */
-.navigation-edl {
-	display: flex;
-	justify-content: space-between;
-	gap: 8px;
+/* La pièce suivante arrive par la droite, la précédente par la gauche (balayage) */
+#edl-contenu.arrive-droite {
+	animation: arrivee-droite 0.2s ease-out;
 }
 
-.pas-piece {
-	flex: 1;
-	max-width: 50%;
-	min-height: 48px;
-	font-weight: 600;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+#edl-contenu.arrive-gauche {
+	animation: arrivee-gauche 0.2s ease-out;
 }
 
-.pas-piece#edl-suivante {
-	margin-left: auto;
-	background: var(--accent);
-	border-color: var(--accent);
-	color: var(--sur-accent);
+@keyframes arrivee-droite {
+	from {
+		transform: translateX(40px);
+		opacity: 0.4;
+	}
+}
+
+@keyframes arrivee-gauche {
+	from {
+		transform: translateX(-40px);
+		opacity: 0.4;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	#edl-contenu.arrive-droite,
+	#edl-contenu.arrive-gauche {
+		animation: none;
+	}
 }
 
 #edl-enregistrement {

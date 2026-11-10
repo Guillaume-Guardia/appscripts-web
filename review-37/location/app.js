@@ -47,6 +47,8 @@ const EUROS = new Intl.NumberFormat("fr-FR", {
 });
 
 let versionApi = null;
+// Le dernier suivi chargé, en mémoire seulement (pas sur l'appareil) : affiché tout de suite au retour
+let dernierSuivi = null;
 let ecranAffiche = null;
 
 const appelerApi = creerApi({
@@ -192,8 +194,7 @@ async function actualiser() {
 			await ouvrirSignatureEtatDesLieux(id);
 		} else {
 			definirTitre("Location");
-			rendreSuivi(await appelerApi("suivi"));
-			afficherEcran("suivi");
+			await ouvrirSuivi();
 			prechargerListeEtatsDesLieux();
 		}
 	} catch (erreur) {
@@ -214,6 +215,28 @@ async function actualiser() {
 	} finally {
 		bouton.classList.remove("tourne");
 	}
+}
+
+/**
+ * L'écran de suivi : le dernier chargé s'affiche tout de suite (retour depuis les états des lieux),
+ * puis se met à jour sans barre de chargement.
+ */
+async function ouvrirSuivi() {
+	const dejaCharge = dernierSuivi !== null;
+	if (dejaCharge) {
+		rendreSuivi(dernierSuivi);
+		afficherEcran("suivi");
+	}
+	try {
+		dernierSuivi = await appelerApi("suivi", {}, { discret: dejaCharge });
+	} catch (erreur) {
+		if (!dejaCharge) throw erreur;
+		return;
+	}
+	// Pas de retour au suivi si l'on en est parti pendant la mise à jour
+	if (routeActuelle().nom) return;
+	rendreSuivi(dernierSuivi);
+	afficherEcran("suivi");
 }
 
 function definirTitre(titre) {
