@@ -347,6 +347,14 @@ function famillesActives() {
 
 const nomsFamilles = (familles) => familles.map((f) => f.nom).join(" + ");
 
+/** « la famille Dupont », « la famille Dupont et la famille Martin »… pour une phrase. */
+function famillesEnToutesLettres(familles) {
+	const noms = familles.map((f) => `la famille ${f.nom}`);
+	return noms.length > 1
+		? `${noms.slice(0, -1).join(", ")} et ${noms.at(-1)}`
+		: (noms[0] ?? "");
+}
+
 /** Vrai quand une partie seulement des familles est affichée : chaque onglet est alors filtré. */
 const filtreFamilles = () =>
 	famillesActives().length < app.etat.familles.length;
@@ -796,7 +804,7 @@ function rendreFamille() {
 	if (autres.length === 0) {
 		return [
 			vide(
-				`Personne d'autre dans ${nomsFamilles(famillesActives())} pour l'instant. Partage le code (menu en haut à droite, Mon profil), ou ajoute un proche qui n'utilisera pas l'app (enfant, grands-parents…).`,
+				`Pour l'instant, il n'y a que toi dans ${famillesEnToutesLettres(famillesActives())}. Invite tes proches à te rejoindre : partage-leur le code (menu en haut à droite, Mon profil). Et pour ceux qui n'utiliseront pas l'app, enfants ou grands-parents, tu peux tenir leur liste toi-même.`,
 				el(
 					"button",
 					{ type: "button", class: "bouton", onclick: ouvrirAjoutPersonne },
