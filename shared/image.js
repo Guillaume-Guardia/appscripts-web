@@ -1,12 +1,7 @@
 // Réduction d'une photo dans le navigateur, avant de l'envoyer à une API.
 
-/**
- * Réduit une image (le navigateur applique l'orientation de l'appareil).
- * @param tailleMaxPx Le plus grand côté, en pixels
- * @param qualite Qualité JPEG, de 0 à 1
- * @return Son JPEG en base64
- */
-export function reduireImage(fichier, tailleMaxPx, qualite = 0.9) {
+/** Dessine l'image réduite dans un canvas (le navigateur applique l'orientation de l'appareil). */
+function dessinerReduite(fichier, tailleMaxPx) {
 	return new Promise((resoudre, rejeter) => {
 		const url = URL.createObjectURL(fichier);
 		const image = new Image();
@@ -22,7 +17,7 @@ export function reduireImage(fichier, tailleMaxPx, qualite = 0.9) {
 				.getContext("2d")
 				.drawImage(image, 0, 0, canvas.width, canvas.height);
 			URL.revokeObjectURL(url);
-			resoudre(canvas.toDataURL("image/jpeg", qualite).split(",")[1]);
+			resoudre(canvas);
 		};
 		image.onerror = () => {
 			URL.revokeObjectURL(url);
@@ -30,6 +25,17 @@ export function reduireImage(fichier, tailleMaxPx, qualite = 0.9) {
 		};
 		image.src = url;
 	});
+}
+
+/**
+ * Réduit une image.
+ * @param tailleMaxPx Le plus grand côté, en pixels
+ * @param qualite Qualité JPEG, de 0 à 1
+ * @return Son JPEG en base64
+ */
+export async function reduireImage(fichier, tailleMaxPx, qualite = 0.9) {
+	const canvas = await dessinerReduite(fichier, tailleMaxPx);
+	return canvas.toDataURL("image/jpeg", qualite).split(",")[1];
 }
 
 /**

@@ -1,4 +1,5 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
+import { brancherBalayage } from "../shared/balayage.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	compteConnecte,
@@ -623,28 +624,6 @@ function changerMois(delta) {
 	rendrePlanning();
 }
 
-/** Glisser le doigt vers la gauche ou la droite sur la grille change de mois. */
-function brancherGlissement() {
-	let depart = null;
-	$("#grille").addEventListener(
-		"touchstart",
-		(e) => {
-			depart = e.touches[0];
-		},
-		{ passive: true },
-	);
-	$("#grille").addEventListener("touchend", (e) => {
-		if (!depart) return;
-		const fin = e.changedTouches[0];
-		const dx = fin.clientX - depart.clientX;
-		const dy = fin.clientY - depart.clientY;
-		depart = null;
-		if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) {
-			changerMois(dx < 0 ? 1 : -1);
-		}
-	});
-}
-
 // ---------------------------------------------------------------------------
 // Écrans et connexion (shared/connexion.js)
 // ---------------------------------------------------------------------------
@@ -735,7 +714,11 @@ function brancherEvenements() {
 	$("#bouton-aujourdhui").addEventListener("click", () =>
 		choisirJour(versChampDate(aujourdhui())),
 	);
-	brancherGlissement();
+	// Balayer la grille vers la gauche ou la droite passe au mois suivant ou précédent
+	brancherBalayage($("#grille"), (sens) => {
+		changerMois(sens);
+		return true;
+	});
 	$("#form-droit").addEventListener("submit", enregistrerDroit);
 	$("#bouton-import").addEventListener("click", () =>
 		$("#champ-photo").click(),

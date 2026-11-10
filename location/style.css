@@ -78,3 +78,281 @@
 	width: auto;
 	margin-top: 3px;
 }
+
+/* États des lieux (etat-des-lieux.js) */
+
+.lien-etats-des-lieux {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin-top: 12px;
+	padding: 14px 16px;
+	color: inherit;
+	text-decoration: none;
+	border-left: 4px solid var(--accent);
+}
+
+#ecran-etats-des-lieux > .aide {
+	margin: 4px 4px 12px;
+}
+
+.carte-logement {
+	padding: 14px 16px;
+	margin-bottom: 12px;
+}
+
+.carte-logement h3 {
+	font-size: 1.05rem;
+	overflow-wrap: anywhere;
+}
+
+.carte-logement .boutons {
+	justify-content: flex-start;
+	margin: 12px 0 4px;
+}
+
+.ligne-edl {
+	padding: 10px 0;
+}
+
+.ligne-edl:last-child {
+	border-bottom: 0;
+}
+
+.ligne-suivi .alerte,
+.edl-general .alerte,
+#edl-enregistrement.alerte {
+	color: var(--danger);
+}
+
+.bouton-lien {
+	align-self: flex-start;
+	display: inline-flex;
+	align-items: center;
+	min-height: 40px;
+	padding: 8px 16px;
+	margin-top: 4px;
+	border: 1px solid var(--bord);
+	border-radius: 999px;
+	background: var(--surface);
+	color: inherit;
+	text-decoration: none;
+}
+
+#edl-adresse {
+	margin: 4px 4px 8px;
+	overflow-wrap: anywhere;
+}
+
+/* Onglets des pièces : une ligne qui défile, collée sous l'en-tête */
+.edl-onglets {
+	position: sticky;
+	top: calc(var(--haut-securise, env(safe-area-inset-top)) + 56px);
+	z-index: 5;
+	flex-wrap: nowrap;
+	overflow-x: auto;
+	padding: 8px 0;
+	margin-bottom: 8px;
+	background: var(--fond);
+	scrollbar-width: none;
+}
+
+.edl-onglets .puce {
+	flex-shrink: 0;
+	white-space: nowrap;
+}
+
+.edl-general,
+.edl-element,
+.bloc-signature {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 14px 16px;
+	margin-bottom: 10px;
+}
+
+.edl-general h3 {
+	font-size: 1rem;
+	margin-top: 8px;
+}
+
+.champ {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: 14px;
+}
+
+.champ.quantite {
+	max-width: 160px;
+}
+
+.ajout {
+	display: flex;
+	gap: 8px;
+}
+
+.ajout input {
+	flex: 1;
+	min-width: 0;
+}
+
+.supprimer-brouillon {
+	align-self: flex-start;
+	margin-top: 12px;
+}
+
+.edl-element.ecart {
+	border-left: 4px solid var(--danger);
+}
+
+.titre-element {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	overflow-wrap: anywhere;
+}
+
+.titre-element .retirer {
+	min-height: 32px;
+	padding: 4px 12px;
+	font-size: 13px;
+	color: var(--texte-doux);
+	flex-shrink: 0;
+}
+
+.reference {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px 10px;
+	border-radius: 10px;
+	background: var(--fond);
+}
+
+.reference .puce {
+	align-self: flex-start;
+}
+
+.edl-photos {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+}
+
+.vignette {
+	position: relative;
+	width: 72px;
+	height: 72px;
+	border-radius: 8px;
+	overflow: hidden;
+	background: var(--bord);
+}
+
+.vignette img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.retirer-photo {
+	position: absolute;
+	top: 2px;
+	right: 2px;
+	min-height: 0;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	line-height: 1;
+	background: rgb(0 0 0 / 0.55);
+	border: 0;
+	color: #fff;
+}
+
+.bouton-photo {
+	min-height: 72px;
+	padding: 8px 14px;
+	border-style: dashed;
+	border-radius: 8px;
+}
+
+/* La caméra n'a pas de sens sur un ordinateur : la galerie suffit. */
+@media (hover: hover) and (pointer: fine) {
+	.bouton-photo.camera {
+		display: none;
+	}
+}
+
+.barre-edl {
+	position: sticky;
+	bottom: 0;
+	align-items: center;
+	padding: 10px 0 calc(env(safe-area-inset-bottom) + 10px);
+	background: var(--fond);
+}
+
+#edl-enregistrement {
+	flex: 1;
+}
+
+.edl-general details summary {
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.edl-general ul {
+	margin: 6px 0 0;
+	padding-left: 20px;
+	font-size: 14px;
+}
+
+/* Fond blanc : la signature est tracée en noir, comme sur le PDF. */
+.pave-signature {
+	width: 100%;
+	height: 180px;
+	border: 1px dashed var(--bord);
+	border-radius: 10px;
+	background: #fff;
+}
+
+/* Photo encore sur le téléphone : visible, mais pas encore dans Drive */
+.vignette.en-attente img {
+	opacity: 0.55;
+}
+
+.vignette.en-attente::after {
+	content: "…";
+	position: absolute;
+	left: 4px;
+	bottom: 2px;
+	color: #fff;
+	font-weight: 700;
+	text-shadow: 0 0 3px #000;
+}
+
+#edl-photos-attente:empty {
+	display: none;
+}
+
+/* Compteurs (onglet Général) et description d'un élément */
+.deux-champs {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+
+.edl-element .description {
+	min-height: 36px;
+	padding: 6px 10px;
+	font-size: 14px;
+}
+
+.puces.fonctionnements .puce {
+	min-height: 32px;
+	padding: 4px 12px;
+	font-size: 13px;
+}

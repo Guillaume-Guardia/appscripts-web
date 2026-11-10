@@ -17,6 +17,9 @@
 	</head>
 	<body>
 		<header class="entete">
+			<button type="button" id="bouton-retour" class="bouton-icone" aria-label="Retour" hidden>
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+			</button>
 			<h1 id="titre">Location</h1>
 			<a href="../" class="bouton-icone" aria-label="Mes apps">
 				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" /></svg>
@@ -62,6 +65,10 @@
 
 			<section id="ecran-suivi" hidden>
 				<div id="resume" class="resume"></div>
+				<a href="#etats-des-lieux" class="carte lien-etats-des-lieux">
+					<strong>États des lieux</strong>
+					<span class="aide">Entrée et sortie sur le téléphone : pièces, photos, signatures</span>
+				</a>
 				<h2>Avenants à signer</h2>
 				<div id="liste-avenants" class="carte liste-suivi"></div>
 				<h2>Chaudières à entretenir</h2>
@@ -69,7 +76,51 @@
 				<h2>Locataires</h2>
 				<div id="liste-locataires" class="carte liste-suivi"></div>
 			</section>
+
+			<section id="ecran-etats-des-lieux" hidden>
+				<p class="aide">L'inventaire de chaque logement se saisit dans l'onglet Inventaire du classeur : il pré-remplit l'état des lieux d'entrée, que la sortie reprend.</p>
+				<div id="liste-etats-des-lieux"></div>
+			</section>
+
+			<section id="ecran-saisie-edl" hidden>
+				<p id="edl-adresse" class="aide"></p>
+				<div id="edl-onglets" class="puces edl-onglets"></div>
+				<div id="edl-contenu"></div>
+				<div class="boutons barre-edl">
+					<span id="edl-enregistrement" class="aide"></span>
+					<span id="edl-photos-attente" class="aide"></span>
+					<button type="button" id="edl-enregistrer">Enregistrer</button>
+					<button type="button" id="edl-vers-signature" class="bouton-principal">Signatures</button>
+				</div>
+			</section>
+
+			<section id="ecran-signature-edl" hidden>
+				<div id="edl-recapitulatif"></div>
+				<div id="edl-signatures"></div>
+				<p id="edl-erreur-signature" class="erreur"></p>
+				<div class="boutons">
+					<button type="button" id="edl-signer" class="bouton-principal" disabled>Signer et envoyer</button>
+				</div>
+			</section>
 		</main>
+
+		<dialog id="dialogue-nouvel-edl" class="dialogue">
+			<form method="dialog" class="formulaire">
+				<h2 id="nouvel-edl-titre">État des lieux</h2>
+				<p id="nouvel-edl-logement" class="aide"></p>
+				<fieldset>
+					<legend>Locataires présents</legend>
+					<div id="nouvel-edl-locataires"></div>
+				</fieldset>
+				<p id="nouvel-edl-erreur" class="erreur"></p>
+				<div class="boutons">
+					<button type="submit" value="annuler">Annuler</button>
+					<button type="submit" id="nouvel-edl-demarrer" class="bouton-principal" value="ok">Démarrer</button>
+				</div>
+			</form>
+		</dialog>
+		<input type="file" id="edl-camera" accept="image/*" capture="environment" hidden />
+		<input type="file" id="edl-galerie" accept="image/*" multiple hidden />
 
 		<div id="toasts" class="toasts" aria-live="polite"></div>
 

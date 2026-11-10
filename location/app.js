@@ -1,5 +1,6 @@
 // Suivi de la location, pour le compte du propriétaire (droit « location » du projet droits). Les
-// données personnelles des locataires ne sont pas gardées sur l'appareil.
+// données personnelles des locataires ne sont pas gardées sur l'appareil. L'adresse choisit l'écran :
+// suivi (sans ancre), #etats-des-lieux, #etat-des-lieux/<id> (saisie), #signer-etat-des-lieux/<id>.
 
 import { creerApi, ErreurReseau } from "../shared/api.js";
 import {
@@ -22,14 +23,33 @@ import {
 	enregistrerServiceWorker,
 } from "../shared/pwa.js";
 import { ouvrirSignalement } from "../shared/signalement.js";
+import {
+	initialiserEtatsDesLieux,
+	ouvrirListeEtatsDesLieux,
+	ouvrirSaisieEtatDesLieux,
+	ouvrirSignatureEtatDesLieux,
+	prechargerListeEtatsDesLieux,
+	quitterSaisieEtatDesLieux,
+} from "./etat-des-lieux.js";
 
 const STATUT_LITIGE = "Litige";
+const ECRANS = [
+	"connexion",
+	"refus",
+	"suivi",
+	"etats-des-lieux",
+	"saisie-edl",
+	"signature-edl",
+];
 const EUROS = new Intl.NumberFormat("fr-FR", {
 	style: "currency",
 	currency: "EUR",
 });
 
 let versionApi = null;
+// Le dernier suivi chargé, en mémoire seulement (pas sur l'appareil) : affiché tout de suite au retour
+let dernierSuivi = null;
+let ecranAffiche = null;
 
 const appelerApi = creerApi({
 	url: window.API_URL,
@@ -152,19 +172,38 @@ function rendreSuivi(suivi) {
 	);
 }
 
+/** La route de l'adresse : son nom et l'Id qui la suit (ex : « #etat-des-lieux/<id> »). */
+function routeActuelle() {
+	const [nom, id] = location.hash.slice(1).split("/");
+	return { nom, id: id ? decodeURIComponent(id) : "" };
+}
+
+/** Affiche l'écran de l'adresse ; une saisie d'état des lieux quittée s'enregistre en arrière-plan. */
 async function actualiser() {
 	const bouton = $("#bouton-actualiser");
 	bouton.classList.add("tourne");
+	const { nom, id } = routeActuelle();
 	try {
-		rendreSuivi(await appelerApi("suivi"));
-		afficherEcran("suivi");
+		// La saisie quittée s'enregistre en arrière-plan : l'écran suivant ne l'attend pas
+		if (nom !== "etat-des-lieux") quitterSaisieEtatDesLieux();
+		if (nom === "etats-des-lieux") {
+			await ouvrirListeEtatsDesLieux();
+		} else if (nom === "etat-des-lieux" && id) {
+			await ouvrirSaisieEtatDesLieux(id);
+		} else if (nom === "signer-etat-des-lieux" && id) {
+			await ouvrirSignatureEtatDesLieux(id);
+		} else {
+			definirTitre("Location");
+			await ouvrirSuivi();
+			prechargerListeEtatsDesLieux();
+		}
 	} catch (erreur) {
 		if (estSessionRefusee(erreur)) {
 			oublierConnexion();
 			afficherConnexion(erreur.message);
 		} else if (estAccesRefuse(erreur)) {
 			afficherRefus(erreur.message);
-		} else if ($("#ecran-suivi").hidden) {
+		} else if (!ecranAffiche || ecranAffiche === "connexion") {
 			afficherEcran("connexion");
 			$("#connexion").textContent =
 				erreur instanceof ErreurReseau
@@ -178,11 +217,47 @@ async function actualiser() {
 	}
 }
 
+/**
+ * L'écran de suivi : le dernier chargé s'affiche tout de suite (retour depuis les états des lieux),
+ * puis se met à jour sans barre de chargement.
+ */
+async function ouvrirSuivi() {
+	const dejaCharge = dernierSuivi !== null;
+	if (dejaCharge) {
+		rendreSuivi(dernierSuivi);
+		afficherEcran("suivi");
+	}
+	try {
+		dernierSuivi = await appelerApi("suivi", {}, { discret: dejaCharge });
+	} catch (erreur) {
+		if (!dejaCharge) throw erreur;
+		return;
+	}
+	// Pas de retour au suivi si l'on en est parti pendant la mise à jour
+	if (routeActuelle().nom) return;
+	rendreSuivi(dernierSuivi);
+	afficherEcran("suivi");
+}
+
+function definirTitre(titre) {
+	$("#titre").textContent = titre;
+}
+
+/** Remonte d'un écran : saisie → liste des états des lieux → suivi. */
+function revenir() {
+	const { nom, id } = routeActuelle();
+	if (nom === "signer-etat-des-lieux") location.hash = `#etat-des-lieux/${id}`;
+	else if (nom === "etat-des-lieux") location.hash = "#etats-des-lieux";
+	else location.hash = "";
+}
+
 function afficherEcran(nom) {
-	$("#ecran-connexion").hidden = nom !== "connexion";
-	$("#ecran-refus").hidden = nom !== "refus";
-	$("#ecran-suivi").hidden = nom !== "suivi";
-	$("#bouton-actualiser").hidden = nom !== "suivi";
+	ecranAffiche = nom;
+	for (const ecran of ECRANS) {
+		$(`#ecran-${ecran}`).hidden = ecran !== nom;
+	}
+	$("#bouton-actualiser").hidden = !["suivi", "etats-des-lieux"].includes(nom);
+	$("#bouton-retour").hidden = ["connexion", "refus", "suivi"].includes(nom);
 	$("#bouton-menu").hidden = nom === "connexion";
 	const compte = compteConnecte();
 	$("#menu-compte").textContent = compte ? `Connecté : ${compte.prenom}` : "";
@@ -238,6 +313,15 @@ async function lancerDepuisMenu(action) {
 
 function brancherEvenements() {
 	$("#bouton-actualiser").addEventListener("click", actualiser);
+	$("#bouton-retour").addEventListener("click", revenir);
+	window.addEventListener("hashchange", () => {
+		if (lireSession()) actualiser();
+	});
+	initialiserEtatsDesLieux({
+		appelerApi,
+		afficher: afficherEcran,
+		titre: definirTitre,
+	});
 	$("#bouton-menu").addEventListener("click", (e) => {
 		e.stopPropagation();
 		basculerMenu();
@@ -271,9 +355,10 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
-	// Lien de connexion d'un appareil (…#invitation=<code>), retiré aussitôt de l'adresse.
+	// Lien de connexion d'un appareil (…#invitation=<code>), retiré aussitôt de l'adresse. Les
+	// autres ancres (états des lieux) restent : elles choisissent l'écran.
 	const invitation = invitationDuLien(location.hash);
-	history.replaceState(null, "", location.pathname);
+	if (invitation) history.replaceState(null, "", location.pathname);
 	if (!window.API_URL) {
 		afficherEcran("connexion");
 		$("#connexion").textContent =
