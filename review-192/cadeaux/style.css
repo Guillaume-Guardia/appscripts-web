@@ -975,7 +975,8 @@ input[type="date"] {
 .chargement {
 	position: fixed;
 	z-index: 30;
-	top: 0;
+	/* Sous l'heure et la batterie de l'iPhone, où elle ne se voyait pas */
+	top: var(--haut-securise, env(safe-area-inset-top));
 	left: 0;
 	right: 0;
 	height: 3px;

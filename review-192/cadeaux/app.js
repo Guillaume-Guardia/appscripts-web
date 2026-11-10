@@ -2209,10 +2209,13 @@ function afficherEcran(nom) {
 	$("#ecran-app").hidden = nom !== "app";
 }
 
-/** Affiche une des parties de l'écran de connexion (compte, refus, accueil, choix-membre). */
+/**
+ * Affiche une des parties de l'écran de connexion (compte, refus, accueil, choix-membre, attente).
+ */
 function afficherPartieConnexion(partie, message = "") {
 	afficherEcran("connexion");
 	$("#connexion-compte").hidden = partie !== "compte";
+	$("#attente-connexion").hidden = partie !== "attente";
 	$("#refus").hidden = partie !== "refus";
 	$("#accueil-connexion").hidden = partie !== "accueil";
 	$("#choix-membre").hidden = partie !== "choix-membre";
@@ -2246,6 +2249,15 @@ function afficherRefus(message) {
 /** Compte qui n'est encore personne de Cadeaux : code famille, ou lien d'invitation. */
 function afficherAccueil(message = "") {
 	afficherPartieConnexion("accueil", message);
+}
+
+/**
+ * Invitation ou connexion en cours, avant l'ouverture des listes : un simple message, sans le code
+ * famille ni le scanner de l'accueil, qui ne concernent pas la personne invitée.
+ */
+function afficherAttente() {
+	afficherPartieConnexion("attente");
+	$("#attente-connexion").textContent = "Ouverture des listes de ta famille…";
 }
 
 /** Code famille d'un nouveau venu : on vérifie le code, puis il s'ajoute. */
@@ -2309,7 +2321,7 @@ async function ajouterMoi(evenement) {
 async function chargerApresConnexion() {
 	app.etat = null;
 	ecrireStockage(CLES.etat, null);
-	afficherAccueil("Connexion…");
+	afficherAttente();
 	try {
 		ouvrirApp(await appelerApi("etat"));
 	} catch (erreur) {
@@ -2326,7 +2338,7 @@ async function chargerApresConnexion() {
  */
 async function accepterInvitation(cle) {
 	garderCle(cle);
-	afficherAccueil("Connexion…");
+	afficherAttente();
 	try {
 		const { connexion } = await appelerApi("invitation", {
 			appareil: decrireAppareil("Cadeaux"),
