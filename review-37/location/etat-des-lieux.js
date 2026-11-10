@@ -181,15 +181,46 @@ function carteLogement(logement) {
 }
 
 /** Écran de la liste des états des lieux, par logement. */
-export async function ouvrirListeEtatsDesLieux() {
-	definirTitre("États des lieux");
-	liste = await api("etats-des-lieux");
+/** Charge la liste en arrière-plan (depuis le suivi), pour l'afficher sans attendre à l'ouverture. */
+export function prechargerListeEtatsDesLieux() {
+	if (liste) return;
+	api("etats-des-lieux", {}, { discret: true })
+		.then((chargee) => {
+			liste ??= chargee;
+		})
+		.catch(() => {});
+}
+
+function rendreListe() {
 	remplacerContenu(
 		$("#liste-etats-des-lieux"),
 		liste.logements.length > 0
 			? liste.logements.map(carteLogement)
 			: el("p", { class: "aide vide" }, "Aucun logement loué."),
 	);
+}
+
+/**
+ * Écran de la liste des états des lieux, par logement. La liste déjà chargée s'affiche tout de
+ * suite (retour depuis une saisie), puis se met à jour sans barre de chargement ; elle n'est
+ * gardée qu'en mémoire, pas sur l'appareil (noms des locataires).
+ */
+export async function ouvrirListeEtatsDesLieux() {
+	definirTitre("États des lieux");
+	const dejaChargee = liste !== null;
+	if (dejaChargee) {
+		rendreListe();
+		afficherEcran("etats-des-lieux");
+	}
+	try {
+		liste = await api("etats-des-lieux", {}, { discret: dejaChargee });
+	} catch (erreur) {
+		if (!dejaChargee) throw erreur;
+		return;
+	}
+	// Pas de retour à la liste si l'on en est parti pendant la mise à jour
+	if (location.hash !== "#etats-des-lieux") return;
+	rendreListe();
 	afficherEcran("etats-des-lieux");
 }
 

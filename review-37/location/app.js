@@ -28,6 +28,7 @@ import {
 	ouvrirListeEtatsDesLieux,
 	ouvrirSaisieEtatDesLieux,
 	ouvrirSignatureEtatDesLieux,
+	prechargerListeEtatsDesLieux,
 	quitterSaisieEtatDesLieux,
 } from "./etat-des-lieux.js";
 
@@ -175,13 +176,14 @@ function routeActuelle() {
 	return { nom, id: id ? decodeURIComponent(id) : "" };
 }
 
-/** Affiche l'écran de l'adresse, après avoir enregistré une saisie d'état des lieux en cours. */
+/** Affiche l'écran de l'adresse ; une saisie d'état des lieux quittée s'enregistre en arrière-plan. */
 async function actualiser() {
 	const bouton = $("#bouton-actualiser");
 	bouton.classList.add("tourne");
 	const { nom, id } = routeActuelle();
 	try {
-		if (nom !== "etat-des-lieux") await quitterSaisieEtatDesLieux();
+		// La saisie quittée s'enregistre en arrière-plan : l'écran suivant ne l'attend pas
+		if (nom !== "etat-des-lieux") quitterSaisieEtatDesLieux();
 		if (nom === "etats-des-lieux") {
 			await ouvrirListeEtatsDesLieux();
 		} else if (nom === "etat-des-lieux" && id) {
@@ -192,6 +194,7 @@ async function actualiser() {
 			definirTitre("Location");
 			rendreSuivi(await appelerApi("suivi"));
 			afficherEcran("suivi");
+			prechargerListeEtatsDesLieux();
 		}
 	} catch (erreur) {
 		if (estSessionRefusee(erreur)) {
