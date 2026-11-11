@@ -28,6 +28,7 @@ import {
 	normaliser,
 	notifier,
 	remplacerContenu,
+	remplirCarteMenu,
 } from "../shared/dom.js";
 import { reduireImage } from "../shared/image.js";
 import {
@@ -1009,7 +1010,7 @@ async function changerPrenom() {
 
 function afficherCompte() {
 	const compte = compteConnecte();
-	$("#menu-compte").textContent = compte ? `Connecté : ${compte.prenom}` : "";
+	remplirCarteMenu(compte?.prenom ?? "");
 }
 
 function fermerMenu() {

@@ -19,6 +19,7 @@ import {
 	$,
 	afficherBandeau,
 	el,
+	initiale,
 	masquerBandeau,
 	notifier,
 	remplacerContenu,
@@ -508,7 +509,7 @@ function avatar(personne) {
 	return el(
 		"span",
 		{ class: "avatar", "aria-hidden": "true" },
-		[...personne.prenom.trim()][0]?.toUpperCase() ?? "?",
+		initiale(personne.prenom),
 		imagePhoto(personne.photo, { alt: "" }),
 	);
 }
@@ -1481,11 +1482,13 @@ function rendreEntete() {
 	$("#titre-onglet").textContent = titreFamille
 		? libelleFamille(seule)
 		: TITRES[app.onglet];
-	$("#menu-nom").textContent = `Connecté en tant que ${membre.prenom}`;
-	// Bouton du menu : sa photo, ou l'initiale de son prénom.
-	const avatarMenu = avatar(membre);
-	avatarMenu.id = "avatar-menu";
-	$("#avatar-menu").replaceWith(avatarMenu);
+	$("#menu-nom").textContent = membre.prenom;
+	// Bouton du menu et carte du haut du menu : sa photo, ou l'initiale de son prénom.
+	for (const id of ["avatar-menu", "avatar-carte"]) {
+		const rond = avatar(membre);
+		rond.id = id;
+		$(`#${id}`).replaceWith(rond);
+	}
 
 	// Plusieurs familles : des pastilles dans l'en-tête, chacune s'active ou se désactive (plusieurs
 	// à la fois). Une seule : son nom au-dessus du titre (en titre sur l'onglet Famille). Dans tous

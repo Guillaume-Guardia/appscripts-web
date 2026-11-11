@@ -106,12 +106,24 @@
 					<span class="infobulle">Paramètres</span>
 				</button>
 				<div id="menu" class="menu" role="menu" hidden>
-					<p id="menu-nom" class="menu-nom"></p>
-					<button type="button" role="menuitem" id="menu-profil">Mon profil</button>
-					<button type="button" role="menuitem" id="menu-autre-appareil">Connecter un autre appareil</button>
-					<button type="button" role="menuitemcheckbox" aria-checked="false" id="menu-biometrie" class="bascule" hidden>Biométrie</button>
-					<button type="button" role="menuitem" id="menu-installer" hidden>Installer l'app</button>
-					<button type="button" role="menuitem" id="menu-deconnecter">Se déconnecter</button>
+					<button type="button" role="menuitem" id="menu-profil" class="menu-carte">
+						<span id="avatar-carte" class="avatar" aria-hidden="true"></span>
+						<span class="menu-carte-texte"><strong id="menu-nom"></strong><span>Mon profil</span></span>
+					</button>
+					<!-- biome-ignore lint/a11y/useSemanticElements: groupe d'entrées d'un menu, pas un champ de formulaire. -->
+					<div class="menu-section" role="group" aria-label="Cet appareil">
+						<p class="menu-titre" aria-hidden="true">Cet appareil</p>
+						<button type="button" role="menuitemcheckbox" aria-checked="false" id="menu-biometrie" class="bascule" hidden>Biométrie</button>
+						<button type="button" role="menuitem" id="menu-installer" hidden>Installer l'app</button>
+					</div>
+					<!-- biome-ignore lint/a11y/useSemanticElements: groupe d'entrées d'un menu, pas un champ de formulaire. -->
+					<div class="menu-section" role="group" aria-label="Mes autres appareils">
+						<p class="menu-titre" aria-hidden="true">Mes autres appareils</p>
+						<button type="button" role="menuitem" id="menu-autre-appareil">Connecter un autre appareil</button>
+					</div>
+					<div class="menu-section">
+						<button type="button" role="menuitem" id="menu-deconnecter" class="danger">Se déconnecter</button>
+					</div>
 					<p class="version menu-version"></p>
 				</div>
 			</div>

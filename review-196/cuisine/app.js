@@ -28,6 +28,7 @@ import {
 	normaliser,
 	notifier,
 	remplacerContenu,
+	remplirCarteMenu,
 } from "../shared/dom.js";
 import {
 	brancherInstallation,
@@ -1559,6 +1560,7 @@ function afficherEcran(nom) {
 		$(id).hidden = !connecte;
 	}
 	if (connecte) {
+		remplirCarteMenu(compteConnecte()?.prenom ?? "");
 		rendre();
 		if (!app.etat.profils.length && !$("#dialogue-profil").open) {
 			ouvrirProfil(null, true);

@@ -26,6 +26,7 @@ import {
 	masquerBandeau,
 	notifier,
 	remplacerContenu,
+	remplirCarteMenu,
 } from "../shared/dom.js";
 import { reduireImage } from "../shared/image.js";
 import {
@@ -635,7 +636,7 @@ function afficherEcran(nom) {
 	$("#bouton-actualiser").hidden = nom !== "planning";
 	$("#bouton-menu").hidden = nom === "connexion";
 	const compte = compteConnecte();
-	$("#menu-compte").textContent = compte ? `Connecté : ${compte.prenom}` : "";
+	remplirCarteMenu(compte?.prenom ?? "");
 	if (nom === "planning") rendrePlanning();
 }
 

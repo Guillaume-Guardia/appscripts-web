@@ -11,7 +11,13 @@ import {
 	lienInvitation,
 	lireSession,
 } from "../shared/connexion.js";
-import { $, el, notifier, remplacerContenu } from "../shared/dom.js";
+import {
+	$,
+	el,
+	notifier,
+	remplacerContenu,
+	remplirCarteMenu,
+} from "../shared/dom.js";
 import {
 	brancherInstallation,
 	enregistrerServiceWorker,
@@ -450,7 +456,7 @@ function afficherEcran(nom) {
 	$("#bouton-actualiser").hidden = nom !== "comptes";
 	$("#bouton-menu").hidden = nom === "connexion";
 	const compte = compteConnecte();
-	$("#menu-compte").textContent = compte ? `Connecté : ${compte.prenom}` : "";
+	remplirCarteMenu(compte?.prenom ?? "");
 	if (nom === "comptes") rendreComptes();
 }
 

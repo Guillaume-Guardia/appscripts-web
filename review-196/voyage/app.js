@@ -21,6 +21,7 @@ import {
 	normaliser,
 	notifier,
 	remplacerContenu,
+	remplirCarteMenu,
 } from "../shared/dom.js";
 import {
 	brancherInstallation,
@@ -1064,7 +1065,7 @@ async function chargerApresConnexion() {
 /** Prénom du compte, en tête du menu. */
 function afficherCompte() {
 	const compte = app.etat?.moi ?? compteConnecte();
-	$("#menu-compte").textContent = compte ? `Connecté : ${compte.prenom}` : "";
+	remplirCarteMenu(compte?.prenom ?? "");
 }
 
 /** Oublie la connexion de l'appareil et ses données, puis affiche la connexion. */

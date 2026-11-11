@@ -16,7 +16,13 @@ import {
 	oublierConnexion,
 } from "../shared/connexion.js";
 import { aujourdhui, joursEntre, pluriel, versDate } from "../shared/dates.js";
-import { $, el, notifier, remplacerContenu } from "../shared/dom.js";
+import {
+	$,
+	el,
+	notifier,
+	remplacerContenu,
+	remplirCarteMenu,
+} from "../shared/dom.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -260,7 +266,7 @@ function afficherEcran(nom) {
 	$("#bouton-retour").hidden = ["connexion", "refus", "suivi"].includes(nom);
 	$("#bouton-menu").hidden = nom === "connexion";
 	const compte = compteConnecte();
-	$("#menu-compte").textContent = compte ? `Connecté : ${compte.prenom}` : "";
+	remplirCarteMenu(compte?.prenom ?? "");
 }
 
 function afficherConnexion(message = "", invitation = null) {
