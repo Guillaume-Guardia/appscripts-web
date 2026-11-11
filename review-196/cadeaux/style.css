@@ -18,7 +18,10 @@
 	--danger: #b3261e;
 	--ombre: 0 1px 2px rgb(42 31 26 / 0.06), 0 4px 16px rgb(42 31 26 / 0.06);
 	--rayon: 14px;
-	--nav-h: 64px;
+	--nav-h: 58px;
+	/* Sous les onglets : la zone de la barre d'accueil de l'iPhone (34 px), moins ce qui reste libre
+	   au-dessus de la barre elle-même. Rien sur Android et ordinateur (zone nulle). */
+	--bas-onglets: max(0px, calc(env(safe-area-inset-bottom) - 14px));
 }
 
 @media (prefers-color-scheme: dark) {
@@ -335,10 +338,10 @@ button:focus-visible {
 /* App */
 .app {
 	min-height: 100dvh;
-	padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+	padding-bottom: calc(var(--nav-h) + var(--bas-onglets));
 }
 
-/* Titre à gauche, icônes à droite, toujours sur la même ligne : un titre trop long (« Famille … »)
+/* Titre à gauche, icônes à droite, toujours sur la même ligne : un titre trop long
    est coupé au lieu de faire passer les icônes en dessous. Les pastilles des familles, en dessous. */
 .entete {
 	position: sticky;
@@ -392,7 +395,7 @@ button:focus-visible {
 	max-height: calc(
 		100dvh -
 		var(--haut-securise, env(safe-area-inset-top)) -
-		env(safe-area-inset-bottom) -
+		var(--bas-onglets) -
 		var(--nav-h) -
 		80px
 	);
@@ -768,7 +771,7 @@ button.menu-carte::after {
 	z-index: 6;
 	left: 12px;
 	right: 12px;
-	bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 10px);
+	bottom: calc(var(--nav-h) + var(--bas-onglets) + 10px);
 	max-width: 696px;
 	margin: 0 auto;
 	display: flex;
@@ -795,12 +798,8 @@ button.menu-carte::after {
 	bottom: calc(-1 * var(--bas-manquant, 0px));
 	display: grid;
 	grid-template-columns: repeat(4, 1fr);
-	height: calc(
-		var(--nav-h) +
-		env(safe-area-inset-bottom) +
-		var(--bas-manquant, 0px)
-	);
-	padding-bottom: calc(env(safe-area-inset-bottom) + var(--bas-manquant, 0px));
+	height: calc(var(--nav-h) + var(--bas-onglets) + var(--bas-manquant, 0px));
+	padding-bottom: calc(var(--bas-onglets) + var(--bas-manquant, 0px));
 	background: var(--surface);
 	border-top: 1px solid var(--bord);
 }
@@ -1276,6 +1275,10 @@ input[type="date"] {
 	flex-direction: column;
 	gap: 8px;
 	text-align: left;
+}
+#connexion-compte .titre-carte {
+	margin: 0;
+	font-size: 1rem;
 }
 #connexion-compte .carte + .carte {
 	margin-top: 8px;

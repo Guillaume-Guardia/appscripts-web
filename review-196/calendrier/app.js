@@ -3,6 +3,7 @@ import { brancherBalayage } from "../shared/balayage.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	brancherBiometrie,
+	brancherBoutonPortail,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
@@ -787,6 +788,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherBoutonPortail();
 	// Lien de connexion d'un appareil (…#invitation=<code>), retiré aussitôt de l'adresse.
 	const invitation = invitationDuLien(location.hash);
 	history.replaceState(null, "", location.pathname);

@@ -2,6 +2,7 @@ import { creerApi, ErreurReseau } from "../shared/api.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	brancherBiometrie,
+	brancherBoutonPortail,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
@@ -114,6 +115,26 @@ function casesDesApps(compte, apps, moi) {
 			}),
 			nom,
 		),
+	);
+}
+
+/** Droit de voir le bouton « Mes apps » (lien vers le portail) dans les apps (« portail »). */
+function casePortail(compte, moi) {
+	return el(
+		"label",
+		{ class: "case" },
+		el("input", {
+			type: "checkbox",
+			checked: compte.portail,
+			disabled: compte.toutes || moi,
+			onchange: (e) =>
+				modifier(
+					"changer-droit",
+					{ compteId: compte.id, app: "portail", acces: e.target.checked },
+					`Portail ${e.target.checked ? "visible" : "masqué"} pour ${compte.prenom}.`,
+				),
+		}),
+		"Voir le portail",
 	);
 }
 
@@ -387,6 +408,7 @@ function carteCompte(compte, apps) {
 		el("h3", {}, compte.prenom || "Sans prénom"),
 		el("p", { class: "detail" }, detail),
 		casesDesApps(compte, apps, moi),
+		casePortail(compte, moi),
 		caseTableaux(compte, moi),
 		!moi &&
 			!compte.bloque &&
@@ -551,6 +573,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherBoutonPortail();
 	// Lien de connexion d'un appareil (…#invitation=<code>), retiré aussitôt de l'adresse.
 	const invitation = invitationDuLien(location.hash);
 	history.replaceState(null, "", location.pathname);

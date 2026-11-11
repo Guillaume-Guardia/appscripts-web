@@ -2,6 +2,7 @@ import { creerApi, ErreurReseau } from "../shared/api.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	brancherBiometrie,
+	brancherBoutonPortail,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
@@ -1209,6 +1210,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherBoutonPortail();
 	// Liens ouverts dans l'app, retirés aussitôt de l'adresse : connexion d'un appareil
 	// (…#invitation=<code>), ou partage d'un voyage (…#rejoindre=<Id>:<code>), gardé jusqu'à la
 	// connexion.

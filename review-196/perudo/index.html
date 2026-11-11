@@ -29,103 +29,134 @@
 				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM12 7v4M12 14h.01" /></svg>
 				<span class="infobulle">Suggestion ou bug</span>
 			</button>
-			<button type="button" id="bouton-menu" class="bouton-icone" aria-label="Paramètres" aria-expanded="false" aria-controls="menu">
+			<button type="button" id="bouton-menu" class="bouton-icone" hidden aria-label="Paramètres" aria-expanded="false" aria-controls="menu">
 				<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M10.14 5.05L10.4 1.93L13.6 1.93L13.86 5.05L15.6 5.76L18 3.75L20.25 6L18.24 8.4L18.95 10.14L22.07 10.4L22.07 13.6L18.95 13.86L18.24 15.6L20.25 18L18 20.25L15.6 18.24L13.86 18.95L13.6 22.07L10.4 22.07L10.14 18.95L8.4 18.24L6 20.25L3.75 18L5.76 15.6L5.05 13.86L1.93 13.6L1.93 10.4L5.05 10.14L5.76 8.4L3.75 6L6 3.75L8.4 5.76z" /></svg>
 				<span class="infobulle">Paramètres</span>
 			</button>
 			<nav id="menu" class="menu" hidden>
-				<button type="button" id="menu-installer" hidden>Installer l'app</button>
+				<div class="menu-carte">
+					<span class="avatar" aria-hidden="true"></span>
+					<span class="menu-carte-texte"><strong id="menu-compte"></strong></span>
+				</div>
+				<div class="menu-section">
+					<p class="menu-titre">Cet appareil</p>
+					<button type="button" role="switch" aria-checked="false" id="menu-biometrie" class="bascule" hidden>Biométrie</button>
+					<button type="button" id="menu-installer" hidden>Installer l'app</button>
+				</div>
+				<div class="menu-section">
+					<p class="menu-titre">Mes autres appareils</p>
+					<button type="button" id="menu-autre-appareil">Connecter un autre appareil</button>
+				</div>
+				<div class="menu-section">
+					<button type="button" id="menu-deconnecter" class="danger">Se déconnecter</button>
+				</div>
 				<p class="version"></p>
 			</nav>
 		</header>
 		<div id="bandeau" class="bandeau" hidden></div>
 
-		<!-- Une colonne façon carnet de partie : table, mes dés, enchère, verdict, arbre, distribution. -->
-		<main>
-			<section aria-labelledby="titre-table">
-				<h2 id="titre-table">La table</h2>
-				<div class="ligne">
-					<div><div class="nom">Dés en jeu</div><div class="aide" id="caches"></div></div>
-					<div class="compteur">
-						<button type="button" id="total-moins" aria-label="Retirer un dé">−</button>
-						<output id="total"></output>
-						<button type="button" id="total-plus" aria-label="Ajouter un dé">+</button>
-					</div>
-				</div>
-				<div class="ligne">
-					<div><div class="nom">Palifico</div><div class="aide">Les pacos ne sont plus jokers</div></div>
-					<label class="interrupteur"><input type="checkbox" id="palifico" aria-label="Palifico" /></label>
-				</div>
-				<div class="ligne">
-					<div><div class="nom">Plus que 2 joueurs</div><div class="aide">Calza interdite</div></div>
-					<label class="interrupteur"><input type="checkbox" id="duel" aria-label="Plus que 2 joueurs" /></label>
-				</div>
-			</section>
-
-			<section aria-labelledby="titre-mes-des">
-				<div class="ligne"><h2 id="titre-mes-des">Mes dés</h2><button type="button" class="bouton-texte" id="vider">Vider</button></div>
-				<div class="emplacements" id="mes-des"></div>
-				<div class="faces" id="ajout-des"></div>
-				<div class="aide">Touche une face pour l'ajouter, touche un dé pour le retirer.</div>
-			</section>
-
-			<section aria-labelledby="titre-enchere">
-				<h2 id="titre-enchere">Enchère à battre</h2>
-				<div class="ligne">
-					<div class="nom">Quantité</div>
-					<div class="compteur">
-						<button type="button" id="quantite-moins" aria-label="Diminuer la quantité">−</button>
-						<output id="quantite"></output>
-						<button type="button" id="quantite-plus" aria-label="Augmenter la quantité">+</button>
-					</div>
-				</div>
-				<div class="faces" id="choix-face"></div>
-			</section>
-
-			<section aria-labelledby="titre-verdict" class="verdict" aria-live="polite">
-				<h2 id="titre-verdict">Verdict</h2>
-				<div class="annonce" id="annonce"></div>
-				<div class="stats" id="stats"></div>
-				<div class="point-bascule" id="bascule"></div>
-			</section>
-
-			<section aria-labelledby="titre-arbre">
-				<h2 id="titre-arbre">Arbre des coups</h2>
-				<div class="arbre" id="arbre"></div>
-			</section>
-
-			<section aria-labelledby="titre-distribution">
-				<h2 id="titre-distribution">Combien de <span id="face-distribution"></span> sur la table ?</h2>
-				<div class="graphique-defile">
-					<div class="graphique" id="graphique"></div>
-					<div class="axe" id="axe"></div>
-				</div>
-				<div class="legende">
-					<span><i class="tient"></i>l'enchère tient</span>
-					<span><i class="dudo"></i>Dudo gagne</span>
-					<span><i class="pile"></i>Calza</span>
-					<span><i class="limite"></i>bascule : au-delà, Dudo favorable</span>
-				</div>
-			</section>
-
-			<section aria-labelledby="titre-reperes">
-				<h2 id="titre-reperes">Repères par face</h2>
-				<div class="tableau-defile">
-					<table>
-						<thead>
-							<tr><th>Face</th><th>Chez moi</th><th>Moyenne</th><th>Sûr<br />70&nbsp;%</th><th>Bascule</th></tr>
-						</thead>
-						<tbody id="reperes"></tbody>
-					</table>
-				</div>
-				<div class="aide">« Sûr 70 % » : la plus grosse enchère qui tient au moins 7 fois sur 10. « Bascule » : la dernière qui tient plus d'une fois sur deux ; au-delà, Dudo est favorable.</div>
-			</section>
-
-			<footer>
-				<p>Les pacos (1) comptent pour toutes les faces, sauf en palifico. Passer aux pacos : moitié de la quantité, arrondie au-dessus. Revenir des pacos : double plus un.</p>
-				<p>Chaque dé caché montre la face annoncée ou un paco avec une chance sur 3 (1 sur 6 pour les pacos et en palifico). Le calcul ne tient pas compte de ce que les autres joueurs ont annoncé.</p>
-			</footer>
+		<main id="ecran-connexion" class="ecran-connexion" hidden>
+			<h2>Perudo</h2>
+			<p>L'arbre des coups : probabilités de l'enchère, Dudo, Calza et surenchères.</p>
+			<div id="connexion"></div>
+			<p class="version"></p>
 		</main>
+
+		<main id="ecran-refus" class="ecran-connexion" hidden>
+			<h2>Perudo</h2>
+			<p id="message-refus" class="aide"></p>
+			<button type="button" id="bouton-deconnecter-refus">Se connecter avec un autre compte</button>
+		</main>
+
+		<!-- Contenu, une fois l'accès vérifié (shared/connexion.js, exigerAccesApp). -->
+		<div id="ecran-app" hidden>
+			<!-- Une colonne façon carnet de partie : table, mes dés, enchère, verdict, arbre, distribution. -->
+			<main>
+				<section aria-labelledby="titre-table">
+					<h2 id="titre-table">La table</h2>
+					<div class="ligne">
+						<div><div class="nom">Dés en jeu</div><div class="aide" id="caches"></div></div>
+						<div class="compteur">
+							<button type="button" id="total-moins" aria-label="Retirer un dé">−</button>
+							<output id="total"></output>
+							<button type="button" id="total-plus" aria-label="Ajouter un dé">+</button>
+						</div>
+					</div>
+					<div class="ligne">
+						<div><div class="nom">Palifico</div><div class="aide">Les pacos ne sont plus jokers</div></div>
+						<label class="interrupteur"><input type="checkbox" id="palifico" aria-label="Palifico" /></label>
+					</div>
+					<div class="ligne">
+						<div><div class="nom">Plus que 2 joueurs</div><div class="aide">Calza interdite</div></div>
+						<label class="interrupteur"><input type="checkbox" id="duel" aria-label="Plus que 2 joueurs" /></label>
+					</div>
+				</section>
+
+				<section aria-labelledby="titre-mes-des">
+					<div class="ligne"><h2 id="titre-mes-des">Mes dés</h2><button type="button" class="bouton-texte" id="vider">Vider</button></div>
+					<div class="emplacements" id="mes-des"></div>
+					<div class="faces" id="ajout-des"></div>
+					<div class="aide">Touche une face pour l'ajouter, touche un dé pour le retirer.</div>
+				</section>
+
+				<section aria-labelledby="titre-enchere">
+					<h2 id="titre-enchere">Enchère à battre</h2>
+					<div class="ligne">
+						<div class="nom">Quantité</div>
+						<div class="compteur">
+							<button type="button" id="quantite-moins" aria-label="Diminuer la quantité">−</button>
+							<output id="quantite"></output>
+							<button type="button" id="quantite-plus" aria-label="Augmenter la quantité">+</button>
+						</div>
+					</div>
+					<div class="faces" id="choix-face"></div>
+				</section>
+
+				<section aria-labelledby="titre-verdict" class="verdict" aria-live="polite">
+					<h2 id="titre-verdict">Verdict</h2>
+					<div class="annonce" id="annonce"></div>
+					<div class="stats" id="stats"></div>
+					<div class="point-bascule" id="bascule"></div>
+				</section>
+
+				<section aria-labelledby="titre-arbre">
+					<h2 id="titre-arbre">Arbre des coups</h2>
+					<div class="arbre" id="arbre"></div>
+				</section>
+
+				<section aria-labelledby="titre-distribution">
+					<h2 id="titre-distribution">Combien de <span id="face-distribution"></span> sur la table ?</h2>
+					<div class="graphique-defile">
+						<div class="graphique" id="graphique"></div>
+						<div class="axe" id="axe"></div>
+					</div>
+					<div class="legende">
+						<span><i class="tient"></i>l'enchère tient</span>
+						<span><i class="dudo"></i>Dudo gagne</span>
+						<span><i class="pile"></i>Calza</span>
+						<span><i class="limite"></i>bascule : au-delà, Dudo favorable</span>
+					</div>
+				</section>
+
+				<section aria-labelledby="titre-reperes">
+					<h2 id="titre-reperes">Repères par face</h2>
+					<div class="tableau-defile">
+						<table>
+							<thead>
+								<tr><th>Face</th><th>Chez moi</th><th>Moyenne</th><th>Sûr<br />70&nbsp;%</th><th>Bascule</th></tr>
+							</thead>
+							<tbody id="reperes"></tbody>
+						</table>
+					</div>
+					<div class="aide">« Sûr 70 % » : la plus grosse enchère qui tient au moins 7 fois sur 10. « Bascule » : la dernière qui tient plus d'une fois sur deux ; au-delà, Dudo est favorable.</div>
+				</section>
+
+				<footer>
+					<p>Les pacos (1) comptent pour toutes les faces, sauf en palifico. Passer aux pacos : moitié de la quantité, arrondie au-dessus. Revenir des pacos : double plus un.</p>
+					<p>Chaque dé caché montre la face annoncée ou un paco avec une chance sur 3 (1 sur 6 pour les pacos et en palifico). Le calcul ne tient pas compte de ce que les autres joueurs ont annoncé.</p>
+				</footer>
+			</main>
+		</div>
 
 
 		<div id="toasts" class="toasts" aria-live="polite"></div>

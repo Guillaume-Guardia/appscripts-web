@@ -6,6 +6,7 @@ import { creerApi, ErreurReseau } from "../shared/api.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	brancherBiometrie,
+	brancherBoutonPortail,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
@@ -359,6 +360,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherBoutonPortail();
 	// Lien de connexion d'un appareil (…#invitation=<code>), retiré aussitôt de l'adresse. Les
 	// autres ancres (états des lieux) restent : elles choisissent l'écran.
 	const invitation = invitationDuLien(location.hash);

@@ -3,6 +3,7 @@ import { brancherBalayage, voisin } from "../shared/balayage.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	brancherBiometrie,
+	brancherBoutonPortail,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
@@ -1808,6 +1809,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherBoutonPortail();
 	// Ancienne connexion par clé (avant les comptes) : plus utilisée.
 	ecrireStockage(CLES.ancienneCle, null);
 	// Lien de connexion d'un appareil (…#invitation=<code>), retiré aussitôt de l'adresse.

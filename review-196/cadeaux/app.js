@@ -3,6 +3,7 @@ import { brancherBalayage, voisin } from "../shared/balayage.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
 	brancherBiometrie,
+	brancherBoutonPortail,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
@@ -1475,13 +1476,7 @@ const RENDUS = {
 
 function rendreEntete() {
 	const { moi: membre, familles } = app.etat;
-	const seule = familles.length === 1 ? familles[0] : null;
-	// Onglet Famille d'une seule famille : son nom devient le titre, plutôt que « Famille Dupont »
-	// au-dessus de « La famille ».
-	const titreFamille = seule && app.onglet === "famille";
-	$("#titre-onglet").textContent = titreFamille
-		? libelleFamille(seule)
-		: TITRES[app.onglet];
+	$("#titre-onglet").textContent = TITRES[app.onglet];
 	$("#menu-nom").textContent = membre.prenom;
 	// Bouton du menu et carte du haut du menu : sa photo, ou l'initiale de son prénom.
 	for (const id of ["avatar-menu", "avatar-carte"]) {
@@ -1490,28 +1485,23 @@ function rendreEntete() {
 		$(`#${id}`).replaceWith(rond);
 	}
 
-	// Plusieurs familles : des pastilles dans l'en-tête, chacune s'active ou se désactive (plusieurs
-	// à la fois). Une seule : son nom au-dessus du titre (en titre sur l'onglet Famille). Dans tous
-	// les cas, « + » pour en rejoindre
-	// ou en créer une.
+	// Ses familles en pastilles sous le titre, suivies de « + » pour en rejoindre ou en créer une.
+	// Avec plusieurs familles, chacune s'active ou se désactive (plusieurs à la fois) ; une seule
+	// reste active.
 	const actives = new Set(famillesActives().map((f) => f.id));
 	const plusieurs = familles.length > 1;
-	$("#libelle-famille").textContent =
-		seule && !titreFamille ? libelleFamille(seule) : "Cadeaux de Noël";
 	$("#familles-entete").replaceChildren(
-		...(plusieurs
-			? familles.map((f) =>
-					el(
-						"button",
-						{
-							type: "button",
-							"aria-pressed": String(actives.has(f.id)),
-							onclick: () => basculerFamille(f.id),
-						},
-						f.nom,
-					),
-				)
-			: []),
+		...familles.map((f) =>
+			el(
+				"button",
+				{
+					type: "button",
+					"aria-pressed": String(!plusieurs || actives.has(f.id)),
+					onclick: plusieurs ? () => basculerFamille(f.id) : null,
+				},
+				f.nom,
+			),
+		),
 		el("button", {
 			type: "button",
 			class: "puce-ajout",
@@ -2827,8 +2817,12 @@ function brancherEvenements() {
 			changerOnglet(bouton.dataset.onglet),
 		);
 	}
-	// Balayer le contenu vers la gauche ou la droite passe à l'onglet suivant ou précédent
-	brancherBalayage($("#contenu"), changerOngletVoisin);
+	// Balayer l'écran vers la gauche ou la droite passe à l'onglet suivant ou précédent : partout,
+	// pas seulement sur les cartes (une liste courte laisse le bas de l'écran vide). Seul le contenu
+	// glisse.
+	brancherBalayage($("#ecran-app"), changerOngletVoisin, {
+		anime: () => $("#contenu"),
+	});
 	// Retour sur l'app (onglet ou téléphone) : les autres ont peut-être réservé entre-temps.
 	document.addEventListener("visibilitychange", () => {
 		if (document.visibilityState !== "visible") return;
@@ -2855,6 +2849,7 @@ function demarrer() {
 	if (!RENDUS[app.onglet]) app.onglet = "ma-liste";
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherBoutonPortail();
 	brancherInstallation($("#menu-installer"), { connexion: true });
 	// Ancienne connexion par code famille et Id (avant les clés) : plus utilisée.
 	ecrireStockage("cadeaux.code", null);
