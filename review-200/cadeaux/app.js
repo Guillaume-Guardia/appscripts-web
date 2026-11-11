@@ -2763,45 +2763,51 @@ function etapesVisite() {
 		{
 			titre: `Bienvenue ${membre.prenom} !`,
 			texte:
-				"Ici, la famille partage ses listes de cadeaux de Noël, sans gâcher la surprise. Petit tour de l'app en une minute.",
+				"Ici, la famille partage ses listes de cadeaux de Noël. Je te propose un petit tour de l'app en une minute.",
 		},
 		{
 			...onglet("ma-liste"),
 			titre: "Ma liste",
 			texte:
-				"Ajoute tes idées : ce qui te ferait plaisir, avec un lien, un prix ou une photo. Tu ne vois jamais ce qui est réservé sur ta liste, ni les idées que les autres y ajoutent pour toi.",
+				"Ajoute tes idées à l'aide d'un lien ou d'une photo. Tu ne verras jamais ce qui est réservé sur ta liste, ni les idées que les autres y ajoutent pour toi.",
 		},
 		{
 			...onglet("famille"),
 			titre: "Famille",
 			texte:
-				"Les listes de tes proches : réserve un cadeau pour qu'il ne soit pas offert deux fois, ou suggère une idée (la personne ne la verra pas). Le « + » rond ajoute un proche sans téléphone, dont la famille tient la liste.",
+				"Les listes de tes proches : réserve un cadeau ou suggère une idée (la personne ne la verra pas). Tu peux ajouter un membre en appuyant sur « + » et l'inviter à rejoindre l'app.",
 		},
 		{
 			...onglet("disponibles"),
 			titre: "Disponibles",
 			texte:
-				"Tous les cadeaux encore libres, par personne. Coches-en un ou plusieurs, puis « Je les offre ».",
+				"Ici, tu verras tous les cadeaux non réservés. Coches-en un ou plusieurs, puis « Je les offre ».",
 		},
 		{
 			...onglet("reservations"),
 			titre: "J'offre",
 			texte:
-				"Ce que tu offres, à qui, et le total. C'est aussi ici que tu organises un Secret Santa et que tu découvres à qui tu offres.",
+				"Voici la liste des cadeaux que tu offres. Bonus: tu pourras également organiser un Secret Santa.",
 		},
 		{
 			...onglet("historique"),
 			titre: "Historique",
 			texte:
-				"Les cadeaux que tu as offerts, visibles de toi seul. Ceux de Noël y passent d'eux-mêmes le 26 décembre.",
+				"La liste des cadeaux que tu as offerts les années passées (Mise à jour le 26 décembre).",
 		},
 		{
 			cible: "#familles-entete",
 			titre: familles.length > 1 ? "Tes familles" : "Ta famille",
 			texte:
 				familles.length > 1
-					? "Touche une famille pour l'afficher ou la masquer, dans tous les onglets. Le « + » permet d'en rejoindre ou d'en créer une autre."
+					? "Touche une famille pour l'afficher ou la masquer. Le « + » permet de rejoindre ou de créer une autre famille."
 					: "Le « + » permet de rejoindre une autre famille (belle-famille, amis…) ou d'en créer une.",
+		},
+		{
+			cible: "#bouton-signalement",
+			titre: "Suggestion ou bug",
+			texte:
+				"Une idée pour améliorer l'app, ou quelque chose qui ne marche pas ? Écris-le ici.",
 		},
 		{
 			cible: "#bouton-menu",
