@@ -2,6 +2,8 @@ import { creerApi, ErreurReseau } from "../shared/api.js";
 import { brancherBalayage, voisin } from "../shared/balayage.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
+	brancherBiometrie,
+	brancherBoutonPortail,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
@@ -12,13 +14,13 @@ import {
 	invitationDuLien,
 	lireSession,
 	oublierConnexion,
-	ouvrirMesConnexions,
 } from "../shared/connexion.js";
 import { aujourdhui, joursEntre, versChampDate } from "../shared/dates.js";
 import {
 	$,
 	afficherBandeau,
 	el,
+	initiale,
 	masquerBandeau,
 	notifier,
 	remplacerContenu,
@@ -49,7 +51,7 @@ const CLES = {
 	etat: "cadeaux.etat",
 	onglet: "cadeaux.onglet",
 	familles: "cadeaux.familles",
-	/** Photos des idées déjà reçues, par empreinte. */
+	/** Photos déjà reçues (idées et profils), par empreinte. */
 	photos: "cadeaux.photos",
 	versionApi: "cadeaux.versionApi",
 };
@@ -60,6 +62,12 @@ const REDUCTIONS_PHOTO = [
 	[400, 0.6],
 	[320, 0.5],
 	[240, 0.4],
+];
+/** Photo de profil : affichée en petit (en-tête, onglet Famille), elle reste plus légère. */
+const REDUCTIONS_PROFIL = [
+	[256, 0.8],
+	[192, 0.7],
+	[128, 0.6],
 ];
 /** Une photo est gardée dans une cellule du classeur (limite vérifiée aussi par l'API). */
 const LONGUEUR_MAX_PHOTO = 45000;
@@ -96,7 +104,7 @@ const app = {
 	photoSaisie: null,
 	/** Vrai quand le formulaire demande de retirer la photo de l'idée. */
 	photoRetiree: false,
-	/** Photos des idées, par empreinte : une photo changée a une autre empreinte. */
+	/** Photos des idées et des profils, par empreinte : une photo changée a une autre empreinte. */
 	photos: lireStockageJson(CLES.photos) ?? {},
 	/** Empreintes déjà demandées à l'API, pour ne pas les redemander à chaque état. */
 	photosDemandees: new Set(),
@@ -185,14 +193,25 @@ function appliquerEtat(etat) {
 
 const urlPhoto = (base64) => `data:image/jpeg;base64,${base64}`;
 
+/** Empreintes des photos de l'état : idées, et profils (le sien et ceux de ses proches). */
+function empreintesPhotos(etat) {
+	return [
+		...new Set(
+			[...etat.cadeaux, etat.moi, ...etat.personnes].flatMap(
+				(c) => c.photo || [],
+			),
+		),
+	];
+}
+
 /**
- * Charge les photos qui manquent, sans gêner l'affichage : seules les images des cartes sont mises
- * à jour, pour ne pas faire perdre sa saisie ou sa place à celui qui lit les listes.
+ * Charge les photos qui manquent, sans gêner l'affichage : seules les images (cartes, profils) sont
+ * mises à jour, pour ne pas faire perdre sa saisie ou sa place à celui qui lit les listes.
  */
 async function chargerPhotos() {
-	const manquantes = [
-		...new Set(app.etat.cadeaux.flatMap((c) => c.photo || [])),
-	].filter((e) => !app.photos[e] && !app.photosDemandees.has(e));
+	const manquantes = empreintesPhotos(app.etat).filter(
+		(e) => !app.photos[e] && !app.photosDemandees.has(e),
+	);
 	if (manquantes.length === 0) return;
 	for (const empreinte of manquantes) app.photosDemandees.add(empreinte);
 	let recues;
@@ -210,8 +229,8 @@ async function chargerPhotos() {
 	if (!app.etat) return;
 	// Seulement les photos de l'état : celles des idées disparues ne restent pas sur l'appareil.
 	app.photos = Object.fromEntries(
-		app.etat.cadeaux.flatMap(({ photo }) => {
-			const base64 = photo && (recues[photo] ?? app.photos[photo]);
+		empreintesPhotos(app.etat).flatMap((photo) => {
+			const base64 = recues[photo] ?? app.photos[photo];
 			return base64 ? [[photo, base64]] : [];
 		}),
 	);
@@ -467,17 +486,33 @@ function lienCadeau(cadeau) {
 	);
 }
 
-/** Masquée tant que la photo n'est pas chargée (voir chargerPhotos). */
-function photoCadeau(cadeau) {
-	if (!cadeau.photo) return null;
-	const base64 = app.photos[cadeau.photo];
+/** Image d'une photo de l'état, masquée tant qu'elle n'est pas chargée (voir chargerPhotos). */
+function imagePhoto(empreinte, attributs) {
+	if (!empreinte) return null;
+	const base64 = app.photos[empreinte];
 	return el("img", {
-		class: "carte-photo",
-		alt: `Photo : ${cadeau.titre}`,
-		"data-photo": cadeau.photo,
+		...attributs,
+		"data-photo": empreinte,
 		src: base64 ? urlPhoto(base64) : null,
 		hidden: !base64,
 	});
+}
+
+function photoCadeau(cadeau) {
+	return imagePhoto(cadeau.photo, {
+		class: "carte-photo",
+		alt: `Photo : ${cadeau.titre}`,
+	});
+}
+
+/** Profil en rond : l'initiale du prénom, recouverte par la photo quand la personne en a une. */
+function avatar(personne) {
+	return el(
+		"span",
+		{ class: "avatar", "aria-hidden": "true" },
+		initiale(personne.prenom),
+		imagePhoto(personne.photo, { alt: "" }),
+	);
 }
 
 /**
@@ -854,19 +889,17 @@ function rendreFamille() {
 					"aria-pressed": String(selection.has(p.id)),
 					onclick: () => basculer(p.id),
 				},
+				// Sa photo devant le prénom ; sans photo, le prénom seul.
+				p.photo ? avatar(p) : null,
 				p.prenom,
 			),
 		),
-		el(
-			"button",
-			{
-				type: "button",
-				class: "puce-ajout",
-				onclick: ouvrirAjoutPersonne,
-				"aria-label": "Ajouter une personne sans compte",
-			},
-			"+ Personne",
-		),
+		el("button", {
+			type: "button",
+			class: "puce-ajout",
+			onclick: ouvrirAjoutPersonne,
+			"aria-label": "Ajouter une personne sans compte",
+		}),
 	);
 	const leursCadeaux = app.etat.cadeaux
 		.filter(
@@ -1443,47 +1476,38 @@ const RENDUS = {
 
 function rendreEntete() {
 	const { moi: membre, familles } = app.etat;
-	const seule = familles.length === 1 ? familles[0] : null;
-	// Onglet Famille d'une seule famille : son nom devient le titre, plutôt que « Famille Dupont »
-	// au-dessus de « La famille ».
-	const titreFamille = seule && app.onglet === "famille";
-	$("#titre-onglet").textContent = titreFamille
-		? libelleFamille(seule)
-		: TITRES[app.onglet];
-	$("#menu-nom").textContent = `Connecté en tant que ${membre.prenom}`;
+	$("#titre-onglet").textContent = TITRES[app.onglet];
+	$("#menu-nom").textContent = membre.prenom;
+	// Bouton du menu et carte du haut du menu : sa photo, ou l'initiale de son prénom.
+	for (const id of ["avatar-menu", "avatar-carte"]) {
+		const rond = avatar(membre);
+		rond.id = id;
+		$(`#${id}`).replaceWith(rond);
+	}
 
-	// Plusieurs familles : des pastilles dans l'en-tête, chacune s'active ou se désactive (plusieurs
-	// à la fois). Une seule : son nom au-dessus du titre (en titre sur l'onglet Famille). Dans tous
-	// les cas, « + » pour en rejoindre
-	// ou en créer une.
+	// Ses familles en pastilles sous le titre, suivies de « + » pour en rejoindre ou en créer une.
+	// Avec plusieurs familles, chacune s'active ou se désactive (plusieurs à la fois) ; une seule
+	// reste active.
 	const actives = new Set(famillesActives().map((f) => f.id));
 	const plusieurs = familles.length > 1;
-	$("#libelle-famille").textContent =
-		seule && !titreFamille ? libelleFamille(seule) : "Cadeaux de Noël";
 	$("#familles-entete").replaceChildren(
-		...(plusieurs
-			? familles.map((f) =>
-					el(
-						"button",
-						{
-							type: "button",
-							"aria-pressed": String(actives.has(f.id)),
-							onclick: () => basculerFamille(f.id),
-						},
-						f.nom,
-					),
-				)
-			: []),
-		el(
-			"button",
-			{
-				type: "button",
-				class: "puce-ajout",
-				"aria-label": "Rejoindre ou créer une famille",
-				onclick: () => $("#dialogue-ajout-famille").showModal(),
-			},
-			"+",
+		...familles.map((f) =>
+			el(
+				"button",
+				{
+					type: "button",
+					"aria-pressed": String(!plusieurs || actives.has(f.id)),
+					onclick: plusieurs ? () => basculerFamille(f.id) : null,
+				},
+				f.nom,
+			),
 		),
+		el("button", {
+			type: "button",
+			class: "puce-ajout",
+			"aria-label": "Rejoindre ou créer une famille",
+			onclick: () => $("#dialogue-ajout-famille").showModal(),
+		}),
 	);
 }
 
@@ -2144,6 +2168,95 @@ function ouvrirAjoutPersonne() {
 	});
 }
 
+/**
+ * Choix de la photo de profil dans « Mon profil » : prise avec l'appareil, choisie, ou retirée.
+ * @return Les éléments à afficher, et `photo()` : l'image réduite à envoyer, "" pour la retirer,
+ * undefined si elle ne change pas
+ */
+function choixPhotoProfil(membre) {
+	let fichier = null;
+	let retiree = false;
+	const actuelle = membre.photo && app.photos[membre.photo];
+	const apercu = el("img", {
+		class: "apercu-photo apercu-profil",
+		alt: "",
+		src: actuelle ? urlPhoto(actuelle) : null,
+		hidden: !actuelle,
+	});
+	const retirer = el(
+		"button",
+		{
+			type: "button",
+			class: "bouton petit danger",
+			hidden: !membre.photo,
+			onclick: () => {
+				fichier = null;
+				retiree = Boolean(membre.photo);
+				apercu.hidden = true;
+				apercu.removeAttribute("src");
+				retirer.hidden = true;
+			},
+		},
+		"Retirer",
+	);
+	const champ = (attributs) =>
+		el("input", {
+			type: "file",
+			accept: "image/*",
+			hidden: true,
+			...attributs,
+			onchange: (evenement) => {
+				const choisi = evenement.target.files[0];
+				if (!choisi) return;
+				fichier = choisi;
+				retiree = false;
+				apercu.src = URL.createObjectURL(choisi);
+				apercu.hidden = false;
+				retirer.hidden = false;
+				// Vidé aussitôt : la même image peut être choisie de nouveau.
+				evenement.target.value = "";
+			},
+		});
+	const camera = champ({ capture: "user" });
+	const galerie = champ({});
+	return {
+		elements: [
+			el("p", { class: "sous-titre" }, "Ma photo"),
+			apercu,
+			el(
+				"div",
+				{ class: "choix-photo" },
+				el(
+					"button",
+					{
+						type: "button",
+						class: "bouton petit bouton-camera",
+						onclick: () => camera.click(),
+					},
+					"Prendre une photo",
+				),
+				el(
+					"button",
+					{
+						type: "button",
+						class: "bouton petit",
+						onclick: () => galerie.click(),
+					},
+					"Choisir une image",
+				),
+				retirer,
+			),
+			camera,
+			galerie,
+		],
+		photo: async () => {
+			if (retiree) return "";
+			if (!fichier) return undefined;
+			return reduireImageSous(fichier, REDUCTIONS_PROFIL, LONGUEUR_MAX_PHOTO);
+		},
+	};
+}
+
 function ouvrirProfil() {
 	const membre = app.etat.moi;
 	// Ferme le profil avant une autre action : le petit formulaire ne s'ouvre pas deux fois, et la
@@ -2152,9 +2265,10 @@ function ouvrirProfil() {
 		$("#dialogue-simple").close();
 		action();
 	};
+	const choixPhoto = choixPhotoProfil(membre);
 	ouvrirDialogueSimple({
 		titre: `Mon profil : ${membre.prenom}`,
-		aide: "Ton anniversaire s'affiche sur ta fiche, pour les membres de tes familles.",
+		aide: "Ton anniversaire et ta photo s'affichent pour les membres de tes familles.",
 		champs: [
 			{
 				nom: "nom",
@@ -2172,6 +2286,7 @@ function ouvrirProfil() {
 			},
 		],
 		bas: [
+			...choixPhoto.elements,
 			el("p", { class: "sous-titre" }, "Mes familles"),
 			...app.etat.familles.map((f) =>
 				el(
@@ -2202,15 +2317,22 @@ function ouvrirProfil() {
 			),
 		],
 		bouton: "Enregistrer",
-		valider: async (profil, erreur) =>
-			Boolean(
+		valider: async (profil, erreur) => {
+			try {
+				profil.photo = await choixPhoto.photo();
+			} catch (e) {
+				erreur(e.message);
+				return false;
+			}
+			return Boolean(
 				await modifier(
 					"modifier-profil",
 					{ profil },
 					"Profil enregistré.",
 					erreur,
 				),
-			),
+			);
+		},
 	});
 }
 
@@ -2685,14 +2807,7 @@ function brancherEvenements() {
 			notifier(erreur.message, true);
 		}
 	});
-	$("#menu-connexions").addEventListener("click", async () => {
-		fermerMenu();
-		try {
-			await ouvrirMesConnexions("Cadeaux");
-		} catch (erreur) {
-			notifier(erreur.message, true);
-		}
-	});
+	brancherBiometrie($("#menu-biometrie"), "Cadeaux");
 	$("#menu-deconnecter").addEventListener("click", seDeconnecter);
 	$("#bouton-offrir-selection").addEventListener("click", () =>
 		reserver([...app.selection]),
@@ -2702,8 +2817,12 @@ function brancherEvenements() {
 			changerOnglet(bouton.dataset.onglet),
 		);
 	}
-	// Balayer le contenu vers la gauche ou la droite passe à l'onglet suivant ou précédent
-	brancherBalayage($("#contenu"), changerOngletVoisin);
+	// Balayer l'écran vers la gauche ou la droite passe à l'onglet suivant ou précédent : partout,
+	// pas seulement sur les cartes (une liste courte laisse le bas de l'écran vide). Seul le contenu
+	// glisse.
+	brancherBalayage($("#ecran-app"), changerOngletVoisin, {
+		anime: () => $("#contenu"),
+	});
 	// Retour sur l'app (onglet ou téléphone) : les autres ont peut-être réservé entre-temps.
 	document.addEventListener("visibilitychange", () => {
 		if (document.visibilityState !== "visible") return;
@@ -2730,6 +2849,7 @@ function demarrer() {
 	if (!RENDUS[app.onglet]) app.onglet = "ma-liste";
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherBoutonPortail();
 	brancherInstallation($("#menu-installer"), { connexion: true });
 	// Ancienne connexion par code famille et Id (avant les clés) : plus utilisée.
 	ecrireStockage("cadeaux.code", null);

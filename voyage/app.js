@@ -1,6 +1,8 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
+	brancherBiometrie,
+	brancherBoutonPortail,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
@@ -10,7 +12,6 @@ import {
 	modifierPrenom,
 	oublierConnexion,
 	ouvrirInvitation,
-	ouvrirMesConnexions,
 } from "../shared/connexion.js";
 import { aujourdhui, joursEntre, pluriel, versDate } from "../shared/dates.js";
 import {
@@ -21,6 +22,7 @@ import {
 	normaliser,
 	notifier,
 	remplacerContenu,
+	remplirCarteMenu,
 } from "../shared/dom.js";
 import {
 	brancherInstallation,
@@ -1064,7 +1066,7 @@ async function chargerApresConnexion() {
 /** Prénom du compte, en tête du menu. */
 function afficherCompte() {
 	const compte = app.etat?.moi ?? compteConnecte();
-	$("#menu-compte").textContent = compte ? `Connecté : ${compte.prenom}` : "";
+	remplirCarteMenu(compte?.prenom ?? "");
 }
 
 /** Oublie la connexion de l'appareil et ses données, puis affiche la connexion. */
@@ -1187,14 +1189,7 @@ function brancherEvenements() {
 			notifier(erreur.message, true);
 		}
 	});
-	$("#menu-connexions").addEventListener("click", async () => {
-		fermerMenu();
-		try {
-			await ouvrirMesConnexions("Voyage");
-		} catch (erreur) {
-			notifier(erreur.message, true);
-		}
-	});
+	brancherBiometrie($("#menu-biometrie"), "Voyage");
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), { connexion: true });
 	$("#bouton-signalement").addEventListener("click", () => {
@@ -1215,6 +1210,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherBoutonPortail();
 	// Liens ouverts dans l'app, retirés aussitôt de l'adresse : connexion d'un appareil
 	// (…#invitation=<code>), ou partage d'un voyage (…#rejoindre=<Id>:<code>), gardé jusqu'à la
 	// connexion.

@@ -111,19 +111,34 @@ function estSousBarreDEtat() {
 }
 
 /**
- * Pose ou retire le repli de la barre d'état (voir estSousBarreDEtat). Une seule mesure ne suffit
- * pas : après un rechargement, iOS n'a pas encore ses dimensions définitives quand le script
- * démarre (la page paraît moins haute que l'écran), et le haut restait sous l'heure et la
- * batterie. La mesure est donc refaite une fois la page chargée, puis à chaque changement de
- * taille ou retour dans l'app.
+ * iPhone, app installée, en portrait : hauteur d'écran sous le bas de la page. La page devrait
+ * couvrir tout l'écran (barre d'état black-translucent), mais iOS la laisse parfois moins haute :
+ * elle est alors dessinée un cran trop haut, et les onglets du bas flottent au-dessus d'une bande
+ * vide. Les apps prolongent leur barre du bas d'autant (--bas-manquant, voir cadeaux/style.css).
+ * Sans effet quand iOS place lui-même la page sous la barre d'état : le prolongement est alors
+ * hors de l'écran.
+ */
+function hauteurSousLaPage() {
+	if (!window.matchMedia("(orientation: portrait)").matches) return 0;
+	return Math.max(0, window.screen.height - window.innerHeight);
+}
+
+/**
+ * Pose ou retire les replis de l'iPhone : barre d'état (voir estSousBarreDEtat) et bas de l'écran
+ * (voir hauteurSousLaPage). Android et les ordinateurs annoncent leurs zones protégées : rien n'y
+ * est posé. Une seule mesure ne suffit pas : après un rechargement, iOS n'a pas encore ses
+ * dimensions définitives quand le script démarre (la page paraît moins haute que l'écran), et le
+ * haut restait sous l'heure et la batterie. La mesure est donc refaite une fois la page chargée,
+ * puis à chaque changement de taille ou retour dans l'app.
  */
 function compenserBarreDEtat() {
 	if (!estIos || !estInstallee) return;
 	const mesurer = () => {
-		document.documentElement.toggleAttribute(
-			"data-sous-barre-etat",
-			estSousBarreDEtat(),
-		);
+		const racine = document.documentElement;
+		racine.toggleAttribute("data-sous-barre-etat", estSousBarreDEtat());
+		const bas = hauteurSousLaPage();
+		if (bas) racine.style.setProperty("--bas-manquant", `${bas}px`);
+		else racine.style.removeProperty("--bas-manquant");
 	};
 	mesurer();
 	for (const evenement of ["load", "pageshow", "resize"]) {

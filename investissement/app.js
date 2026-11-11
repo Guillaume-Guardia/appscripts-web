@@ -1,4 +1,16 @@
-import { $, el, remplacerContenu } from "../shared/dom.js";
+import {
+	brancherBiometrie,
+	compteConnecte,
+	connecterUnAutreAppareil,
+	exigerAccesApp,
+} from "../shared/connexion.js";
+import {
+	$,
+	el,
+	notifier,
+	remplacerContenu,
+	remplirCarteMenu,
+} from "../shared/dom.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -313,10 +325,26 @@ function brancherEvenements() {
 	$("#menu-parametres").addEventListener("click", ouvrirParametres);
 	$("#menu-effacer").addEventListener("click", effacerSimulation);
 	$("#menu-installer").addEventListener("click", fermerMenu);
-	brancherInstallation($("#menu-installer"));
+	brancherInstallation($("#menu-installer"), { connexion: true });
+	brancherBiometrie($("#menu-biometrie"), "Investissement");
+	$("#menu-autre-appareil").addEventListener("click", async () => {
+		fermerMenu();
+		try {
+			await connecterUnAutreAppareil("Investissement");
+		} catch (erreur) {
+			notifier(erreur.message, true);
+		}
+	});
+	$("#menu-deconnecter").addEventListener("click", () => {
+		fermerMenu();
+		acces.seDeconnecter();
+	});
 	$("#bouton-signalement").addEventListener("click", () => {
 		fermerMenu();
-		ouvrirSignalement({ app: "Investissement" });
+		ouvrirSignalement({
+			app: "Investissement",
+			prenom: compteConnecte()?.prenom,
+		});
 	});
 	document.addEventListener("visibilitychange", () => {
 		if (document.visibilityState === "visible") {
@@ -328,5 +356,11 @@ function brancherEvenements() {
 remplirFormulaire();
 afficherVersion();
 afficher();
-brancherEvenements();
 enregistrerServiceWorker();
+// Réservée aux comptes qui ont accès à Investissement (onglet Droits du projet droits).
+const acces = exigerAccesApp({
+	cle: "investissement",
+	nomApp: "Investissement",
+	surOuverte: (compte) => remplirCarteMenu(compte?.prenom ?? ""),
+});
+brancherEvenements();

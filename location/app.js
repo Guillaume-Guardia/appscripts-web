@@ -5,6 +5,8 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
+	brancherBiometrie,
+	brancherBoutonPortail,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
@@ -13,10 +15,15 @@ import {
 	invitationDuLien,
 	lireSession,
 	oublierConnexion,
-	ouvrirMesConnexions,
 } from "../shared/connexion.js";
 import { aujourdhui, joursEntre, pluriel, versDate } from "../shared/dates.js";
-import { $, el, notifier, remplacerContenu } from "../shared/dom.js";
+import {
+	$,
+	el,
+	notifier,
+	remplacerContenu,
+	remplirCarteMenu,
+} from "../shared/dom.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -260,7 +267,7 @@ function afficherEcran(nom) {
 	$("#bouton-retour").hidden = ["connexion", "refus", "suivi"].includes(nom);
 	$("#bouton-menu").hidden = nom === "connexion";
 	const compte = compteConnecte();
-	$("#menu-compte").textContent = compte ? `Connecté : ${compte.prenom}` : "";
+	remplirCarteMenu(compte?.prenom ?? "");
 }
 
 function afficherConnexion(message = "", invitation = null) {
@@ -335,9 +342,7 @@ function brancherEvenements() {
 	$("#menu-autre-appareil").addEventListener("click", () =>
 		lancerDepuisMenu(connecterUnAutreAppareil),
 	);
-	$("#menu-connexions").addEventListener("click", () =>
-		lancerDepuisMenu(ouvrirMesConnexions),
-	);
+	brancherBiometrie($("#menu-biometrie"), "Location");
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), { connexion: true });
 	$("#bouton-signalement").addEventListener("click", () => {
@@ -355,6 +360,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherBoutonPortail();
 	// Lien de connexion d'un appareil (…#invitation=<code>), retiré aussitôt de l'adresse. Les
 	// autres ancres (états des lieux) restent : elles choisissent l'écran.
 	const invitation = invitationDuLien(location.hash);

@@ -1,6 +1,8 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
+	brancherBiometrie,
+	brancherBoutonPortail,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
@@ -9,9 +11,14 @@ import {
 	inviterPersonne,
 	lienInvitation,
 	lireSession,
-	ouvrirMesConnexions,
 } from "../shared/connexion.js";
-import { $, el, notifier, remplacerContenu } from "../shared/dom.js";
+import {
+	$,
+	el,
+	notifier,
+	remplacerContenu,
+	remplirCarteMenu,
+} from "../shared/dom.js";
 import {
 	brancherInstallation,
 	enregistrerServiceWorker,
@@ -108,6 +115,26 @@ function casesDesApps(compte, apps, moi) {
 			}),
 			nom,
 		),
+	);
+}
+
+/** Droit de voir le bouton « Mes apps » (lien vers le portail) dans les apps (« portail »). */
+function casePortail(compte, moi) {
+	return el(
+		"label",
+		{ class: "case" },
+		el("input", {
+			type: "checkbox",
+			checked: compte.portail,
+			disabled: compte.toutes || moi,
+			onchange: (e) =>
+				modifier(
+					"changer-droit",
+					{ compteId: compte.id, app: "portail", acces: e.target.checked },
+					`Portail ${e.target.checked ? "visible" : "masqué"} pour ${compte.prenom}.`,
+				),
+		}),
+		"Voir le portail",
 	);
 }
 
@@ -381,6 +408,7 @@ function carteCompte(compte, apps) {
 		el("h3", {}, compte.prenom || "Sans prénom"),
 		el("p", { class: "detail" }, detail),
 		casesDesApps(compte, apps, moi),
+		casePortail(compte, moi),
 		caseTableaux(compte, moi),
 		!moi &&
 			!compte.bloque &&
@@ -450,7 +478,7 @@ function afficherEcran(nom) {
 	$("#bouton-actualiser").hidden = nom !== "comptes";
 	$("#bouton-menu").hidden = nom === "connexion";
 	const compte = compteConnecte();
-	$("#menu-compte").textContent = compte ? `Connecté : ${compte.prenom}` : "";
+	remplirCarteMenu(compte?.prenom ?? "");
 	if (nom === "comptes") rendreComptes();
 }
 
@@ -530,14 +558,7 @@ function brancherEvenements() {
 			notifier(erreur.message, true);
 		}
 	});
-	$("#menu-connexions").addEventListener("click", async () => {
-		fermerMenu();
-		try {
-			await ouvrirMesConnexions("Droits");
-		} catch (erreur) {
-			notifier(erreur.message, true);
-		}
-	});
+	brancherBiometrie($("#menu-biometrie"), "Droits");
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), { connexion: true });
 	$("#bouton-signalement").addEventListener("click", () => {
@@ -552,6 +573,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherBoutonPortail();
 	// Lien de connexion d'un appareil (…#invitation=<code>), retiré aussitôt de l'adresse.
 	const invitation = invitationDuLien(location.hash);
 	history.replaceState(null, "", location.pathname);

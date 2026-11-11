@@ -2,6 +2,8 @@ import { creerApi, ErreurReseau } from "../shared/api.js";
 import { brancherBalayage, voisin } from "../shared/balayage.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
+	brancherBiometrie,
+	brancherBoutonPortail,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
@@ -11,7 +13,6 @@ import {
 	lireSession,
 	oublierConnexion,
 	ouvrirInvitation,
-	ouvrirMesConnexions,
 } from "../shared/connexion.js";
 import {
 	aujourdhui,
@@ -28,6 +29,7 @@ import {
 	normaliser,
 	notifier,
 	remplacerContenu,
+	remplirCarteMenu,
 } from "../shared/dom.js";
 import {
 	brancherInstallation,
@@ -1559,6 +1561,7 @@ function afficherEcran(nom) {
 		$(id).hidden = !connecte;
 	}
 	if (connecte) {
+		remplirCarteMenu(compteConnecte()?.prenom ?? "");
 		rendre();
 		if (!app.etat.profils.length && !$("#dialogue-profil").open) {
 			ouvrirProfil(null, true);
@@ -1780,14 +1783,7 @@ function brancherEvenements() {
 			notifier(erreur.message, true);
 		}
 	});
-	$("#menu-connexions").addEventListener("click", async () => {
-		fermerMenu();
-		try {
-			await ouvrirMesConnexions("Cuisine");
-		} catch (erreur) {
-			notifier(erreur.message, true);
-		}
-	});
+	brancherBiometrie($("#menu-biometrie"), "Cuisine");
 	$("#bouton-autre-compte").addEventListener("click", async () => {
 		await deconnecterAppareil();
 		afficherConnexion();
@@ -1813,6 +1809,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherBoutonPortail();
 	// Ancienne connexion par clé (avant les comptes) : plus utilisée.
 	ecrireStockage(CLES.ancienneCle, null);
 	// Lien de connexion d'un appareil (…#invitation=<code>), retiré aussitôt de l'adresse.

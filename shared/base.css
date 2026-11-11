@@ -296,6 +296,100 @@ h3 {
 	background: var(--surface-2);
 }
 
+/* Rond du compte : l'initiale du prénom */
+.avatar {
+	display: grid;
+	place-items: center;
+	flex: none;
+	border-radius: 50%;
+	overflow: hidden;
+	font-weight: 700;
+	line-height: 1;
+}
+
+/* Menu : carte du compte en haut (rond + prénom), puis des sections titrées */
+.menu .menu-carte {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 16px;
+	border-radius: 10px;
+	text-align: left;
+}
+.menu-carte .avatar {
+	width: 40px;
+	height: 40px;
+	background: var(--accent);
+	color: var(--sur-accent);
+	font-size: 1.05rem;
+}
+.menu-carte-texte {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+}
+.menu-carte-texte strong {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.menu-carte-texte span {
+	font-size: 0.85rem;
+	color: var(--texte-doux);
+}
+button.menu-carte::after {
+	content: "\203A";
+	font-size: 1.4rem;
+	line-height: 1;
+	color: var(--texte-doux);
+}
+.menu-section {
+	display: flex;
+	flex-direction: column;
+	margin-top: 4px;
+	padding-top: 4px;
+	border-top: 1px solid var(--bord);
+}
+/* Section dont toutes les entrées sont masquées (biométrie indisponible, app déjà installée) */
+.menu-section:not(:has(> button:not([hidden]))) {
+	display: none;
+}
+.menu-titre {
+	margin: 0;
+	padding: 6px 16px 2px;
+	font-size: 0.7rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--texte-doux);
+}
+.menu .danger {
+	color: var(--danger);
+}
+
+/* Interrupteur d'un menu (Biométrie) : le libellé à gauche, la bascule à droite */
+.menu .bascule {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 16px;
+}
+.bascule::after {
+	content: "";
+	flex: none;
+	width: 36px;
+	height: 20px;
+	border-radius: 999px;
+	background: var(--texte-doux)
+		radial-gradient(circle at 10px 50%, #fff 7px, transparent 7.5px);
+	transition: background-color 0.15s;
+}
+.bascule[aria-checked="true"]::after {
+	background: var(--vert)
+		radial-gradient(circle at 26px 50%, #fff 7px, transparent 7.5px);
+}
+
 .menu .version {
 	margin: 4px 0 0;
 	padding: 8px 12px 2px;
@@ -378,6 +472,11 @@ main {
 .ecran-connexion h2 {
 	font-size: 28px;
 	margin: 8px 0;
+}
+
+.ecran-connexion .titre-carte {
+	margin: 0;
+	font-size: 16px;
 }
 
 .ecran-connexion .formulaire {
@@ -622,9 +721,3 @@ textarea {
 }
 
 /* Compte connecté, en tête du menu */
-.menu .compte {
-	margin: 6px 12px 8px;
-	font-size: 14px;
-	color: var(--texte-doux);
-	overflow-wrap: anywhere;
-}

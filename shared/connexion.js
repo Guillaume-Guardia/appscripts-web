@@ -54,10 +54,17 @@ export const lireSession = () => lireStockage(CLES.session);
 /** Compte connecté ({ id, prenom }), tel qu'à la dernière connexion, ou null. */
 export const compteConnecte = () => lireStockageJson(CLES.compte);
 
+/** Fonctions appelées quand les accès gardés changent (voir brancherBoutonPortail). */
+const ecouteursAcces = new Set();
+const annoncerAcces = () => {
+	for (const ecouteur of ecouteursAcces) ecouteur(accesGardes());
+};
+
 function garderConnexion({ session, compte }) {
 	ecrireStockage(CLES.session, session);
 	ecrireStockage(CLES.compte, JSON.stringify(compte));
 	ecrireStockage(CLES.acces, null);
+	annoncerAcces();
 }
 
 /** Oublie la connexion de l'appareil (sans prévenir l'API). */
@@ -65,6 +72,7 @@ export function oublierConnexion() {
 	ecrireStockage(CLES.session, null);
 	ecrireStockage(CLES.compte, null);
 	ecrireStockage(CLES.acces, null);
+	annoncerAcces();
 }
 
 /** L'API a refusé la session (fermée, compte bloqué) : il faut reconnecter l'appareil. */
@@ -97,23 +105,45 @@ export async function deconnecter() {
 /**
  * Accès du compte connecté (onglet Droits du projet droits) : `apps`, les clés des apps qui lui
  * sont ouvertes (ex : « voyage ») ; `tableaux`, les liens des classeurs ({ projet, nom, url }),
- * vide s'il n'a pas le droit de les voir. Appel discret, gardé sur l'appareil pour accesGardes.
+ * vide s'il n'a pas le droit de les voir ; `portail`, vrai s'il voit le bouton « Mes apps ». Appel
+ * discret, gardé sur l'appareil pour accesGardes.
  * @throws Si l'API refuse (hors ligne, session fermée)
  */
 export async function accesDuCompte() {
-	const { apps, tableaux = [] } = await appelerDroits(
-		"moi",
-		{},
-		{ discret: true },
-	);
-	const acces = { apps, tableaux };
+	const {
+		apps,
+		tableaux = [],
+		portail = false,
+	} = await appelerDroits("moi", {}, { discret: true });
+	const acces = { apps, tableaux, portail };
 	// Déconnecté pendant l'appel : rien à garder.
-	if (lireSession()) ecrireStockage(CLES.acces, JSON.stringify(acces));
+	if (lireSession()) {
+		ecrireStockage(CLES.acces, JSON.stringify(acces));
+		annoncerAcces();
+	}
 	return acces;
 }
 
 /** Accès du compte à la dernière réponse de l'API (voir accesDuCompte), ou null. */
 export const accesGardes = () => lireStockageJson(CLES.acces);
+
+/**
+ * Bouton « Mes apps » de l'en-tête (lien vers le portail, `a[href="../"]`) : seulement pour les
+ * comptes qui ont le droit Portail (onglet Droits du projet droits). Masqué tant que ce droit n'est
+ * pas connu : les accès gardés l'affichent aussitôt, puis la réponse de l'API (appel discret, en
+ * fond) les confirme. Suit les connexions et déconnexions.
+ * @param rafraichir Faux si l'app demande déjà les accès elle-même (voir exigerAccesApp)
+ */
+export function brancherBoutonPortail({ rafraichir = true } = {}) {
+	const afficher = (acces) => {
+		for (const lien of document.querySelectorAll('a[href="../"]')) {
+			lien.hidden = !acces?.portail;
+		}
+	};
+	afficher(accesGardes());
+	ecouteursAcces.add(afficher);
+	if (rafraichir && lireSession()) accesDuCompte().catch(() => {});
+}
 
 /** Change le prénom du compte connecté. @return Le compte à jour */
 export async function modifierPrenom(prenom) {
@@ -374,81 +404,79 @@ export function garderConnexionInvitee(connexion, nomApp) {
 }
 
 /**
- * Fenêtre « Mes connexions » : biométrie de cet appareil.
+ * Interrupteur « Biométrie » du menu d'une app : active ou désactive la biométrie sur cet appareil.
+ * Masqué si l'admin l'a désactivée pour toutes les apps, ou si l'appareil n'en est pas capable.
+ * Rien n'est demandé à l'API à l'ouverture de l'app : les modes de connexion et le défi de
+ * l'activation (à avoir avant le toucher, le navigateur veut la biométrie aussitôt après le geste)
+ * sont demandés quand le menu s'ouvre.
+ * @param bouton Bouton du menu (aria-checked : activée ou non)
  * @param nomApp Nom de l'app, pour décrire l'appareil
  */
-export async function ouvrirMesConnexions(nomApp) {
-	const modes = await modesConnexion().frais;
-	const disponible = modes.biometrie && (await biometrieDisponible());
+export function brancherBiometrie(bouton, nomApp) {
 	let preparation = null;
-	const demanderPreparation = () =>
-		appelerDroits("preparer-biometrie")
-			.then((p) => {
-				preparation = p;
-			})
-			.catch(() => {});
-	if (disponible) demanderPreparation();
-
-	const etatBiometrie = el("p", { class: "aide" });
-	const boutonBiometrie = el(
-		"button",
-		{ type: "button" },
-		"Activer sur cet appareil",
-	);
-	function afficherBiometrie() {
-		const activee = lireStockage(CLES.biometrie) === "oui";
-		etatBiometrie.textContent = !modes.biometrie
-			? "Désactivée pour toutes les apps."
-			: !disponible
-				? "Pas disponible sur cet appareil."
-				: activee
-					? "Activée sur cet appareil."
-					: "Pas encore activée sur cet appareil.";
-		boutonBiometrie.hidden = !disponible || activee;
-	}
-	afficherBiometrie();
-	boutonBiometrie.addEventListener("click", async () => {
-		boutonBiometrie.disabled = true;
+	let preparationObtenueLe = 0;
+	let enCours = false;
+	const activee = () => lireStockage(CLES.biometrie) === "oui";
+	const afficher = () => {
+		bouton.setAttribute("aria-checked", String(activee()));
+	};
+	const montrer = async (modes) => {
+		bouton.hidden = !(modes.biometrie && (await biometrieDisponible()));
+	};
+	const preparer = async () => {
+		const fraiche =
+			preparation &&
+			Date.now() - preparationObtenueLe < DELAI_RENOUVELLEMENT_DEFI_MS;
+		if (bouton.hidden || activee() || fraiche) return;
+		preparation = null;
 		try {
-			await activerBiometrie(
-				preparation ?? (await appelerDroits("preparer-biometrie")),
-				nomApp,
-			);
-			notifier("Biométrie activée.");
+			preparation = await appelerDroits("preparer-biometrie");
+			preparationObtenueLe = Date.now();
+		} catch {
+			// Sans défi (hors ligne) : il sera redemandé au toucher.
+		}
+	};
+
+	afficher();
+	montrer(lireStockageJson(CLES.modes) ?? MODES_PAR_DEFAUT);
+	const menu = bouton.closest(".menu") ?? bouton.parentElement;
+	new MutationObserver(async () => {
+		if (menu.hidden) return;
+		afficher();
+		await montrer(await modesConnexion().frais);
+		preparer();
+	}).observe(menu, { attributes: true, attributeFilter: ["hidden"] });
+
+	bouton.addEventListener("click", async () => {
+		if (enCours) return;
+		enCours = true;
+		try {
+			if (activee()) {
+				await appelerDroits("desactiver-biometrie", {
+					identifiant: lireStockage(CLES.cleBiometrie),
+				});
+				ecrireStockage(CLES.biometrie, "non");
+				ecrireStockage(CLES.cleBiometrie, null);
+				notifier("Biométrie désactivée sur cet appareil.");
+			} else {
+				const defi = preparation ?? (await appelerDroits("preparer-biometrie"));
+				// Un défi ne sert qu'une fois.
+				preparation = null;
+				await activerBiometrie(defi, nomApp);
+				notifier("Biométrie activée.");
+			}
 		} catch (erreur) {
+			// La clé de l'appareil est déjà celle du compte : la biométrie y est bien activée.
+			if (/déjà activée/.test(erreur.message)) {
+				ecrireStockage(CLES.biometrie, "oui");
+			}
 			notifier(erreur.message, true);
-			// Le défi a pu servir : un neuf pour le prochain essai.
-			preparation = null;
-			demanderPreparation();
 		} finally {
-			boutonBiometrie.disabled = false;
-			afficherBiometrie();
+			enCours = false;
+			afficher();
+			preparer();
 		}
 	});
-
-	const dialogue = el(
-		"dialog",
-		{ class: "dialogue", onclose: () => dialogue.remove() },
-		el("h2", {}, "Mes connexions"),
-		el("h3", { class: "titre-section" }, "Biométrie"),
-		etatBiometrie,
-		el(
-			"div",
-			{ class: "boutons" },
-			boutonBiometrie,
-			el(
-				"button",
-				{
-					type: "button",
-					class: "bouton-principal",
-					onclick: () => dialogue.close(),
-				},
-				"Fermer",
-			),
-		),
-	);
-	document.body.append(dialogue);
-	dialogue.showModal();
 }
 
 /**
@@ -549,6 +577,7 @@ export function afficherConnexion(
 			invitationEnAttente = null;
 		}
 		surConnecte(connexion.compte);
+		accesDuCompte().catch(() => {});
 		if (invitation) accueillir(nomApp, parBiometrie ? {} : modes);
 		else if (!parBiometrie) proposerBiometrie(nomApp, modes);
 	}
@@ -577,11 +606,13 @@ export function afficherConnexion(
 		}
 	}
 
-	/** App installée sur iPhone : coller le lien de connexion copié avant l'installation. */
-	function carteInstallee() {
-		return el(
-			"div",
-			{ class: "carte formulaire" },
+	/**
+	 * App installée sur iPhone : elle ne partage pas la connexion du navigateur. Le lien de connexion
+	 * a été copié avant l'installation : un bouton le colle.
+	 */
+	function collerLienCopie() {
+		if (!estInstallee || lireSession()) return [];
+		return [
 			el(
 				"p",
 				{ class: "aide" },
@@ -605,7 +636,7 @@ export function afficherConnexion(
 						const code = invitationDuLien(texte);
 						if (!code) {
 							erreur.textContent =
-								"Pas de lien de connexion copié : connecte-toi autrement ci-dessous.";
+								"Pas de lien de connexion copié : colle-le dans le champ ci-dessous, ou scanne le QR code.";
 							return;
 						}
 						connecter(bouton, "utiliser-invitation", { invitation: code });
@@ -613,7 +644,7 @@ export function afficherConnexion(
 				},
 				"Coller mon lien de connexion",
 			),
-		);
+		];
 	}
 
 	async function connecterParBiometrie(e) {
@@ -699,6 +730,8 @@ export function afficherConnexion(
 					);
 				},
 			},
+			el("h3", { class: "titre-carte" }, "Lien de connexion"),
+			...collerLienCopie(),
 			el(
 				"p",
 				{ class: "aide" },
@@ -707,11 +740,10 @@ export function afficherConnexion(
 					: "Scanne le QR code reçu avec l'appareil photo, ou touche le lien reçu.",
 			),
 			el(
-				"p",
-				{ class: "aide" },
-				"Si le lien n'ouvre pas cette app, colle-le ici. Pas de QR code ni de lien ? Demande-le à Guillaume.",
+				"label",
+				{ for: "connexion-lien" },
+				"Le lien n'ouvre pas cette app ? Colle-le ici",
 			),
-			el("label", { for: "connexion-lien" }, "Lien de connexion"),
 			lien,
 			el("button", { type: "submit" }, "Connecter cet appareil"),
 			scanner
@@ -721,6 +753,11 @@ export function afficherConnexion(
 						"Scanner un QR code",
 					)
 				: null,
+			el(
+				"p",
+				{ class: "aide" },
+				"Pas de QR code ni de lien ? Demande-le à Guillaume.",
+			),
 		);
 	}
 
@@ -730,8 +767,6 @@ export function afficherConnexion(
 		remplacerContenu(
 			conteneur,
 			biometrie && carteBiometrie(),
-			// App installée (iPhone) : elle ne partage pas la connexion du navigateur.
-			estInstallee && !lireSession() && carteInstallee(),
 			carteLien(),
 			erreur,
 			// Le menu (et son « Installer l'app ») n'est pas affiché avant la connexion.
@@ -825,4 +860,75 @@ export function afficherConnexion(
 		document.body.append(dialogue);
 		dialogue.showModal();
 	}
+}
+
+/**
+ * App sans API à elle (Investissement, Perudo) : réservée aux comptes qui y ont accès (onglet
+ * Droits du projet droits). Ses calculs se font sur l'appareil : ce contrôle range les apps de
+ * chacun, il ne protège pas de données. La page a `#ecran-connexion` (avec `#connexion`),
+ * `#ecran-refus` (avec `#message-refus` et `#bouton-deconnecter-refus`) et `#ecran-app`. Les accès
+ * gardés sur l'appareil ouvrent l'app aussitôt, puis la réponse de l'API confirme ; hors ligne, ils
+ * suffisent.
+ * @param cle Clé de l'app dans l'onglet Droits (ex : « perudo »)
+ * @param nomApp Nom de l'app (écran de connexion, description de l'appareil)
+ * @param surOuverte Appelée avec le compte quand l'app s'ouvre (carte du menu…)
+ * @return seDeconnecter : déconnecte l'appareil et revient à la connexion
+ */
+export function exigerAccesApp({ cle, nomApp, surOuverte = () => {} }) {
+	const $ = (selecteur) => document.querySelector(selecteur);
+	const afficher = (nom) => {
+		for (const ecran of ["connexion", "refus", "app"]) {
+			$(`#ecran-${ecran}`).hidden = ecran !== nom;
+		}
+		$("#bouton-menu").hidden = nom !== "app";
+	};
+	const ouvrir = () => {
+		afficher("app");
+		surOuverte(compteConnecte());
+	};
+	const refuser = () => {
+		$("#message-refus").textContent =
+			`Pas encore accès à ${nomApp} : demande-le à Guillaume.`;
+		afficher("refus");
+	};
+	const proposerConnexion = (message = "", invitation = null) => {
+		afficher("connexion");
+		afficherConnexion($("#connexion"), {
+			nomApp,
+			message,
+			invitation,
+			surConnecte: verifier,
+		});
+	};
+	async function verifier() {
+		const permise = Boolean(accesGardes()?.apps?.includes(cle));
+		if (permise) ouvrir();
+		try {
+			const { apps } = await accesDuCompte();
+			if (apps.includes(cle)) ouvrir();
+			else refuser();
+		} catch (erreur) {
+			if (estSessionRefusee(erreur)) {
+				oublierConnexion();
+				proposerConnexion(erreur.message);
+			} else if (!permise) {
+				afficher("connexion");
+				$("#connexion").textContent =
+					"Impossible de vérifier ton accès. Vérifie ta connexion, puis rouvre l'app.";
+			}
+		}
+	}
+	const seDeconnecter = async () => {
+		await deconnecter();
+		proposerConnexion();
+	};
+
+	brancherBoutonPortail({ rafraichir: false });
+	$("#bouton-deconnecter-refus").addEventListener("click", seDeconnecter);
+	// Lien de connexion d'un appareil (…#invitation=<code>), retiré aussitôt de l'adresse.
+	const invitation = invitationDuLien(location.hash);
+	if (invitation) history.replaceState(null, "", location.pathname);
+	if (invitation || !lireSession()) proposerConnexion("", invitation);
+	else verifier();
+	return { seDeconnecter };
 }

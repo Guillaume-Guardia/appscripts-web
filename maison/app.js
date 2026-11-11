@@ -2,6 +2,8 @@ import { creerApi, ErreurReseau } from "../shared/api.js";
 import { brancherBalayage, voisin } from "../shared/balayage.js";
 import {
 	afficherConnexion as afficherFormulaireConnexion,
+	brancherBiometrie,
+	brancherBoutonPortail,
 	compteConnecte,
 	connecterUnAutreAppareil,
 	deconnecter as deconnecterAppareil,
@@ -11,7 +13,6 @@ import {
 	modifierPrenom,
 	oublierConnexion,
 	ouvrirInvitation,
-	ouvrirMesConnexions,
 } from "../shared/connexion.js";
 import {
 	aujourdhui,
@@ -28,6 +29,7 @@ import {
 	normaliser,
 	notifier,
 	remplacerContenu,
+	remplirCarteMenu,
 } from "../shared/dom.js";
 import { reduireImage } from "../shared/image.js";
 import {
@@ -1009,7 +1011,7 @@ async function changerPrenom() {
 
 function afficherCompte() {
 	const compte = compteConnecte();
-	$("#menu-compte").textContent = compte ? `Connecté : ${compte.prenom}` : "";
+	remplirCarteMenu(compte?.prenom ?? "");
 }
 
 function fermerMenu() {
@@ -1123,14 +1125,7 @@ function brancherEvenements() {
 			notifier(erreur.message, true);
 		}
 	});
-	$("#menu-connexions").addEventListener("click", async () => {
-		fermerMenu();
-		try {
-			await ouvrirMesConnexions("Maison");
-		} catch (erreur) {
-			notifier(erreur.message, true);
-		}
-	});
+	brancherBiometrie($("#menu-biometrie"), "Maison");
 	$("#menu-installer").addEventListener("click", fermerMenu);
 	brancherInstallation($("#menu-installer"), { connexion: true });
 	$("#bouton-signalement").addEventListener("click", () => {
@@ -1150,6 +1145,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherBoutonPortail();
 	const invitation = invitationDuLien(location.hash);
 	history.replaceState(null, "", location.pathname);
 	if (!window.API_URL) {

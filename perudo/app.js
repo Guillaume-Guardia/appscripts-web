@@ -1,4 +1,10 @@
-import { $ } from "../shared/dom.js";
+import {
+	brancherBiometrie,
+	compteConnecte,
+	connecterUnAutreAppareil,
+	exigerAccesApp,
+} from "../shared/connexion.js";
+import { $, notifier, remplirCarteMenu } from "../shared/dom.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -418,10 +424,23 @@ function brancherEvenements() {
 		if (e.key === "Escape") fermerMenu();
 	});
 	$("#menu-installer").addEventListener("click", fermerMenu);
-	brancherInstallation($("#menu-installer"));
+	brancherInstallation($("#menu-installer"), { connexion: true });
+	brancherBiometrie($("#menu-biometrie"), "Perudo");
+	$("#menu-autre-appareil").addEventListener("click", async () => {
+		fermerMenu();
+		try {
+			await connecterUnAutreAppareil("Perudo");
+		} catch (erreur) {
+			notifier(erreur.message, true);
+		}
+	});
+	$("#menu-deconnecter").addEventListener("click", () => {
+		fermerMenu();
+		acces.seDeconnecter();
+	});
 	$("#bouton-signalement").addEventListener("click", () => {
 		fermerMenu();
-		ouvrirSignalement({ app: "Perudo" });
+		ouvrirSignalement({ app: "Perudo", prenom: compteConnecte()?.prenom });
 	});
 	document.addEventListener("visibilitychange", () => {
 		if (document.visibilityState === "visible") {
@@ -433,5 +452,11 @@ function brancherEvenements() {
 $("#logo").innerHTML = de(5) + de(1);
 afficherVersion();
 afficher();
-brancherEvenements();
 enregistrerServiceWorker();
+// Réservée aux comptes qui ont accès à Perudo (onglet Droits du projet droits).
+const acces = exigerAccesApp({
+	cle: "perudo",
+	nomApp: "Perudo",
+	surOuverte: (compte) => remplirCarteMenu(compte?.prenom ?? ""),
+});
+brancherEvenements();

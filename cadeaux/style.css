@@ -18,7 +18,10 @@
 	--danger: #b3261e;
 	--ombre: 0 1px 2px rgb(42 31 26 / 0.06), 0 4px 16px rgb(42 31 26 / 0.06);
 	--rayon: 14px;
-	--nav-h: 64px;
+	--nav-h: 58px;
+	/* Sous les onglets : la zone de la barre d'accueil de l'iPhone (34 px), moins ce qui reste libre
+	   au-dessus de la barre elle-même. Rien sur Android et ordinateur (zone nulle). */
+	--bas-onglets: max(0px, calc(env(safe-area-inset-bottom) - 14px));
 }
 
 @media (prefers-color-scheme: dark) {
@@ -227,17 +230,32 @@ button:focus-visible {
 	padding: 4px;
 }
 
+/* Icônes de l'en-tête : au trait, sans fond ; seul le profil (photo ou initiale) est un rond plein */
 .icone-bouton {
 	position: relative;
 	display: grid;
 	place-items: center;
-	width: 40px;
+	width: 36px;
 	height: 40px;
-	border-radius: 50%;
+	padding: 0;
+	border-radius: 10px;
 	border: 0;
-	background: rgb(255 255 255 / 0.15);
+	background: none;
 	color: inherit;
 	cursor: pointer;
+}
+.icone-bouton svg {
+	width: 22px;
+	height: 22px;
+	stroke-width: 1.75;
+}
+.icone-bouton:active {
+	background: rgb(255 255 255 / 0.18);
+}
+@media (hover: hover) {
+	.icone-bouton:hover {
+		background: rgb(255 255 255 / 0.18);
+	}
 }
 /* Infobulle d'une icône de l'en-tête : au survol, au clavier, ou appui maintenu sur téléphone */
 .infobulle {
@@ -320,16 +338,17 @@ button:focus-visible {
 /* App */
 .app {
 	min-height: 100dvh;
-	padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+	padding-bottom: calc(var(--nav-h) + var(--bas-onglets));
 }
 
+/* Titre à gauche, icônes à droite, toujours sur la même ligne : un titre trop long
+   est coupé au lieu de faire passer les icônes en dessous. Les pastilles des familles, en dessous. */
 .entete {
 	position: sticky;
 	top: 0;
 	z-index: 5;
-	display: flex;
-	flex-wrap: wrap;
-	justify-content: space-between;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
 	align-items: center;
 	gap: 12px;
 	padding: calc(12px + var(--haut-securise, env(safe-area-inset-top))) 16px 14px;
@@ -342,10 +361,29 @@ button:focus-visible {
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
 }
+.entete-titre > * {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
 .entete-actions {
 	display: flex;
-	gap: 8px;
+	align-items: center;
+	gap: 2px;
 	position: relative;
+}
+/* Menu : le profil du membre, photo ou initiale */
+#bouton-menu {
+	width: 40px;
+	margin-left: 6px;
+	border-radius: 50%;
+}
+.icone-bouton .avatar {
+	width: 36px;
+	height: 36px;
+	background: var(--sur-entete);
+	color: var(--entete);
+	font-size: 1rem;
 }
 .menu {
 	position: absolute;
@@ -357,7 +395,7 @@ button:focus-visible {
 	max-height: calc(
 		100dvh -
 		var(--haut-securise, env(safe-area-inset-top)) -
-		env(safe-area-inset-bottom) -
+		var(--bas-onglets) -
 		var(--nav-h) -
 		80px
 	);
@@ -372,13 +410,6 @@ button:focus-visible {
 	display: flex;
 	flex-direction: column;
 }
-.menu-nom {
-	padding: 8px 12px;
-	color: var(--texte-doux);
-	font-size: 0.9rem;
-	border-bottom: 1px solid var(--bord);
-	margin-bottom: 4px;
-}
 .menu button {
 	text-align: left;
 	background: none;
@@ -391,6 +422,89 @@ button:focus-visible {
 }
 .menu button:hover {
 	background: var(--surface-2);
+}
+
+/* Menu : carte du compte en haut (rond + prénom), puis des sections titrées */
+.menu .menu-carte {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 10px;
+	border-radius: 10px;
+	text-align: left;
+}
+.menu-carte .avatar {
+	width: 40px;
+	height: 40px;
+	background: var(--rouge);
+	color: var(--sur-rouge);
+	font-size: 1.05rem;
+}
+.menu-carte-texte {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+}
+.menu-carte-texte strong {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.menu-carte-texte span {
+	font-size: 0.85rem;
+	color: var(--texte-doux);
+}
+button.menu-carte::after {
+	content: "\203A";
+	font-size: 1.4rem;
+	line-height: 1;
+	color: var(--texte-doux);
+}
+.menu-section {
+	display: flex;
+	flex-direction: column;
+	margin-top: 4px;
+	padding-top: 4px;
+	border-top: 1px solid var(--bord);
+}
+/* Section dont toutes les entrées sont masquées (biométrie indisponible, app déjà installée) */
+.menu-section:not(:has(> button:not([hidden]))) {
+	display: none;
+}
+.menu-titre {
+	margin: 0;
+	padding: 6px 12px 2px;
+	font-size: 0.7rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--texte-doux);
+}
+.menu .danger {
+	color: var(--danger);
+}
+
+/* Interrupteur d'un menu (Biométrie) : le libellé à gauche, la bascule à droite */
+.menu .bascule {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 16px;
+}
+.bascule::after {
+	content: "";
+	flex: none;
+	width: 36px;
+	height: 20px;
+	border-radius: 999px;
+	background: var(--texte-doux)
+		radial-gradient(circle at 10px 50%, #fff 7px, transparent 7.5px);
+	transition: background-color 0.15s;
+}
+.bascule[aria-checked="true"]::after {
+	background: var(--vert)
+		radial-gradient(circle at 26px 50%, #fff 7px, transparent 7.5px);
 }
 
 .contenu {
@@ -421,7 +535,7 @@ button:focus-visible {
 }
 /* Pastilles des familles, dans l'en-tête rouge */
 .puces-entete {
-	flex-basis: 100%;
+	grid-column: 1 / -1;
 	gap: 6px;
 }
 .puces.puces-entete button {
@@ -524,6 +638,37 @@ button:focus-visible {
 	object-fit: cover;
 	border-radius: 10px;
 }
+.apercu-profil {
+	border-radius: 50%;
+}
+/* Profil en rond : l'initiale du prénom, recouverte par la photo quand il y en a une */
+.avatar {
+	position: relative;
+	display: grid;
+	place-items: center;
+	flex: none;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	overflow: hidden;
+	background: color-mix(in srgb, currentColor 16%, transparent);
+	font-size: 0.75rem;
+	font-weight: 700;
+	line-height: 1;
+}
+.avatar img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+.puces button:has(> .avatar) {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding-left: 6px;
+}
 .choix-photo {
 	display: flex;
 	flex-wrap: wrap;
@@ -531,7 +676,8 @@ button:focus-visible {
 }
 /* Sur ordinateur, capture est ignoré : le bouton ouvrirait le même sélecteur de fichiers. */
 @media (hover: hover) and (pointer: fine) {
-	#bouton-camera {
+	#bouton-camera,
+	.bouton-camera {
 		display: none;
 	}
 }
@@ -625,7 +771,7 @@ button:focus-visible {
 	z-index: 6;
 	left: 12px;
 	right: 12px;
-	bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 10px);
+	bottom: calc(var(--nav-h) + var(--bas-onglets) + 10px);
 	max-width: 696px;
 	margin: 0 auto;
 	display: flex;
@@ -642,17 +788,18 @@ button:focus-visible {
 	padding-bottom: 90px;
 }
 
-/* Onglets */
+/* Onglets. --bas-manquant (iPhone seulement, voir shared/pwa.js) : la page s'arrête au-dessus du
+   bas de l'écran ; la barre est prolongée jusqu'en bas, ses boutons restent à leur place. */
 .onglets {
 	position: fixed;
 	z-index: 5;
 	left: 0;
 	right: 0;
-	bottom: 0;
+	bottom: calc(-1 * var(--bas-manquant, 0px));
 	display: grid;
 	grid-template-columns: repeat(4, 1fr);
-	height: calc(var(--nav-h) + env(safe-area-inset-bottom));
-	padding-bottom: env(safe-area-inset-bottom);
+	height: calc(var(--nav-h) + var(--bas-onglets) + var(--bas-manquant, 0px));
+	padding-bottom: calc(var(--bas-onglets) + var(--bas-manquant, 0px));
 	background: var(--surface);
 	border-top: 1px solid var(--bord);
 }
@@ -817,9 +964,35 @@ button:focus-visible {
 }
 
 /* Famille : ajout d'une personne, suggestions, déjà offert */
+/* « + » dans un rond, de la hauteur des pastilles voisines : deux traits dessinés, centrés au
+   pixel près (le caractère « + » ne l'est jamais tout à fait) */
 .puces .puce-ajout {
-	border-style: dashed;
-	color: var(--texte-doux);
+	align-self: center;
+	width: 38px;
+	height: 38px;
+	padding: 0;
+	border-radius: 50%;
+	background-image:
+		linear-gradient(currentColor, currentColor),
+		linear-gradient(currentColor, currentColor);
+	background-size:
+		14px 2px,
+		2px 14px;
+	background-position: center;
+	background-repeat: no-repeat;
+}
+.puces.puces-entete .puce-ajout {
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	background-image:
+		linear-gradient(currentColor, currentColor),
+		linear-gradient(currentColor, currentColor);
+	background-size:
+		12px 2px,
+		2px 12px;
+	background-position: center;
+	background-repeat: no-repeat;
 }
 .carte-note {
 	font-size: 0.85rem;
@@ -1102,6 +1275,10 @@ input[type="date"] {
 	flex-direction: column;
 	gap: 8px;
 	text-align: left;
+}
+#connexion-compte .titre-carte {
+	margin: 0;
+	font-size: 1rem;
 }
 #connexion-compte .carte + .carte {
 	margin-top: 8px;

@@ -37,13 +37,26 @@
 				<span class="infobulle">Paramètres</span>
 			</button>
 			<nav id="menu" class="menu" hidden>
-				<p id="menu-compte" class="compte"></p>
-				<button type="button" id="menu-prenom">Changer mon prénom</button>
-				<button type="button" id="menu-inviter">Inviter quelqu'un</button>
-				<button type="button" id="menu-autre-appareil">Connecter un autre appareil</button>
-				<button type="button" id="menu-connexions">Mes connexions</button>
-				<button type="button" id="menu-installer" hidden>Installer l'app</button>
-				<button type="button" id="menu-deconnecter">Se déconnecter</button>
+				<button type="button" id="menu-prenom" class="menu-carte">
+					<span class="avatar" aria-hidden="true"></span>
+					<span class="menu-carte-texte"><strong id="menu-compte"></strong><span>Changer mon prénom</span></span>
+				</button>
+				<div class="menu-section">
+					<p class="menu-titre">Partager</p>
+					<button type="button" id="menu-inviter">Inviter quelqu'un</button>
+				</div>
+				<div class="menu-section">
+					<p class="menu-titre">Cet appareil</p>
+					<button type="button" role="switch" aria-checked="false" id="menu-biometrie" class="bascule" hidden>Biométrie</button>
+					<button type="button" id="menu-installer" hidden>Installer l'app</button>
+				</div>
+				<div class="menu-section">
+					<p class="menu-titre">Mes autres appareils</p>
+					<button type="button" id="menu-autre-appareil">Connecter un autre appareil</button>
+				</div>
+				<div class="menu-section">
+					<button type="button" id="menu-deconnecter" class="danger">Se déconnecter</button>
+				</div>
 				<p class="version"></p>
 			</nav>
 		</header>

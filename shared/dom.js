@@ -23,6 +23,17 @@ export function el(balise, attributs = {}, ...enfants) {
 	return element;
 }
 
+/** Initiale d'un prénom, en majuscule (« ? » sans prénom). */
+export function initiale(prenom) {
+	return [...(prenom ?? "").trim()][0]?.toUpperCase() ?? "?";
+}
+
+/** Carte du haut du menu (.menu-carte) : le prénom du compte, et son initiale dans le rond. */
+export function remplirCarteMenu(prenom) {
+	$("#menu-compte").textContent = prenom;
+	$(".menu-carte .avatar").textContent = initiale(prenom);
+}
+
 /** Remplace le contenu d'un élément ; les enfants absents (null, false) sont ignorés. */
 export function remplacerContenu(element, ...enfants) {
 	element.replaceChildren(
