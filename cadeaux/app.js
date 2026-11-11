@@ -38,6 +38,7 @@ import {
 	lireStockage,
 	lireStockageJson,
 } from "../shared/stockage.js";
+import { lancerVisite } from "../shared/visite.js";
 
 // ---------------------------------------------------------------------------
 // Stockage local (préférences de ce navigateur : invitation, dernier état)
@@ -54,6 +55,8 @@ const CLES = {
 	/** Photos déjà reçues (idées et profils), par empreinte. */
 	photos: "cadeaux.photos",
 	versionApi: "cadeaux.versionApi",
+	/** Visite guidée déjà vue (ou passée) sur cet appareil. */
+	visite: "cadeaux.visite",
 };
 
 /** Réductions essayées pour une photo : [plus grand côté en pixels, qualité JPEG]. */
@@ -113,6 +116,8 @@ const app = {
 	occupe: false,
 	/** Version de l'API, renvoyée avec chaque réponse (affichée avec celle de l'app). */
 	versionApi: lireStockage(CLES.versionApi),
+	/** Vrai pendant la visite guidée (ou en attendant qu'une autre fenêtre se ferme). */
+	visite: false,
 };
 
 const etatEnCache = lireStockageJson(CLES.etat);
@@ -2436,10 +2441,13 @@ function ouvrirApp(etat) {
 	afficherEcran("app");
 	if (!app.etat.cadeaux.some(estPourMoi)) {
 		changerOnglet("ma-liste");
-		notifier(
-			`Bienvenue ${app.etat.moi.prenom} ! Commence par ajouter tes idées.`,
-		);
+		// La visite guidée, au premier lancement, souhaite elle-même la bienvenue.
+		if (lireStockage(CLES.visite))
+			notifier(
+				`Bienvenue ${app.etat.moi.prenom} ! Commence par ajouter tes idées.`,
+			);
 	}
+	proposerVisite();
 }
 
 async function ajouterMoi(evenement) {
@@ -2690,9 +2698,10 @@ function deconnecter(message = "") {
 	app.etat = null;
 	app.photos = {};
 	app.photosDemandees.clear();
-	// La version de l'API reste : elle ne dit rien du membre.
+	// La version de l'API et la visite guidée déjà vue restent : elles ne disent rien du membre.
 	for (const cle of Object.values(CLES))
-		if (cle !== CLES.versionApi) ecrireStockage(cle, null);
+		if (cle !== CLES.versionApi && cle !== CLES.visite)
+			ecrireStockage(cle, null);
 	app.cle = null;
 	$("#champ-code").value = "";
 	afficherConnexionCompte(message);
@@ -2735,6 +2744,118 @@ function afficherBandeauHorsLigne() {
 	} else {
 		masquerBandeau();
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Visite guidée (shared/visite.js) : au premier lancement sur l'appareil, puis depuis le menu
+// ---------------------------------------------------------------------------
+
+/** Délai avant de revérifier qu'aucune fenêtre (biométrie, installation…) n'est ouverte. */
+const DELAI_AVANT_VISITE_MS = 500;
+
+function etapesVisite() {
+	const { moi: membre, familles } = app.etat;
+	const onglet = (nom) => ({
+		cible: `.onglets [data-onglet="${nom}"]`,
+		avant: () => changerOnglet(nom),
+	});
+	return [
+		{
+			titre: `Bienvenue ${membre.prenom} !`,
+			texte:
+				"Ici, la famille partage ses listes de cadeaux de Noël. Je te propose un petit tour de l'app en une minute.",
+		},
+		{
+			...onglet("ma-liste"),
+			titre: "Ma liste",
+			texte:
+				"Ajoute tes idées à l'aide d'un lien ou d'une photo. Tu ne verras jamais ce qui est réservé sur ta liste, ni les idées que les autres y ajoutent pour toi.",
+		},
+		{
+			...onglet("famille"),
+			titre: "Famille",
+			texte:
+				"Les listes de tes proches : réserve un cadeau ou suggère une idée (la personne ne la verra pas). Tu peux ajouter un membre en appuyant sur « + » et l'inviter à rejoindre l'app.",
+		},
+		{
+			...onglet("disponibles"),
+			titre: "Disponibles",
+			texte:
+				"Ici, tu verras tous les cadeaux non réservés. Coches-en un ou plusieurs, puis « Je les offre ».",
+		},
+		{
+			...onglet("reservations"),
+			titre: "J'offre",
+			texte:
+				"Voici la liste des cadeaux que tu offres. Bonus: tu pourras également organiser un Secret Santa.",
+		},
+		{
+			...onglet("historique"),
+			titre: "Historique",
+			texte:
+				"La liste des cadeaux que tu as offerts les années passées (Mise à jour le 26 décembre).",
+		},
+		{
+			cible: "#familles-entete",
+			titre: familles.length > 1 ? "Tes familles" : "Ta famille",
+			texte:
+				familles.length > 1
+					? "Touche une famille pour l'afficher ou la masquer. Le « + » permet de rejoindre ou de créer une autre famille."
+					: "Le « + » permet de rejoindre une autre famille (belle-famille, amis…) ou d'en créer une.",
+		},
+		{
+			cible: "#bouton-signalement",
+			titre: "Suggestion ou bug",
+			texte:
+				"Une idée pour améliorer l'app, ou quelque chose qui ne marche pas ? Écris-le ici.",
+		},
+		{
+			cible: "#bouton-menu",
+			titre: "Ton profil",
+			texte:
+				"Ta photo, ton anniversaire, les codes de tes familles, l'installation de l'app sur ton téléphone. Tu peux aussi y revoir cette visite.",
+		},
+		{
+			titre: "À toi de jouer",
+			texte:
+				"Balaie l'écran vers la gauche ou la droite pour passer d'un onglet à l'autre. Pour commencer, ajoute tes idées dans Ma liste !",
+		},
+	];
+}
+
+/** Visite guidée ; à la fin, l'onglet du départ revient. */
+async function visiter() {
+	if (!app.etat) return;
+	app.visite = true;
+	const depart = app.onglet;
+	try {
+		await lancerVisite(etapesVisite());
+	} finally {
+		app.visite = false;
+		ecrireStockage(CLES.visite, "vue");
+		changerOnglet(depart);
+	}
+}
+
+/**
+ * Premier lancement sur l'appareil : la visite guidée, une fois les autres fenêtres fermées
+ * (biométrie, installation proposées après une invitation).
+ */
+function proposerVisite() {
+	if (app.visite || lireStockage(CLES.visite)) return;
+	app.visite = true;
+	const essayer = () => {
+		if ($("#ecran-app").hidden || !app.etat) {
+			app.visite = false;
+			return;
+		}
+		if (document.querySelector("dialog[open]")) {
+			setTimeout(essayer, DELAI_AVANT_VISITE_MS);
+			return;
+		}
+		visiter();
+	};
+	essayer();
 }
 
 // ---------------------------------------------------------------------------
@@ -2789,6 +2910,10 @@ function brancherEvenements() {
 		if (e.key === "Escape") fermerMenu();
 	});
 	$("#menu-profil").addEventListener("click", ouvrirProfil);
+	$("#menu-visite").addEventListener("click", () => {
+		fermerMenu();
+		if (!app.visite) visiter();
+	});
 	$("#ajout-rejoindre").addEventListener("click", () => {
 		$("#dialogue-ajout-famille").close();
 		ouvrirRejoindre();
@@ -2881,8 +3006,10 @@ function demarrer() {
 		rendre();
 	}
 	actualiser({ silencieux: true }).then(() => {
-		if (app.etat) afficherEcran("app");
-		else if (estConnecte() && $("#ecran-connexion").hidden)
+		if (app.etat) {
+			afficherEcran("app");
+			proposerVisite();
+		} else if (estConnecte() && $("#ecran-connexion").hidden)
 			afficherAccueil(
 				"Impossible de charger les listes. Vérifie ta connexion.",
 			);

@@ -114,7 +114,8 @@ function estSousBarreDEtat() {
  * iPhone, app installée, en portrait : hauteur d'écran sous le bas de la page. La page devrait
  * couvrir tout l'écran (barre d'état black-translucent), mais iOS la laisse parfois moins haute :
  * elle est alors dessinée un cran trop haut, et les onglets du bas flottent au-dessus d'une bande
- * vide. Les apps prolongent leur barre du bas d'autant (--bas-manquant, voir cadeaux/style.css).
+ * vide. Les apps prolongent leur barre du bas d'autant, et leur page, qui fait se replacer iOS
+ * (--bas-manquant, voir cadeaux/style.css).
  * Sans effet quand iOS place lui-même la page sous la barre d'état : le prolongement est alors
  * hors de l'écran.
  */

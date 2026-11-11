@@ -335,9 +335,12 @@ button:focus-visible {
 	text-overflow: ellipsis;
 }
 
-/* App */
+/* App. --bas-manquant (iPhone, app installée, voir shared/pwa.js) : iOS a laissé la page moins
+   haute que l'écran et la dessine un cran trop haut. Seule une page plus haute que cette fenêtre
+   (comme l'onglet Famille, souvent long) le fait se replacer : l'app la dépasse donc d'autant, sur
+   tous les onglets, même courts. */
 .app {
-	min-height: 100dvh;
+	min-height: calc(100dvh + var(--bas-manquant, 0px));
 	padding-bottom: calc(var(--nav-h) + var(--bas-onglets));
 }
 
@@ -1332,4 +1335,73 @@ input[type="date"] {
 .qr svg {
 	width: min(260px, 70vw);
 	height: min(260px, 70vw);
+}
+
+/* Visite guidée (shared/visite.js) : fenêtre transparente sur tout l'écran, assombri par l'ombre
+   de la lumière posée sur l'élément présenté, et bulle de l'étape. */
+.visite {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	max-width: none;
+	max-height: none;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	overflow: hidden;
+}
+.visite::backdrop {
+	background: transparent;
+}
+.visite-lumiere {
+	position: fixed;
+	border-radius: var(--rayon);
+	box-shadow: 0 0 0 200vmax rgb(0 0 0 / 0.55);
+	pointer-events: none;
+	transition:
+		top 0.25s,
+		left 0.25s,
+		width 0.25s,
+		height 0.25s;
+}
+.visite-bulle {
+	position: fixed;
+	width: min(340px, calc(100vw - 32px));
+	padding: 18px;
+	border-radius: 18px;
+	background: var(--surface);
+	color: var(--texte);
+	box-shadow: var(--ombre);
+}
+.visite-numero {
+	margin: 0 0 4px;
+	font-size: 0.85rem;
+	color: var(--texte-doux);
+}
+.visite-bulle h2 {
+	margin: 0 0 6px;
+	font-size: 1.15rem;
+	color: var(--rouge);
+}
+.visite-texte {
+	margin: 0;
+	line-height: 1.45;
+}
+.visite .boutons {
+	align-items: center;
+}
+.visite .visite-passer {
+	margin-right: auto;
+	padding-inline: 4px;
+	border: 0;
+	background: none;
+	color: var(--texte-doux);
+	text-decoration: underline;
+}
+@media (prefers-reduced-motion: reduce) {
+	.visite-lumiere {
+		transition: none;
+	}
 }
