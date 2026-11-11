@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-	<title>Mes apps</title>
-	<rect width="512" height="512" rx="112" fill="#0f5f66" />
-	<rect x="112" y="112" width="128" height="128" rx="32" fill="#f4f1ea" />
-	<rect x="272" y="112" width="128" height="128" rx="32" fill="#f4f1ea" />
-	<rect x="112" y="272" width="128" height="128" rx="32" fill="#f4f1ea" />
-	<rect x="272" y="272" width="128" height="128" rx="32" fill="#f6bf26" />
-</svg>
