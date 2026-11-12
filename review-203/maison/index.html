@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="theme-color" content="#0f5f66" />
+		<meta name="description" content="Les entretiens de la maison et la valeur des biens." />
+		<title>Maison</title>
+		<link rel="manifest" href="manifest.webmanifest" />
+		<link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="Maison" />
+		<link rel="stylesheet" href="../shared/base.css" />
+		<link rel="stylesheet" href="style.css" />
+	</head>
+	<body>
+		<header class="entete">
+			<h1 id="titre">Maison</h1>
+			<a href="../" class="bouton-icone" aria-label="Mes apps">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" /></svg>
+				<span class="infobulle">Mes apps</span>
+			</a>
+			<button type="button" id="bouton-actualiser" class="bouton-icone" aria-label="Actualiser" hidden>
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" /></svg>
+				<span class="infobulle">Actualiser</span>
+			</button>
+			<button type="button" id="bouton-signalement" class="bouton-icone" aria-label="Suggestion ou bug">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM12 7v4M12 14h.01" /></svg>
+				<span class="infobulle">Suggestion ou bug</span>
+			</button>
+			<button type="button" id="bouton-menu" class="bouton-icone" aria-label="Paramètres" aria-expanded="false" aria-controls="menu" hidden>
+				<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M10.14 5.05L10.4 1.93L13.6 1.93L13.86 5.05L15.6 5.76L18 3.75L20.25 6L18.24 8.4L18.95 10.14L22.07 10.4L22.07 13.6L18.95 13.86L18.24 15.6L20.25 18L18 20.25L15.6 18.24L13.86 18.95L13.6 22.07L10.4 22.07L10.14 18.95L8.4 18.24L6 20.25L3.75 18L5.76 15.6L5.05 13.86L1.93 13.6L1.93 10.4L5.05 10.14L5.76 8.4L3.75 6L6 3.75L8.4 5.76z" /></svg>
+				<span class="infobulle">Paramètres</span>
+			</button>
+			<nav id="menu" class="menu" hidden>
+				<button type="button" id="menu-prenom" class="menu-carte">
+					<span class="avatar" aria-hidden="true"></span>
+					<span class="menu-carte-texte"><strong id="menu-compte"></strong><span>Changer mon prénom</span></span>
+				</button>
+				<div class="menu-section">
+					<p class="menu-titre">Partager</p>
+					<button type="button" id="menu-inviter">Inviter quelqu'un</button>
+				</div>
+				<div class="menu-section">
+					<p class="menu-titre">Cet appareil</p>
+					<button type="button" role="switch" aria-checked="false" id="menu-biometrie" class="bascule" hidden>Biométrie</button>
+					<button type="button" id="menu-installer" hidden>Installer l'app</button>
+				</div>
+				<div class="menu-section">
+					<p class="menu-titre">Mes autres appareils</p>
+					<button type="button" id="menu-autre-appareil">Connecter un autre appareil</button>
+				</div>
+				<div class="menu-section">
+					<button type="button" id="menu-deconnecter" class="danger">Se déconnecter</button>
+				</div>
+				<p class="version"></p>
+			</nav>
+		</header>
+		<div id="chargement" class="chargement" hidden></div>
+		<div id="bandeau" class="bandeau" hidden></div>
+
+		<main>
+			<section id="ecran-connexion" class="ecran-connexion" hidden>
+				<img class="logo" src="icons/icon.svg" alt="" />
+				<h2>Maison</h2>
+				<p>Les entretiens de la maison et la valeur des biens.</p>
+				<p class="aide">Connecte cet appareil à ton compte : QR code, lien ou biométrie.</p>
+				<div id="connexion"></div>
+				<p class="version"></p>
+			</section>
+
+			<section id="ecran-app" hidden>
+				<div class="onglets" role="tablist">
+					<button type="button" role="tab" data-onglet="entretiens">Entretiens</button>
+					<button type="button" role="tab" data-onglet="objets">Objets</button>
+					<button type="button" role="tab" data-onglet="stats">Stats</button>
+				</div>
+
+				<div id="onglet-entretiens" hidden>
+					<div id="liste-entretiens"></div>
+					<button type="button" id="bouton-nouvel-entretien" class="bouton-flottant">
+						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+						Ajouter un entretien
+					</button>
+				</div>
+
+				<div id="onglet-objets" hidden>
+					<div class="filtres">
+						<input id="recherche-objets" type="search" placeholder="Rechercher un objet" aria-label="Rechercher un objet" autocomplete="off" />
+						<select id="filtre-categorie" aria-label="Catégorie"></select>
+					</div>
+					<div id="liste-objets"></div>
+					<button type="button" id="bouton-nouvel-objet" class="bouton-flottant">
+						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+						Ajouter un objet
+					</button>
+				</div>
+
+				<div id="onglet-stats" hidden>
+					<div id="contenu-stats"></div>
+					<button type="button" id="bouton-nouvelle-categorie" class="bouton-flottant">
+						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+						Ajouter une catégorie
+					</button>
+				</div>
+			</section>
+		</main>
+
+		<dialog id="dialogue-entretien" class="dialogue" aria-labelledby="titre-dialogue-entretien">
+			<form id="form-entretien" class="formulaire">
+				<h2 id="titre-dialogue-entretien">Modifier l'entretien</h2>
+				<label for="champ-tache">Entretien</label>
+				<input id="champ-tache" maxlength="120" autocomplete="off" required />
+				<div class="dates">
+					<div>
+						<label for="champ-frequence">Fréquence</label>
+						<input id="champ-frequence" type="number" inputmode="decimal" min="0.5" max="1000" step="0.5" required />
+					</div>
+					<div>
+						<label for="champ-unite">Unité</label>
+						<select id="champ-unite" required>
+							<option value="jour">Jour(s)</option>
+							<option value="semaine">Semaine(s)</option>
+							<option value="mois">Mois</option>
+							<option value="an">An(s)</option>
+						</select>
+					</div>
+				</div>
+				<div class="dates">
+					<div>
+						<label for="champ-derniere">Dernière fois</label>
+						<input id="champ-derniere" type="date" />
+					</div>
+					<div>
+						<label for="champ-prochaine">Prochaine fois</label>
+						<input id="champ-prochaine" type="date" />
+					</div>
+				</div>
+				<p id="aide-entretien" class="aide"></p>
+				<p class="erreur" role="alert"></p>
+				<div class="boutons">
+					<button type="button" id="bouton-supprimer-entretien" class="danger">Supprimer</button>
+					<button type="button" data-fermer>Annuler</button>
+					<button type="submit" class="bouton-principal">Enregistrer</button>
+				</div>
+			</form>
+		</dialog>
+
+		<dialog id="dialogue-objet" class="dialogue" aria-labelledby="titre-dialogue-objet">
+			<form id="form-objet" class="formulaire">
+				<h2 id="titre-dialogue-objet">Ajouter un objet</h2>
+				<img id="apercu-photo" class="apercu-photo" alt="" hidden />
+				<fieldset class="choix-photo" aria-labelledby="libelle-photo">
+					<span id="libelle-photo">Photo du produit</span>
+					<button type="button" id="bouton-camera" class="bouton-icone" aria-label="Prendre une photo" title="Prendre une photo">
+						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z" /><circle cx="12" cy="13" r="3" /></svg>
+					</button>
+					<button type="button" id="bouton-galerie" class="bouton-icone" aria-label="Choisir une image dans la galerie" title="Choisir une image">
+						<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="M21 15l-3.1-3.1a2 2 0 0 0-2.8 0L6 21" /></svg>
+					</button>
+				</fieldset>
+				<input id="champ-camera" type="file" accept="image/*" capture="environment" hidden />
+				<input id="champ-photo" type="file" accept="image/*" hidden />
+				<p id="lien-photo" class="aide"></p>
+				<label for="champ-produit">Produit</label>
+				<input id="champ-produit" maxlength="120" autocomplete="off" required />
+				<div class="dates">
+					<div>
+						<label for="champ-categorie">Catégorie</label>
+						<select id="champ-categorie" required></select>
+					</div>
+					<div>
+						<label for="champ-marque">Marque</label>
+						<input id="champ-marque" maxlength="60" autocomplete="off" />
+					</div>
+				</div>
+				<label for="champ-taille">Taille</label>
+				<input id="champ-taille" maxlength="20" autocomplete="off" />
+				<select id="champ-taille-liste" aria-label="Taille" hidden></select>
+				<div class="dates">
+					<div>
+						<label for="champ-date-achat">Date d'achat</label>
+						<input id="champ-date-achat" type="date" />
+					</div>
+					<div>
+						<label for="champ-prix-achat">Prix d'achat (€)</label>
+						<input id="champ-prix-achat" type="number" inputmode="decimal" min="0" step="0.01" />
+					</div>
+				</div>
+				<label for="champ-facture">Facture (PDF ou photo, 10 Mo au plus)</label>
+				<input id="champ-facture" type="file" accept="application/pdf,image/*" />
+				<p id="lien-facture" class="aide"></p>
+				<p id="info-prix-actuel" class="aide"></p>
+				<p class="erreur" role="alert"></p>
+				<div class="boutons">
+					<button type="button" id="bouton-supprimer-objet" class="danger">Supprimer</button>
+					<button type="button" data-fermer>Annuler</button>
+					<button type="submit" class="bouton-principal">Enregistrer</button>
+				</div>
+			</form>
+		</dialog>
+
+		<dialog id="dialogue-parametrage" class="dialogue" aria-labelledby="titre-dialogue-parametrage">
+			<form id="form-parametrage" class="formulaire">
+				<h2 id="titre-dialogue-parametrage">Décote</h2>
+				<label for="champ-garantie">Années de garantie</label>
+				<input id="champ-garantie" type="number" inputmode="decimal" min="0" max="100" step="0.5" />
+				<label for="champ-decote-totale">Années avant décote totale</label>
+				<input id="champ-decote-totale" type="number" inputmode="decimal" min="0.5" max="100" step="0.5" required />
+				<p class="aide">La valeur baisse régulièrement dès l'achat, jusqu'à 0 € au bout de cette durée.</p>
+				<p class="erreur" role="alert"></p>
+				<div class="boutons">
+					<button type="button" data-fermer>Annuler</button>
+					<button type="submit" class="bouton-principal">Enregistrer</button>
+				</div>
+			</form>
+		</dialog>
+
+		<dialog id="dialogue-categorie" class="dialogue" aria-labelledby="titre-dialogue-categorie">
+			<form id="form-categorie" class="formulaire">
+				<h2 id="titre-dialogue-categorie">Ajouter une catégorie</h2>
+				<label for="champ-nouvelle-categorie">Nom</label>
+				<input id="champ-nouvelle-categorie" maxlength="60" autocomplete="off" required />
+				<p class="aide">Son dossier est créé dans Drive, à côté du classeur. Sa décote se règle ensuite depuis sa ligne.</p>
+				<p class="erreur" role="alert"></p>
+				<div class="boutons">
+					<button type="button" data-fermer>Annuler</button>
+					<button type="submit" class="bouton-principal">Ajouter</button>
+				</div>
+			</form>
+		</dialog>
+
+		<dialog id="dialogue-migration" class="dialogue" aria-labelledby="titre-dialogue-migration">
+			<form id="form-migration" class="formulaire">
+				<h2 id="titre-dialogue-migration">Supprimer la catégorie</h2>
+				<p id="info-migration"></p>
+				<label for="champ-categorie-migration">Déplacer vers</label>
+				<select id="champ-categorie-migration" required></select>
+				<p class="aide">Leurs factures et photos suivent, et la décote de la catégorie choisie s'applique. Le dossier vidé part à la corbeille Drive.</p>
+				<p class="erreur" role="alert"></p>
+				<div class="boutons">
+					<button type="button" data-fermer>Annuler</button>
+					<button type="submit" class="bouton-principal">Déplacer et supprimer</button>
+				</div>
+			</form>
+		</dialog>
+
+		<template id="icone-corbeille">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" /></svg>
+		</template>
+
+		<div id="toasts" class="toasts" aria-live="polite"></div>
+
+		<script src="../shared/config.js"></script>
+		<script src="config.js"></script>
+		<script src="version.js"></script>
+		<script src="../shared/vendor/qrcode.min.js"></script>
+		<script type="module" src="app.js"></script>
+	</body>
+</html>
