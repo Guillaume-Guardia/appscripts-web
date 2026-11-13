@@ -1081,6 +1081,16 @@ button.menu-carte::after {
 	background-position: center;
 	background-repeat: no-repeat;
 }
+/* « Mon profil » : « Mes familles », et le « + » pour en rejoindre ou en créer une */
+.titre-familles {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 8px;
+}
+.titre-familles .sous-titre {
+	margin-top: 0;
+}
 .carte-note {
 	font-size: 0.85rem;
 	color: var(--or);

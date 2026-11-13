@@ -1506,13 +1506,21 @@ function rendreEntete() {
 				f.nom,
 			),
 		),
-		el("button", {
-			type: "button",
-			class: "puce-ajout",
-			"aria-label": "Rejoindre ou créer une famille",
-			onclick: () => $("#dialogue-ajout-famille").showModal(),
-		}),
+		boutonAjoutFamille(),
 	);
+}
+
+const ouvrirAjoutFamille = () => $("#dialogue-ajout-famille").showModal();
+
+/** « + » rond pour rejoindre ou créer une famille (en-tête, Mon profil), dans des `.puces`. */
+function boutonAjoutFamille(onclick = ouvrirAjoutFamille) {
+	return el("button", {
+		type: "button",
+		class: "puce-ajout",
+		"aria-label": "Rejoindre ou créer une famille",
+		title: "Rejoindre ou créer une famille",
+		onclick,
+	});
 }
 
 function rendre() {
@@ -2316,7 +2324,16 @@ function ouvrirProfil() {
 			},
 		],
 		bas: [
-			el("p", { class: "sous-titre" }, "Mes familles"),
+			el(
+				"div",
+				{ class: "titre-familles" },
+				el("p", { class: "sous-titre" }, "Mes familles"),
+				el(
+					"div",
+					{ class: "puces" },
+					boutonAjoutFamille(puis(ouvrirAjoutFamille)),
+				),
+			),
 			...app.etat.familles.map((f) =>
 				el(
 					"button",
@@ -2328,20 +2345,6 @@ function ouvrirProfil() {
 					},
 					el("span", {}, f.nom),
 					el("strong", {}, f.code),
-				),
-			),
-			el(
-				"div",
-				{ class: "ligne deux" },
-				el(
-					"button",
-					{ type: "button", class: "bouton", onclick: puis(ouvrirRejoindre) },
-					"Rejoindre",
-				),
-				el(
-					"button",
-					{ type: "button", class: "bouton", onclick: puis(ouvrirCreer) },
-					"Créer",
 				),
 			),
 		],
