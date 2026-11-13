@@ -644,6 +644,40 @@ button.menu-carte::after {
 .apercu-profil {
 	border-radius: 50%;
 }
+/* Photo de profil dans « Mon profil » : croix pour la retirer, crayon pour la changer */
+.photo-profil {
+	position: relative;
+	width: 96px;
+	height: 96px;
+	border-radius: 50%;
+	background: var(--surface-2);
+}
+.pastille-photo {
+	position: absolute;
+	right: -6px;
+	display: grid;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	border: 2px solid var(--fond);
+	border-radius: 50%;
+	background: var(--surface);
+	color: var(--texte);
+	box-shadow: var(--ombre);
+	font: inherit;
+	font-size: 1rem;
+	line-height: 1;
+	cursor: pointer;
+}
+.pastille-photo.retirer {
+	top: -6px;
+	color: var(--danger);
+	font-size: 1.3rem;
+}
+.pastille-photo.modifier {
+	bottom: -6px;
+}
 /* Profil en rond : l'initiale du prénom, recouverte par la photo quand il y en a une */
 .avatar {
 	position: relative;

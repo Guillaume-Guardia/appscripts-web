@@ -2244,22 +2244,24 @@ function choixPhotoProfil(membre) {
 		src: actuelle ? urlPhoto(actuelle) : null,
 		hidden: !actuelle,
 	});
-	const retirer = el(
-		"button",
-		{
-			type: "button",
-			class: "bouton petit danger",
-			hidden: !membre.photo,
-			onclick: () => {
-				fichier = null;
-				retiree = Boolean(membre.photo);
-				apercu.hidden = true;
-				apercu.removeAttribute("src");
-				retirer.hidden = true;
+	// Avec une photo : le rond, la croix pour la retirer et le crayon pour la changer ; sans photo,
+	// les boutons pour en prendre ou en choisir une.
+	const afficher = (avecPhoto) => {
+		cadre.hidden = !avecPhoto;
+		boutons.hidden = avecPhoto;
+	};
+	const pastille = (classe, libelle, symbole, onclick) =>
+		el(
+			"button",
+			{
+				type: "button",
+				class: `pastille-photo ${classe}`,
+				"aria-label": libelle,
+				title: libelle,
+				onclick,
 			},
-		},
-		"Retirer",
-	);
+			symbole,
+		);
 	const champ = (attributs) =>
 		el("input", {
 			type: "file",
@@ -2273,40 +2275,55 @@ function choixPhotoProfil(membre) {
 				retiree = false;
 				apercu.src = URL.createObjectURL(choisi);
 				apercu.hidden = false;
-				retirer.hidden = false;
+				afficher(true);
 				// Vidé aussitôt : la même image peut être choisie de nouveau.
 				evenement.target.value = "";
 			},
 		});
 	const camera = champ({ capture: "user" });
 	const galerie = champ({});
+	const cadre = el(
+		"div",
+		{ class: "photo-profil" },
+		apercu,
+		pastille("retirer", "Retirer la photo", "×", () => {
+			fichier = null;
+			retiree = Boolean(membre.photo);
+			apercu.hidden = true;
+			apercu.removeAttribute("src");
+			afficher(false);
+		}),
+		// Sur téléphone, le sélecteur propose aussi l'appareil photo.
+		pastille("modifier", "Changer la photo", "✎", () => galerie.click()),
+	);
+	const boutons = el(
+		"div",
+		{ class: "choix-photo" },
+		el(
+			"button",
+			{
+				type: "button",
+				class: "bouton petit bouton-camera",
+				onclick: () => camera.click(),
+			},
+			"Prendre une photo",
+		),
+		el(
+			"button",
+			{
+				type: "button",
+				class: "bouton petit",
+				onclick: () => galerie.click(),
+			},
+			"Choisir une image",
+		),
+	);
+	afficher(Boolean(membre.photo));
 	return {
 		elements: [
 			el("p", { class: "sous-titre" }, "Ma photo"),
-			apercu,
-			el(
-				"div",
-				{ class: "choix-photo" },
-				el(
-					"button",
-					{
-						type: "button",
-						class: "bouton petit bouton-camera",
-						onclick: () => camera.click(),
-					},
-					"Prendre une photo",
-				),
-				el(
-					"button",
-					{
-						type: "button",
-						class: "bouton petit",
-						onclick: () => galerie.click(),
-					},
-					"Choisir une image",
-				),
-				retirer,
-			),
+			cadre,
+			boutons,
 			camera,
 			galerie,
 		],
