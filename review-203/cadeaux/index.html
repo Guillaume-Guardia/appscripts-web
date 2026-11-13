@@ -198,11 +198,14 @@
 			</div>
 			<fieldset class="destinataires">
 				<legend>Photo <span class="discret">(facultative)</span></legend>
-				<img id="apercu-photo" class="apercu-photo" alt="" hidden>
-				<div class="choix-photo">
+				<div id="cadre-photo" class="cadre-photo" hidden>
+					<img id="apercu-photo" class="apercu-photo" alt="" hidden>
+					<button type="button" id="bouton-retirer-photo" class="pastille-photo retirer" aria-label="Retirer la photo" title="Retirer la photo">×</button>
+					<button type="button" id="bouton-changer-photo" class="pastille-photo modifier" aria-label="Changer la photo" title="Changer la photo">✎</button>
+				</div>
+				<div id="choix-photo" class="choix-photo">
 					<button type="button" id="bouton-camera" class="bouton petit">Prendre une photo</button>
 					<button type="button" id="bouton-galerie" class="bouton petit">Choisir une image</button>
-					<button type="button" id="bouton-retirer-photo" class="bouton petit danger" hidden>Retirer</button>
 				</div>
 				<input id="champ-camera" type="file" accept="image/*" capture="environment" hidden>
 				<input id="champ-photo" type="file" accept="image/*" hidden>

@@ -537,27 +537,40 @@ function carteCadeau(cadeau, { pour, selectionnable = false }) {
 		ENVIES[cadeau.priorite] ?? "",
 	);
 
+	// Ses idées, ses suggestions et celles des proches sans compte : crayon et croix en haut à droite.
+	const modifiable =
+		pour === "moi" || (pour === "autre" && !retire && peutModifier(cadeau));
+	const icones = modifiable
+		? el(
+				"div",
+				{ class: "carte-icones" },
+				el(
+					"button",
+					{
+						type: "button",
+						class: "icone-modifier",
+						"aria-label": `Modifier ${cadeau.titre}`,
+						title: "Modifier",
+						onclick: () => ouvrirFormulaireCadeau(cadeau),
+					},
+					"✎",
+				),
+				el(
+					"button",
+					{
+						type: "button",
+						class: "icone-supprimer",
+						"aria-label": `Supprimer ${cadeau.titre}`,
+						title: "Supprimer",
+						onclick: () => supprimer(cadeau),
+					},
+					"×",
+				),
+			)
+		: null;
+
 	if (pour === "moi") {
-		actions.append(
-			el(
-				"button",
-				{
-					type: "button",
-					class: "bouton petit",
-					onclick: () => ouvrirFormulaireCadeau(cadeau),
-				},
-				"Modifier",
-			),
-			el(
-				"button",
-				{
-					type: "button",
-					class: "bouton petit danger",
-					onclick: () => supprimer(cadeau),
-				},
-				"Supprimer",
-			),
-		);
+		// Rien d'autre : sur sa propre liste, ni réservation ni suggestion.
 	} else if (retire) {
 		etiquette = el("span", { class: "badge pris" }, "Retiré de la liste");
 		actions.append(
@@ -572,29 +585,6 @@ function carteCadeau(cadeau, { pour, selectionnable = false }) {
 			),
 		);
 	} else {
-		// Ses suggestions et les idées des proches sans compte : modifiables et supprimables ici.
-		if (pour === "autre" && peutModifier(cadeau)) {
-			actions.append(
-				el(
-					"button",
-					{
-						type: "button",
-						class: "bouton petit",
-						onclick: () => ouvrirFormulaireCadeau(cadeau),
-					},
-					"Modifier",
-				),
-				el(
-					"button",
-					{
-						type: "button",
-						class: "bouton petit danger",
-						onclick: () => supprimer(cadeau),
-					},
-					"Supprimer",
-				),
-			);
-		}
 		const autres = offreurs(cadeau).filter((id) => id !== moi());
 		if (offreurs(cadeau).includes(moi())) {
 			const avec = autres.length ? ` avec ${prenoms(autres)}` : "";
@@ -737,6 +727,7 @@ function carteCadeau(cadeau, { pour, selectionnable = false }) {
 				{ class: "carte-haut" },
 				el("h3", { class: "carte-titre" }, cadeau.titre),
 				el("span", { class: "carte-prix" }, prix(cadeau.prix)),
+				icones,
 			),
 			photoCadeau(cadeau),
 			cadeau.description
@@ -1462,7 +1453,7 @@ function rendreHistorique() {
 							"button",
 							{
 								type: "button",
-								class: "icone-supprimer icone-modifier",
+								class: "icone-modifier",
 								"aria-label": `Modifier ${e.details}`,
 								title: "Modifier",
 								onclick: () => ouvrirFormulaireHistorique(e),
@@ -1678,12 +1669,18 @@ async function annuler(ids, message) {
 // Idées : ajout (pour soi ou pour un proche), modification, suppression
 // ---------------------------------------------------------------------------
 
-function afficherApercuPhoto(source) {
+/**
+ * Avec une photo : l'aperçu, la croix pour la retirer et le crayon pour la changer ; sans photo,
+ * les boutons pour en prendre ou en choisir une.
+ * @param avecPhoto vrai aussi quand l'idée a une photo pas encore reçue (sans aperçu)
+ */
+function afficherApercuPhoto(source, avecPhoto = Boolean(source)) {
 	const apercu = $("#apercu-photo");
 	apercu.hidden = !source;
 	if (source) apercu.src = source;
 	else apercu.removeAttribute("src");
-	$("#bouton-retirer-photo").hidden = !source;
+	$("#cadre-photo").hidden = !avecPhoto;
+	$("#choix-photo").hidden = avecPhoto;
 }
 
 function photoChoisieDansFormulaire(evenement) {
@@ -1721,8 +1718,10 @@ function ouvrirFormulaireCadeau(cadeau, pourIds = cadeau?.pourIds ?? [moi()]) {
 	app.photoSaisie = null;
 	app.photoRetiree = false;
 	const photoActuelle = cadeau?.photo && app.photos[cadeau.photo];
-	afficherApercuPhoto(photoActuelle ? urlPhoto(photoActuelle) : null);
-	$("#bouton-retirer-photo").hidden = !cadeau?.photo;
+	afficherApercuPhoto(
+		photoActuelle ? urlPhoto(photoActuelle) : null,
+		Boolean(cadeau?.photo),
+	);
 	const pourMoi = pourIds.includes(moi());
 	const comptes = pourIds.filter((id) => id !== moi() && personne(id)?.compte);
 	$("#titre-dialogue").textContent = cadeau
@@ -2284,7 +2283,7 @@ function choixPhotoProfil(membre) {
 	const galerie = champ({});
 	const cadre = el(
 		"div",
-		{ class: "photo-profil" },
+		{ class: "cadre-photo rond" },
 		apercu,
 		pastille("retirer", "Retirer la photo", "×", () => {
 			fichier = null;
@@ -2965,6 +2964,10 @@ function brancherEvenements() {
 	$("#bouton-retirer-photo").addEventListener(
 		"click",
 		retirerPhotoDuFormulaire,
+	);
+	// Sur téléphone, le sélecteur propose aussi l'appareil photo.
+	$("#bouton-changer-photo").addEventListener("click", () =>
+		$("#champ-photo").click(),
 	);
 	$("#form-historique").addEventListener("submit", enregistrerHistorique);
 	$("#form-secret-santa").addEventListener("submit", enregistrerSecretSanta);

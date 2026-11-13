@@ -613,6 +613,7 @@ button.menu-carte::after {
 	align-items: flex-start;
 }
 .carte-titre {
+	flex: 1;
 	font-weight: 650;
 	overflow-wrap: anywhere;
 }
@@ -644,13 +645,16 @@ button.menu-carte::after {
 .apercu-profil {
 	border-radius: 50%;
 }
-/* Photo de profil dans « Mon profil » : croix pour la retirer, crayon pour la changer */
-.photo-profil {
+/* Photo d'une idée ou du profil dans leur formulaire : croix pour la retirer, crayon pour la changer */
+.cadre-photo {
 	position: relative;
 	width: 96px;
 	height: 96px;
-	border-radius: 50%;
+	border-radius: 10px;
 	background: var(--surface-2);
+}
+.cadre-photo.rond {
+	border-radius: 50%;
 }
 .pastille-photo {
 	position: absolute;
@@ -1081,6 +1085,8 @@ button.menu-carte::after {
 	padding: 12px 14px;
 	align-items: flex-start;
 }
+/* Icônes d'action (cartes, historique, exclusions) : crayon pour modifier, croix rouge pour supprimer */
+.icone-modifier,
 .icone-supprimer {
 	flex: none;
 	width: 32px;
@@ -1088,20 +1094,28 @@ button.menu-carte::after {
 	border-radius: 50%;
 	border: 0;
 	background: none;
-	color: var(--texte-doux);
-	font-size: 1.4rem;
 	line-height: 1;
 	cursor: pointer;
 }
+.icone-modifier {
+	color: var(--texte-doux);
+	font-size: 1.1rem;
+}
+.icone-supprimer {
+	color: var(--danger);
+	font-size: 1.4rem;
+}
+.icone-modifier:hover,
 .icone-supprimer:hover {
 	background: var(--surface-2);
-	color: var(--danger);
-}
-.icone-modifier {
-	font-size: 1.1rem;
 }
 .icone-modifier:hover {
 	color: var(--texte);
+}
+.carte-icones {
+	display: flex;
+	flex: none;
+	margin: -4px -8px 0 0;
 }
 .destinataires {
 	border: 1px solid var(--bord);
