@@ -798,6 +798,8 @@ function rendreMaListe() {
 			),
 		];
 	}
+	// Flottant en bas à droite, au-dessus des idées : toujours à portée, même en bas d'une longue liste.
+	ajouter.classList.add("flottant");
 	return [
 		el(
 			"p",
@@ -812,7 +814,7 @@ function rendreMaListe() {
 				)
 			: null,
 		...miens.map((c) => carteCadeau(c, { pour: "moi" })),
-		el("div", {}, ajouter),
+		ajouter,
 	];
 }
 
@@ -1543,7 +1545,15 @@ function rendre() {
 	pastille.hidden = nbReservations === 0;
 	pastille.textContent = String(nbReservations);
 
-	remplacerContenu($("#contenu"), ...RENDUS[app.onglet]());
+	const elements = RENDUS[app.onglet]().flat();
+	remplacerContenu(
+		$("#contenu"),
+		elements.filter((e) => !e?.classList?.contains("flottant")),
+	);
+	remplacerContenu(
+		$("#flottant"),
+		elements.filter((e) => e?.classList?.contains("flottant")),
+	);
 	rendreSelection();
 }
 

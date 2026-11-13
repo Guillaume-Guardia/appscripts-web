@@ -1,6 +1,6 @@
 // Généré par scripts/publier-web.mjs : version de l'app, affichée dans le menu.
 self.VERSION_APP = "1.40.0";
-self.REVIEW = "PR #205 @ f18f578";
+self.REVIEW = "PR #205 @ 8cddc3a";
 self.REVIEW_DOSSIER = "203";
 if (self.document && !self.BANDEAU_REVIEW) {
 	self.BANDEAU_REVIEW = true;
@@ -27,5 +27,5 @@ if (self.document && !self.BANDEAU_REVIEW) {
 		document.body.append(bandeau);
 	});
 }
-self.EMPREINTE_APP = "8bab57318dd4";
+self.EMPREINTE_APP = "e0fdc735e521";
 self.FICHIERS_APP = ["./","app.js","config.js","icons/apple-touch-icon.png","icons/icon-192.png","icons/icon-512.png","icons/icon-maskable-512.png","icons/icon.svg","index.html","manifest.webmanifest","prochaine-fois.js","stats.js","style.css","tailles.js","version.js","../shared/api.js","../shared/balayage.js","../shared/base.css","../shared/biometrie.js","../shared/config.js","../shared/connexion.js","../shared/dates.js","../shared/dom.js","../shared/file-attente.js","../shared/image.js","../shared/pwa.js","../shared/qr.js","../shared/signalement.js","../shared/signature.js","../shared/stockage.js","../shared/vendor/qrcode.min.js","../shared/visite.js"];

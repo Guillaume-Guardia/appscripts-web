@@ -137,6 +137,9 @@
 		</header>
 
 		<main id="contenu" class="contenu" aria-live="polite"></main>
+		<!-- Bouton flottant de l'onglet affiché, hors de #contenu : le balayage anime #contenu, ce qui
+		     déplacerait un élément fixe qui s'y trouve. -->
+		<div id="flottant"></div>
 
 		<div id="barre-selection" class="barre-selection" hidden>
 			<p id="resume-selection"></p>
