@@ -289,10 +289,11 @@ export function decrireAppareil(nomApp) {
 /**
  * Modes de connexion activés ({ code, lien, qr, biometrie }) : ceux gardés de la dernière réponse
  * de l'API (ou tous), et une promesse de ceux de l'API.
+ * @param discret sans barre de chargement (l'écran affiche déjà les modes gardés)
  */
-function modesConnexion() {
+function modesConnexion({ discret = false } = {}) {
 	const garde = lireStockageJson(CLES.modes) ?? MODES_PAR_DEFAUT;
-	const frais = appelerDroits("modes-connexion")
+	const frais = appelerDroits("modes-connexion", {}, { discret })
 		.then((modes) => {
 			ecrireStockage(CLES.modes, JSON.stringify(modes));
 			return modes;
@@ -430,7 +431,11 @@ export function brancherBiometrie(bouton, nomApp) {
 		if (bouton.hidden || activee() || fraiche) return;
 		preparation = null;
 		try {
-			preparation = await appelerDroits("preparer-biometrie");
+			preparation = await appelerDroits(
+				"preparer-biometrie",
+				{},
+				{ discret: true },
+			);
 			preparationObtenueLe = Date.now();
 		} catch {
 			// Sans défi (hors ligne) : il sera redemandé au toucher.
@@ -440,10 +445,12 @@ export function brancherBiometrie(bouton, nomApp) {
 	afficher();
 	montrer(lireStockageJson(CLES.modes) ?? MODES_PAR_DEFAUT);
 	const menu = bouton.closest(".menu") ?? bouton.parentElement;
+	// À chaque ouverture du menu, mise à jour de fond, sans barre de chargement : le menu s'affiche
+	// aussitôt avec ce qui est gardé.
 	new MutationObserver(async () => {
 		if (menu.hidden) return;
 		afficher();
-		await montrer(await modesConnexion().frais);
+		await montrer(await modesConnexion({ discret: true }).frais);
 		preparer();
 	}).observe(menu, { attributes: true, attributeFilter: ["hidden"] });
 

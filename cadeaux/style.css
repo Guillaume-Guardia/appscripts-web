@@ -599,6 +599,14 @@ button.menu-carte::after {
 	opacity: 0.75;
 	border-style: dashed;
 }
+/* Idée affichée avant la réponse de l'API (voir modifierEnFond) */
+.carte.provisoire {
+	opacity: 0.6;
+}
+.badge.enregistrement {
+	background: var(--surface-2);
+	color: var(--texte-doux);
+}
 .carte-corps {
 	flex: 1;
 	min-width: 0;
@@ -613,6 +621,7 @@ button.menu-carte::after {
 	align-items: flex-start;
 }
 .carte-titre {
+	flex: 1;
 	font-weight: 650;
 	overflow-wrap: anywhere;
 }
@@ -641,8 +650,80 @@ button.menu-carte::after {
 	object-fit: cover;
 	border-radius: 10px;
 }
-.apercu-profil {
+/* Photo d'une idée ou du profil dans leur formulaire : croix pour la retirer, crayon pour la changer */
+.cadre-photo {
+	position: relative;
+	width: 96px;
+	height: 96px;
+	border-radius: 10px;
+	background: var(--surface-2);
+}
+.cadre-photo.rond {
 	border-radius: 50%;
+}
+/* « Mon profil » : la photo (ou l'initiale) à droite du titre */
+.photo-profil {
+	flex: none;
+	display: grid;
+	place-items: center;
+	width: 80px;
+	height: 80px;
+	margin: 4px 4px 0 0;
+}
+.photo-profil img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	object-fit: cover;
+}
+.initiale-profil {
+	font-size: 2rem;
+	font-weight: 700;
+	color: var(--texte-doux);
+}
+.photo-profil .pastille-photo {
+	width: 28px;
+	height: 28px;
+}
+.simple-entete {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+}
+.simple-entete > .pile {
+	flex: 1;
+	min-width: 0;
+}
+#simple-entete-droite:empty {
+	display: none;
+}
+.pastille-photo {
+	position: absolute;
+	right: -6px;
+	display: grid;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	border: 2px solid var(--fond);
+	border-radius: 50%;
+	background: var(--surface);
+	color: var(--texte);
+	box-shadow: var(--ombre);
+	font: inherit;
+	font-size: 1rem;
+	line-height: 1;
+	cursor: pointer;
+}
+.pastille-photo.retirer {
+	top: -6px;
+	color: var(--danger);
+	font-size: 1.3rem;
+}
+.pastille-photo.modifier {
+	bottom: -6px;
 }
 /* Profil en rond : l'initiale du prénom, recouverte par la photo quand il y en a une */
 .avatar {
@@ -679,8 +760,7 @@ button.menu-carte::after {
 }
 /* Sur ordinateur, capture est ignoré : le bouton ouvrirait le même sélecteur de fichiers. */
 @media (hover: hover) and (pointer: fine) {
-	#bouton-camera,
-	.bouton-camera {
+	#bouton-camera {
 		display: none;
 	}
 }
@@ -789,6 +869,18 @@ button.menu-carte::after {
 }
 .app.avec-selection .contenu {
 	padding-bottom: 90px;
+}
+
+/* Bouton flottant (« + Ajouter une idée ») : en bas à droite de la colonne, au-dessus des onglets */
+.bouton.flottant {
+	position: fixed;
+	z-index: 4;
+	right: max(16px, calc((100vw - 720px) / 2 + 16px));
+	bottom: calc(var(--nav-h) + var(--bas-onglets) + 16px);
+	box-shadow: var(--ombre);
+}
+.app:has(#flottant > .flottant) .contenu {
+	padding-bottom: 88px;
 }
 
 /* Onglets. --bas-manquant (iPhone seulement, voir shared/pwa.js) : la page s'arrête au-dessus du
@@ -997,6 +1089,16 @@ button.menu-carte::after {
 	background-position: center;
 	background-repeat: no-repeat;
 }
+/* « Mon profil » : « Mes familles », et le « + » pour en rejoindre ou en créer une */
+.titre-familles {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 8px;
+}
+.titre-familles .sous-titre {
+	margin-top: 0;
+}
 .carte-note {
 	font-size: 0.85rem;
 	color: var(--or);
@@ -1035,6 +1137,8 @@ button.menu-carte::after {
 	padding: 12px 14px;
 	align-items: flex-start;
 }
+/* Icônes d'action (cartes, historique, exclusions) : crayon pour modifier, croix rouge pour supprimer */
+.icone-modifier,
 .icone-supprimer {
 	flex: none;
 	width: 32px;
@@ -1042,14 +1146,28 @@ button.menu-carte::after {
 	border-radius: 50%;
 	border: 0;
 	background: none;
-	color: var(--texte-doux);
-	font-size: 1.4rem;
 	line-height: 1;
 	cursor: pointer;
 }
+.icone-modifier {
+	color: var(--texte-doux);
+	font-size: 1.1rem;
+}
+.icone-supprimer {
+	color: var(--danger);
+	font-size: 1.4rem;
+}
+.icone-modifier:hover,
 .icone-supprimer:hover {
 	background: var(--surface-2);
-	color: var(--danger);
+}
+.icone-modifier:hover {
+	color: var(--texte);
+}
+.carte-icones {
+	display: flex;
+	flex: none;
+	margin: -4px -8px 0 0;
 }
 .destinataires {
 	border: 1px solid var(--bord);
@@ -1221,9 +1339,6 @@ input[type="date"] {
 	flex-wrap: wrap;
 	align-items: baseline;
 	gap: 4px 12px;
-}
-.ligne .espace {
-	flex: 1;
 }
 #accueil-connexion .bouton.principal {
 	width: 100%;
