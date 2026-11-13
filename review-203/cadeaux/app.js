@@ -1736,7 +1736,6 @@ function ouvrirFormulaireCadeau(cadeau, pourIds = cadeau?.pourIds ?? [moi()]) {
 				? `${prenoms(comptes)} ne ${comptes.length > 1 ? "verront" : "verra"} pas cette idée ; les autres pourront la réserver.`
 				: "Personne sans compte : l'idée rejoint sa liste.";
 	$("#erreur-cadeau").textContent = "";
-	$("#bouton-supprimer-cadeau").hidden = !cadeau;
 	// Seul l'auteur choisit les familles qui voient l'idée, parmi les siennes qui comptent un
 	// destinataire (toutes cochées quand il n'en a limité aucune).
 	const possibles =
@@ -1820,11 +1819,6 @@ async function supprimer(cadeau) {
 			"Idée supprimée.",
 		),
 	);
-}
-
-async function supprimerDepuisFormulaire() {
-	const { cadeau } = app.edition;
-	if (cadeau && (await supprimer(cadeau))) $("#dialogue-cadeau").close();
 }
 
 // ---------------------------------------------------------------------------
@@ -2947,10 +2941,6 @@ function brancherEvenements() {
 	$("#bouton-scanner").addEventListener("click", ouvrirScanner);
 	$("#bouton-fermer-scanner").addEventListener("click", arreterScanner);
 	$("#dialogue-scanner").addEventListener("cancel", arreterScanner);
-	$("#bouton-supprimer-cadeau").addEventListener(
-		"click",
-		supprimerDepuisFormulaire,
-	);
 	$("#form-cadeau").addEventListener("submit", enregistrerCadeau);
 	$("#bouton-camera").addEventListener("click", () =>
 		$("#champ-camera").click(),

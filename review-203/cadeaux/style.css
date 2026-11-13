@@ -1288,9 +1288,6 @@ input[type="date"] {
 	align-items: baseline;
 	gap: 4px 12px;
 }
-.ligne .espace {
-	flex: 1;
-}
 #accueil-connexion .bouton.principal {
 	width: 100%;
 }
