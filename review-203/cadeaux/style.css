@@ -642,9 +642,6 @@ button.menu-carte::after {
 	object-fit: cover;
 	border-radius: 10px;
 }
-.apercu-profil {
-	border-radius: 50%;
-}
 /* Photo d'une idée ou du profil dans leur formulaire : croix pour la retirer, crayon pour la changer */
 .cadre-photo {
 	position: relative;
@@ -655,6 +652,44 @@ button.menu-carte::after {
 }
 .cadre-photo.rond {
 	border-radius: 50%;
+}
+/* « Mon profil » : la photo (ou l'initiale) à droite du titre */
+.photo-profil {
+	flex: none;
+	display: grid;
+	place-items: center;
+	width: 80px;
+	height: 80px;
+	margin: 4px 4px 0 0;
+}
+.photo-profil img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	object-fit: cover;
+}
+.initiale-profil {
+	font-size: 2rem;
+	font-weight: 700;
+	color: var(--texte-doux);
+}
+.photo-profil .pastille-photo {
+	width: 28px;
+	height: 28px;
+}
+.simple-entete {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+}
+.simple-entete > .pile {
+	flex: 1;
+	min-width: 0;
+}
+#simple-entete-droite:empty {
+	display: none;
 }
 .pastille-photo {
 	position: absolute;
@@ -717,8 +752,7 @@ button.menu-carte::after {
 }
 /* Sur ordinateur, capture est ignoré : le bouton ouvrirait le même sélecteur de fichiers. */
 @media (hover: hover) and (pointer: fine) {
-	#bouton-camera,
-	.bouton-camera {
+	#bouton-camera {
 		display: none;
 	}
 }

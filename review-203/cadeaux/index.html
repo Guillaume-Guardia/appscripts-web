@@ -327,9 +327,15 @@
 	<!-- Petit formulaire générique (rejoindre / créer une famille, ajouter une personne) -->
 	<dialog id="dialogue-simple" class="dialogue">
 		<form id="form-simple" method="dialog" class="pile">
-			<!-- biome-ignore lint/a11y/useHeadingContent: titre écrit par app.js à chaque ouverture. -->
-			<h2 id="simple-titre"></h2>
-			<p id="simple-aide" class="discret"></p>
+			<div class="simple-entete">
+				<div class="pile">
+					<!-- biome-ignore lint/a11y/useHeadingContent: titre écrit par app.js à chaque ouverture. -->
+					<h2 id="simple-titre"></h2>
+					<p id="simple-aide" class="discret"></p>
+				</div>
+				<!-- À droite du titre (ex : la photo de « Mon profil »), vide sinon. -->
+				<div id="simple-entete-droite"></div>
+			</div>
 			<div id="simple-champs" class="pile"></div>
 			<p id="erreur-simple" class="erreur" role="alert"></p>
 			<div class="ligne fin">

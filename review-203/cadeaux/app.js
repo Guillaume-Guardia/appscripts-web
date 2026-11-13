@@ -2071,9 +2071,11 @@ async function supprimerSecretSanta(s) {
  * @param valider (valeurs, afficherErreur) => Promise<boolean> : vrai pour fermer
  * @param bas éléments affichés sous les champs
  */
+/** @param entete élément affiché à droite du titre et de l'aide (ex : la photo du profil) */
 function ouvrirDialogueSimple({
 	titre,
 	aide = "",
+	entete = null,
 	champs,
 	bas = [],
 	bouton = "Valider",
@@ -2082,6 +2084,7 @@ function ouvrirDialogueSimple({
 	fermerMenu();
 	$("#simple-titre").textContent = titre;
 	$("#simple-aide").textContent = aide;
+	remplacerContenu($("#simple-entete-droite"), entete);
 	$("#simple-valider").textContent = bouton;
 	$("#erreur-simple").textContent = "";
 	$("#simple-champs").replaceChildren(
@@ -2214,8 +2217,10 @@ function ouvrirAjoutPersonne() {
 }
 
 /**
- * Choix de la photo de profil dans « Mon profil » : prise avec l'appareil, choisie, ou retirée.
- * @return Les éléments à afficher, et `photo()` : l'image réduite à envoyer, "" pour la retirer,
+ * Photo de profil dans « Mon profil », à droite du titre : le rond (sa photo, ou l'initiale de son
+ * prénom), une croix pour la retirer et un crayon pour la changer (sur téléphone, le sélecteur
+ * propose aussi l'appareil photo).
+ * @return `element` à afficher, et `photo()` : l'image réduite à envoyer, "" pour la retirer,
  * undefined si elle ne change pas
  */
 function choixPhotoProfil(membre) {
@@ -2223,17 +2228,10 @@ function choixPhotoProfil(membre) {
 	let retiree = false;
 	const actuelle = membre.photo && app.photos[membre.photo];
 	const apercu = el("img", {
-		class: "apercu-photo apercu-profil",
 		alt: "",
 		src: actuelle ? urlPhoto(actuelle) : null,
 		hidden: !actuelle,
 	});
-	// Avec une photo : le rond, la croix pour la retirer et le crayon pour la changer ; sans photo,
-	// les boutons pour en prendre ou en choisir une.
-	const afficher = (avecPhoto) => {
-		cadre.hidden = !avecPhoto;
-		boutons.hidden = avecPhoto;
-	};
 	const pastille = (classe, libelle, symbole, onclick) =>
 		el(
 			"button",
@@ -2246,71 +2244,40 @@ function choixPhotoProfil(membre) {
 			},
 			symbole,
 		);
-	const champ = (attributs) =>
-		el("input", {
-			type: "file",
-			accept: "image/*",
-			hidden: true,
-			...attributs,
-			onchange: (evenement) => {
-				const choisi = evenement.target.files[0];
-				if (!choisi) return;
-				fichier = choisi;
-				retiree = false;
-				apercu.src = URL.createObjectURL(choisi);
-				apercu.hidden = false;
-				afficher(true);
-				// Vidé aussitôt : la même image peut être choisie de nouveau.
-				evenement.target.value = "";
-			},
-		});
-	const camera = champ({ capture: "user" });
-	const galerie = champ({});
-	const cadre = el(
-		"div",
-		{ class: "cadre-photo rond" },
-		apercu,
-		pastille("retirer", "Retirer la photo", "×", () => {
-			fichier = null;
-			retiree = Boolean(membre.photo);
-			apercu.hidden = true;
-			apercu.removeAttribute("src");
-			afficher(false);
-		}),
-		// Sur téléphone, le sélecteur propose aussi l'appareil photo.
-		pastille("modifier", "Changer la photo", "✎", () => galerie.click()),
-	);
-	const boutons = el(
-		"div",
-		{ class: "choix-photo" },
-		el(
-			"button",
-			{
-				type: "button",
-				class: "bouton petit bouton-camera",
-				onclick: () => camera.click(),
-			},
-			"Prendre une photo",
-		),
-		el(
-			"button",
-			{
-				type: "button",
-				class: "bouton petit",
-				onclick: () => galerie.click(),
-			},
-			"Choisir une image",
-		),
-	);
-	afficher(Boolean(membre.photo));
+	const retirer = pastille("retirer", "Retirer la photo", "×", () => {
+		fichier = null;
+		retiree = Boolean(membre.photo);
+		apercu.hidden = true;
+		apercu.removeAttribute("src");
+		retirer.hidden = true;
+	});
+	retirer.hidden = !membre.photo;
+	const galerie = el("input", {
+		type: "file",
+		accept: "image/*",
+		hidden: true,
+		onchange: (evenement) => {
+			const choisi = evenement.target.files[0];
+			if (!choisi) return;
+			fichier = choisi;
+			retiree = false;
+			apercu.src = URL.createObjectURL(choisi);
+			apercu.hidden = false;
+			retirer.hidden = false;
+			// Vidé aussitôt : la même image peut être choisie de nouveau.
+			evenement.target.value = "";
+		},
+	});
 	return {
-		elements: [
-			el("p", { class: "sous-titre" }, "Ma photo"),
-			cadre,
-			boutons,
-			camera,
+		element: el(
+			"div",
+			{ class: "cadre-photo rond photo-profil" },
+			el("span", { class: "initiale-profil" }, initiale(membre.prenom)),
+			apercu,
+			retirer,
+			pastille("modifier", "Changer la photo", "✎", () => galerie.click()),
 			galerie,
-		],
+		),
 		photo: async () => {
 			if (retiree) return "";
 			if (!fichier) return undefined;
@@ -2331,6 +2298,7 @@ function ouvrirProfil() {
 	ouvrirDialogueSimple({
 		titre: `Mon profil : ${membre.prenom}`,
 		aide: "Ton anniversaire et ta photo s'affichent pour les membres de tes familles.",
+		entete: choixPhoto.element,
 		champs: [
 			{
 				nom: "nom",
@@ -2348,7 +2316,6 @@ function ouvrirProfil() {
 			},
 		],
 		bas: [
-			...choixPhoto.elements,
 			el("p", { class: "sous-titre" }, "Mes familles"),
 			...app.etat.familles.map((f) =>
 				el(
