@@ -599,6 +599,14 @@ button.menu-carte::after {
 	opacity: 0.75;
 	border-style: dashed;
 }
+/* Idée affichée avant la réponse de l'API (voir modifierEnFond) */
+.carte.provisoire {
+	opacity: 0.6;
+}
+.badge.enregistrement {
+	background: var(--surface-2);
+	color: var(--texte-doux);
+}
 .carte-corps {
 	flex: 1;
 	min-width: 0;

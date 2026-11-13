@@ -105,6 +105,11 @@ const app = {
 	selection: new Set(),
 	/** Idée en cours d'édition : { cadeau, pourIds }. */
 	edition: null,
+	/**
+	 * Modifications affichées avant la réponse de l'API (voir modifierEnFond) : chacune transforme
+	 * l'état reçu du serveur en état affiché.
+	 */
+	provisoires: [],
 	/** Photo prise ou choisie dans le formulaire d'une idée, pas encore envoyée. */
 	photoSaisie: null,
 	/** Vrai quand le formulaire demande de retirer la photo de l'idée. */
@@ -122,6 +127,11 @@ const app = {
 	visite: false,
 };
 
+/** Dernier état reçu de l'API ; app.etat y ajoute les modifications provisoires. */
+let etatServeur = null;
+/** Modifications en attente de l'API, envoyées une à une dans l'ordre (voir modifierEnFond). */
+let fileModifications = Promise.resolve();
+
 const etatEnCache = lireStockageJson(CLES.etat);
 if (
 	etatEnCache?.moi &&
@@ -130,6 +140,7 @@ if (
 	Array.isArray(etatEnCache.secretSantas)
 ) {
 	app.etat = etatEnCache;
+	etatServeur = etatEnCache;
 }
 
 // ---------------------------------------------------------------------------
@@ -185,13 +196,14 @@ function traiterErreurConnexion(erreur) {
 }
 
 function appliquerEtat(etat) {
-	app.etat = etat;
+	etatServeur = etat;
+	app.etat = avecProvisoires(etat);
 	app.horsLigne = false;
 	ecrireStockage(CLES.etat, JSON.stringify(etat));
 	ecrireStockage(CLES.compte, compteConnecte()?.id ?? null);
 	// La clé d'invitation a servi (ou le compte était déjà lié) : plus besoin de l'envoyer.
 	if (app.cle) garderCle(null);
-	const ids = new Set(etat.cadeaux.map((c) => c.id));
+	const ids = new Set(app.etat.cadeaux.map((c) => c.id));
 	for (const id of app.selection) if (!ids.has(id)) app.selection.delete(id);
 	afficherBandeauHorsLigne();
 	rendre();
@@ -311,6 +323,61 @@ async function modifier(
 		app.occupe = false;
 		document.body.style.cursor = "";
 	}
+}
+
+const avecProvisoires = (etat) =>
+	app.provisoires.reduce((affiche, provisoire) => provisoire(affiche), etat);
+
+function afficherProvisoires() {
+	if (!etatServeur) return;
+	app.etat = avecProvisoires(etatServeur);
+	rendre();
+}
+
+/**
+ * Modification affichée aussitôt, puis envoyée à l'API en arrière-plan : l'app n'attend pas les
+ * quelques secondes de la Web App. Les envois partent un à un, dans l'ordre ; chaque réponse
+ * remplace l'affichage provisoire par l'état du serveur. En cas d'échec, la modification disparaît
+ * et un message l'explique.
+ * @param parametres async () => les paramètres de l'appel, préparés en arrière-plan (ex : photo
+ * réduite) ; une erreur annule la modification
+ * @param provisoire (etat) => l'état avec la modification, affiché en attendant
+ * @param echec début du message d'erreur (ex : « « Vélo » n'a pas été enregistrée : »)
+ * @return Faux si l'app est hors ligne (rien n'est fait)
+ */
+function modifierEnFond(action, parametres, provisoire, echec) {
+	if (app.horsLigne) {
+		notifier(
+			"Hors ligne : les modifications reviendront avec la connexion.",
+			true,
+		);
+		return false;
+	}
+	app.provisoires.push(provisoire);
+	afficherProvisoires();
+	const retirer = () => {
+		app.provisoires = app.provisoires.filter((p) => p !== provisoire);
+	};
+	fileModifications = fileModifications.then(async () => {
+		try {
+			const { etat } = await appelerApi(action, await parametres(), {
+				discret: true,
+			});
+			retirer();
+			// Déconnecté entre-temps : rien à afficher.
+			if (etatServeur) appliquerEtat(etat);
+		} catch (erreur) {
+			retirer();
+			afficherProvisoires();
+			if (traiterErreurConnexion(erreur)) return;
+			notifier(`${echec} ${erreur.message}`, true);
+			if (erreur instanceof ErreurReseau) {
+				app.horsLigne = true;
+				afficherBandeauHorsLigne();
+			}
+		}
+	});
+	return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -530,9 +597,13 @@ function carteCadeau(cadeau, { pour, selectionnable = false }) {
 		ENVIES[cadeau.priorite] ?? "",
 	);
 
-	// Les idées qu'il a ajoutées (souhaits et suggestions) : crayon et croix en haut à droite.
+	// Les idées qu'il a ajoutées (souhaits et suggestions) : crayon et croix en haut à droite ; pas
+	// tant qu'elles sont en cours d'enregistrement.
 	const icones =
-		pour !== "reservation" && !retire && peutModifier(cadeau)
+		pour !== "reservation" &&
+		!retire &&
+		!cadeau.provisoire &&
+		peutModifier(cadeau)
 			? el(
 					"div",
 					{ class: "carte-icones" },
@@ -561,7 +632,13 @@ function carteCadeau(cadeau, { pour, selectionnable = false }) {
 				)
 			: null;
 
-	if (pour === "moi") {
+	if (cadeau.provisoire) {
+		etiquette = el(
+			"span",
+			{ class: "badge enregistrement" },
+			"Enregistrement…",
+		);
+	} else if (pour === "moi") {
 		// Rien d'autre : sur sa propre liste, ni réservation ni suggestion.
 	} else if (retire) {
 		etiquette = el("span", { class: "badge pris" }, "Retiré de la liste");
@@ -693,11 +770,15 @@ function carteCadeau(cadeau, { pour, selectionnable = false }) {
 					`Ta part ≈ ${prix(cadeau.prix / offreurs(cadeau).length)}`,
 				)
 			: null;
-	const libre = pour !== "moi" && !retire && offreurs(cadeau).length === 0;
+	const libre =
+		pour !== "moi" &&
+		!retire &&
+		!cadeau.provisoire &&
+		offreurs(cadeau).length === 0;
 	return el(
 		"article",
 		{
-			class: `carte${selectionne ? " selectionnee" : ""}${retire ? " retire" : ""}`,
+			class: `carte${selectionne ? " selectionnee" : ""}${retire ? " retire" : ""}${cadeau.provisoire ? " provisoire" : ""}`,
 		},
 		selectionnable && libre
 			? el(
@@ -1699,15 +1780,39 @@ function retirerPhotoDuFormulaire() {
 	afficherApercuPhoto(null);
 }
 
-/** La photo à envoyer : l'image réduite, "" pour la retirer, undefined si elle ne change pas. */
-async function photoDuFormulaire() {
-	if (app.photoRetiree) return "";
-	if (!app.photoSaisie) return undefined;
-	return reduireImageSous(
-		app.photoSaisie,
+/**
+ * La photo à envoyer, d'après le formulaire tel qu'il était à l'enregistrement : l'image réduite,
+ * "" pour la retirer, undefined si elle ne change pas. Une nouvelle photo est gardée sur l'appareil
+ * sous son empreinte (la même que celle du serveur) : l'app n'a pas à la redemander.
+ */
+async function photoAEnvoyer({ photoSaisie, photoRetiree }) {
+	if (photoRetiree) return "";
+	if (!photoSaisie) return undefined;
+	const photo = await reduireImageSous(
+		photoSaisie,
 		REDUCTIONS_PHOTO,
 		LONGUEUR_MAX_PHOTO,
 	);
+	app.photos[await empreinteSha256(photo)] = photo;
+	ecrireStockage(CLES.photos, JSON.stringify(app.photos));
+	return photo;
+}
+
+/** Empreinte SHA-256 en hexadécimal, comme empreinteSha256 du projet shared (Apps Script). */
+async function empreinteSha256(texte) {
+	const octets = await crypto.subtle.digest(
+		"SHA-256",
+		new TextEncoder().encode(texte),
+	);
+	return [...new Uint8Array(octets)]
+		.map((octet) => octet.toString(16).padStart(2, "0"))
+		.join("");
+}
+
+/** Prix saisi, tel que l'app l'affiche en attendant le serveur (null s'il est vide ou illisible). */
+function prixSaisi(texte) {
+	const prix = Number(String(texte).replace(",", ".").trim());
+	return String(texte).trim() && Number.isFinite(prix) ? prix : null;
 }
 
 /** @param pourIds destinataires de l'idée (plusieurs : idée commune) */
@@ -1787,36 +1892,59 @@ async function enregistrerCadeau(evenement) {
 		}
 	}
 	const { cadeau: existant, pourIds } = app.edition;
-	$("#erreur-cadeau").textContent = "";
-	try {
-		cadeau.photo = await photoDuFormulaire();
-	} catch (erreur) {
-		$("#erreur-cadeau").textContent = erreur.message;
-		return;
-	}
-	const reussi = await modifier(
+	// Le formulaire se ferme aussitôt : sa photo est lue maintenant, réduite en arrière-plan.
+	const photo = {
+		photoSaisie: app.photoSaisie,
+		photoRetiree: app.photoRetiree,
+	};
+	const parametres = async () => {
+		const envoi = { ...cadeau, photo: await photoAEnvoyer(photo) };
+		return existant
+			? { cadeauId: existant.id, cadeau: envoi }
+			: { cadeau: envoi, pourIds };
+	};
+	// Carte affichée en attendant le serveur (« Enregistrement… »).
+	const affiche = {
+		...cadeau,
+		prix: prixSaisi(cadeau.prix),
+		familleIds: cadeau.familleIds ?? existant?.familleIds ?? [],
+		photo: photo.photoRetiree ? "" : (existant?.photo ?? ""),
+		provisoire: true,
+	};
+	const nouveau = {
+		...affiche,
+		id: `provisoire-${Date.now()}`,
+		pourIds,
+		ajouteParId: moi(),
+		statut: "actif",
+		reserveParIds: [],
+	};
+	const lance = modifierEnFond(
 		existant ? "modifier-cadeau" : "ajouter-cadeau",
-		existant ? { cadeauId: existant.id, cadeau } : { cadeau, pourIds },
-		existant
-			? "Idée modifiée."
-			: pourIds.length === 1 && pourIds[0] === moi()
-				? "Idée ajoutée à ta liste."
-				: `Idée ajoutée pour ${prenoms(pourIds)}.`,
-		(message) => {
-			$("#erreur-cadeau").textContent = message;
-		},
+		parametres,
+		(etat) => ({
+			...etat,
+			cadeaux: existant
+				? etat.cadeaux.map((c) =>
+						c.id === existant.id ? { ...c, ...affiche } : c,
+					)
+				: [...etat.cadeaux, nouveau],
+		}),
+		`« ${cadeau.titre} » n'a pas été enregistrée :`,
 	);
-	if (reussi) $("#dialogue-cadeau").close();
+	if (lance) $("#dialogue-cadeau").close();
 }
 
-async function supprimer(cadeau) {
-	if (!confirm(`Supprimer « ${cadeau.titre} » ?`)) return false;
-	return Boolean(
-		await modifier(
-			"supprimer-cadeau",
-			{ cadeauId: cadeau.id },
-			"Idée supprimée.",
-		),
+function supprimer(cadeau) {
+	if (!confirm(`Supprimer « ${cadeau.titre} » ?`)) return;
+	modifierEnFond(
+		"supprimer-cadeau",
+		async () => ({ cadeauId: cadeau.id }),
+		(etat) => ({
+			...etat,
+			cadeaux: etat.cadeaux.filter((c) => c.id !== cadeau.id),
+		}),
+		`« ${cadeau.titre} » n'a pas été supprimée :`,
 	);
 }
 
@@ -2420,6 +2548,8 @@ function afficherConnexionCompte(message = "", invitation = null) {
 /** Compte sans accès à Cadeaux : la session est gardée (elle sert aux autres apps). */
 function afficherRefus(message) {
 	app.etat = null;
+	etatServeur = null;
+	app.provisoires = [];
 	ecrireStockage(CLES.etat, null);
 	afficherPartieConnexion("refus");
 	$("#message-refus").textContent = message;
@@ -2502,6 +2632,8 @@ async function ajouterMoi(evenement) {
 /** Premier chargement, une fois l'appareil connecté (ou une invitation reçue). */
 async function chargerApresConnexion() {
 	app.etat = null;
+	etatServeur = null;
+	app.provisoires = [];
 	ecrireStockage(CLES.etat, null);
 	afficherAttente();
 	try {
@@ -2723,6 +2855,8 @@ function deconnecter(message = "") {
 	fermerMenu();
 	oublierConnexion();
 	app.etat = null;
+	etatServeur = null;
+	app.provisoires = [];
 	app.photos = {};
 	app.photosDemandees.clear();
 	// La version de l'API et la visite guidée déjà vue restent : elles ne disent rien du membre.
