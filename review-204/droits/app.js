@@ -18,8 +18,8 @@ import {
 	normaliser,
 	notifier,
 	remplacerContenu,
-	remplirCarteMenu,
 } from "../shared/dom.js";
+import { afficherProfil, brancherProfil } from "../shared/profil.js";
 import {
 	brancherInstallation,
 	enregistrerServiceWorker,
@@ -34,7 +34,11 @@ import { ouvrirSignalement } from "../shared/signalement.js";
 const app = {
 	/** { apps, comptes } renvoyé par l'API (action administration). */
 	administration: null,
-	occupe: false,
+	/**
+	 * Modifications envoyées une à une, dans l'ordre des clics : `file` (la dernière promesse) et
+	 * `restantes` (envoyées ou en attente).
+	 */
+	modifications: { file: Promise.resolve(), restantes: 0 },
 	/** Version de l'API, renvoyée avec chaque réponse (affichée avec celle de l'app). */
 	versionApi: null,
 	/** Onglet affiché, et liste des comptes : recherche, filtre, tri, comptes dépliés (Ids). */
@@ -93,6 +97,8 @@ async function actualiser() {
 	const bouton = $("#bouton-actualiser");
 	bouton.classList.add("tourne");
 	try {
+		// Après les modifications en attente : la liste les montre toutes.
+		await app.modifications.file;
 		app.administration = await appelerApi("administration");
 		afficherEcran("comptes");
 	} catch (erreur) {
@@ -102,21 +108,29 @@ async function actualiser() {
 	}
 }
 
-/** Lance une modification ; l'API renvoie la liste à jour. */
-async function modifier(action, parametres, messageSucces) {
-	if (app.occupe) return;
-	app.occupe = true;
-	try {
-		app.administration = await appelerApi(action, parametres);
-		notifier(messageSucces);
-	} catch (erreur) {
-		if (erreur instanceof ErreurReseau) notifier(erreur.message, true);
-		else traiterErreur(erreur);
-	} finally {
-		app.occupe = false;
-		// Liste à jour, ou remise des cases comme avant en cas d'échec.
-		if (app.administration) rendreComptes();
-	}
+/**
+ * Ajoute une modification à la file : elle part après les précédentes, sans en perdre aucune
+ * (plusieurs cases cochées vite, pendant qu'un appel est en cours). L'API renvoie à chaque fois la
+ * liste à jour ; elle n'est redessinée qu'une fois la file vide, pour ne pas décocher les cases
+ * encore en attente.
+ */
+function modifier(action, parametres, messageSucces) {
+	const modifications = app.modifications;
+	modifications.restantes++;
+	modifications.file = modifications.file.then(async () => {
+		try {
+			app.administration = await appelerApi(action, parametres);
+			notifier(messageSucces);
+		} catch (erreur) {
+			if (erreur instanceof ErreurReseau) notifier(erreur.message, true);
+			else traiterErreur(erreur);
+		} finally {
+			modifications.restantes--;
+			// Liste à jour, ou remise des cases comme avant pour celles qui ont échoué.
+			if (!modifications.restantes && app.administration) rendreComptes();
+		}
+	});
+	return modifications.file;
 }
 
 // ---------------------------------------------------------------------------
@@ -639,8 +653,7 @@ function afficherEcran(nom) {
 	$("#ecran-comptes").hidden = nom !== "comptes";
 	$("#bouton-actualiser").hidden = nom !== "comptes";
 	$("#bouton-menu").hidden = nom === "connexion";
-	const compte = compteConnecte();
-	remplirCarteMenu(compte?.prenom ?? "");
+	afficherProfil();
 	if (nom === "comptes") {
 		rendreComptes();
 		rendreInvitation();
@@ -752,6 +765,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherProfil();
 	brancherBoutonPortail();
 	// Lien de connexion d'un appareil (…#invitation=<code>), retiré aussitôt de l'adresse.
 	const invitation = invitationDuLien(location.hash);

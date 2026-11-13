@@ -29,6 +29,8 @@ import { ecrireStockage, lireStockage, lireStockageJson } from "./stockage.js";
 const CLES = {
 	session: "appscripts.session",
 	compte: "appscripts.compte",
+	/** Photo de profil du compte : { empreinte, image } (JPEG en base64), la même dans toutes les apps. */
+	photo: "appscripts.photo",
 	/** Accès du compte (apps ouvertes, liens des classeurs), gardés pour ne pas attendre l'API. */
 	acces: "appscripts.acces",
 	/** Modes de connexion activés, gardés pour afficher la connexion sans attendre l'API. */
@@ -60,11 +62,26 @@ const annoncerAcces = () => {
 	for (const ecouteur of ecouteursAcces) ecouteur(accesGardes());
 };
 
+/** Fonctions appelées quand le profil gardé change : prénom ou photo (voir profil.js). */
+const ecouteursProfil = new Set();
+const annoncerProfil = () => {
+	for (const ecouteur of ecouteursProfil) ecouteur();
+};
+
+/** Appelle `ecouteur` à chaque changement du profil gardé (prénom, photo, connexion). */
+export const surProfilChange = (ecouteur) => ecouteursProfil.add(ecouteur);
+
+/** Photo de profil du compte connecté (JPEG en base64), gardée sur l'appareil, ou null. */
+export const photoDuCompte = () => lireStockageJson(CLES.photo)?.image ?? null;
+
 function garderConnexion({ session, compte }) {
 	ecrireStockage(CLES.session, session);
 	ecrireStockage(CLES.compte, JSON.stringify(compte));
 	ecrireStockage(CLES.acces, null);
+	// Peut-être un autre compte : sa photo viendra avec moi (accesDuCompte).
+	ecrireStockage(CLES.photo, null);
 	annoncerAcces();
+	annoncerProfil();
 }
 
 /** Oublie la connexion de l'appareil (sans prévenir l'API). */
@@ -72,7 +89,9 @@ export function oublierConnexion() {
 	ecrireStockage(CLES.session, null);
 	ecrireStockage(CLES.compte, null);
 	ecrireStockage(CLES.acces, null);
+	ecrireStockage(CLES.photo, null);
 	annoncerAcces();
+	annoncerProfil();
 }
 
 /** L'API a refusé la session (fermée, compte bloqué) : il faut reconnecter l'appareil. */
@@ -110,18 +129,45 @@ export async function deconnecter() {
  * @throws Si l'API refuse (hors ligne, session fermée)
  */
 export async function accesDuCompte() {
-	const {
-		apps,
-		tableaux = [],
-		portail = false,
-	} = await appelerDroits("moi", {}, { discret: true });
+	const moi = await appelerDroits("moi", {}, { discret: true });
+	const { apps, tableaux = [], portail = false } = moi;
 	const acces = { apps, tableaux, portail };
 	// Déconnecté pendant l'appel : rien à garder.
 	if (lireSession()) {
 		ecrireStockage(CLES.acces, JSON.stringify(acces));
 		annoncerAcces();
+		garderProfil(moi).catch(() => {});
 	}
 	return acces;
+}
+
+/**
+ * Garde le profil reçu de l'API (moi, modifier-profil) : le prénom (changé peut-être dans une autre
+ * app), et la photo quand son empreinte n'est plus celle gardée. L'image est alors demandée à part
+ * (action photo-profil, appel discret), sauf si elle est connue (`image`).
+ * @param profil { prenom, photo } (photo : l'empreinte, vide sans photo)
+ */
+async function garderProfil({ prenom, photo: empreinte = "" }, image = null) {
+	const compte = compteConnecte();
+	if (!compte) return;
+	if (prenom && prenom !== compte.prenom) {
+		ecrireStockage(CLES.compte, JSON.stringify({ ...compte, prenom }));
+	}
+	if ((lireStockageJson(CLES.photo)?.empreinte ?? "") !== empreinte) {
+		const photo =
+			!empreinte || image
+				? { empreinte, photo: image ?? "" }
+				: await appelerDroits("photo-profil", {}, { discret: true });
+		// Déconnecté pendant l'appel : rien à garder.
+		if (!lireSession()) return;
+		ecrireStockage(
+			CLES.photo,
+			photo.empreinte
+				? JSON.stringify({ empreinte: photo.empreinte, image: photo.photo })
+				: null,
+		);
+	}
+	annoncerProfil();
 }
 
 /** Accès du compte à la dernière réponse de l'API (voir accesDuCompte), ou null. */
@@ -145,11 +191,15 @@ export function brancherBoutonPortail({ rafraichir = true } = {}) {
 	if (rafraichir && lireSession()) accesDuCompte().catch(() => {});
 }
 
-/** Change le prénom du compte connecté. @return Le compte à jour */
-export async function modifierPrenom(prenom) {
-	const compte = await appelerDroits("modifier-profil", { prenom });
-	ecrireStockage(CLES.compte, JSON.stringify(compte));
-	return compte;
+/**
+ * Change le profil du compte connecté, le même dans toutes les apps : son prénom et sa photo.
+ * @param photo JPEG en base64, "" pour la retirer, undefined pour la garder
+ * @return Le compte à jour ({ id, prenom })
+ */
+export async function modifierProfil({ prenom, photo }) {
+	const profil = await appelerDroits("modifier-profil", { prenom, photo });
+	await garderProfil(profil, photo || null);
+	return compteConnecte();
 }
 
 /** Code d'invitation d'un lien de connexion (…#invitation=<code>), ou null. */
@@ -289,10 +339,11 @@ export function decrireAppareil(nomApp) {
 /**
  * Modes de connexion activés ({ code, lien, qr, biometrie }) : ceux gardés de la dernière réponse
  * de l'API (ou tous), et une promesse de ceux de l'API.
+ * @param discret sans barre de chargement (l'écran affiche déjà les modes gardés)
  */
-function modesConnexion() {
+function modesConnexion({ discret = false } = {}) {
 	const garde = lireStockageJson(CLES.modes) ?? MODES_PAR_DEFAUT;
-	const frais = appelerDroits("modes-connexion")
+	const frais = appelerDroits("modes-connexion", {}, { discret })
 		.then((modes) => {
 			ecrireStockage(CLES.modes, JSON.stringify(modes));
 			return modes;
@@ -430,7 +481,11 @@ export function brancherBiometrie(bouton, nomApp) {
 		if (bouton.hidden || activee() || fraiche) return;
 		preparation = null;
 		try {
-			preparation = await appelerDroits("preparer-biometrie");
+			preparation = await appelerDroits(
+				"preparer-biometrie",
+				{},
+				{ discret: true },
+			);
 			preparationObtenueLe = Date.now();
 		} catch {
 			// Sans défi (hors ligne) : il sera redemandé au toucher.
@@ -440,10 +495,12 @@ export function brancherBiometrie(bouton, nomApp) {
 	afficher();
 	montrer(lireStockageJson(CLES.modes) ?? MODES_PAR_DEFAUT);
 	const menu = bouton.closest(".menu") ?? bouton.parentElement;
+	// À chaque ouverture du menu, mise à jour de fond, sans barre de chargement : le menu s'affiche
+	// aussitôt avec ce qui est gardé.
 	new MutationObserver(async () => {
 		if (menu.hidden) return;
 		afficher();
-		await montrer(await modesConnexion().frais);
+		await montrer(await modesConnexion({ discret: true }).frais);
 		preparer();
 	}).observe(menu, { attributes: true, attributeFilter: ["hidden"] });
 

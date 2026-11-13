@@ -10,7 +10,6 @@ import {
 	estSessionRefusee,
 	invitationDuLien,
 	lireSession,
-	modifierPrenom,
 	oublierConnexion,
 	ouvrirInvitation,
 } from "../shared/connexion.js";
@@ -29,9 +28,9 @@ import {
 	normaliser,
 	notifier,
 	remplacerContenu,
-	remplirCarteMenu,
 } from "../shared/dom.js";
 import { reduireImage } from "../shared/image.js";
+import { afficherProfil, brancherProfil } from "../shared/profil.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -995,23 +994,8 @@ async function seDeconnecter() {
 	deconnecter();
 }
 
-async function changerPrenom() {
-	fermerMenu();
-	const prenom = prompt("Ton prénom :", app.etat?.moi?.prenom ?? "");
-	if (prenom === null) return;
-	try {
-		await modifierPrenom(prenom);
-		await actualiser();
-		afficherCompte();
-		notifier("Prénom enregistré.");
-	} catch (erreur) {
-		notifier(erreur.message, true);
-	}
-}
-
 function afficherCompte() {
-	const compte = compteConnecte();
-	remplirCarteMenu(compte?.prenom ?? "");
+	afficherProfil();
 }
 
 function fermerMenu() {
@@ -1112,7 +1096,6 @@ function brancherEvenements() {
 	document.addEventListener("keydown", (e) => {
 		if (e.key === "Escape") fermerMenu();
 	});
-	$("#menu-prenom").addEventListener("click", changerPrenom);
 	$("#menu-inviter").addEventListener("click", () => {
 		fermerMenu();
 		ouvrirInvitation("Maison");
@@ -1145,6 +1128,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherProfil({ apresEnregistrement: actualiser });
 	brancherBoutonPortail();
 	const invitation = invitationDuLien(location.hash);
 	history.replaceState(null, "", location.pathname);

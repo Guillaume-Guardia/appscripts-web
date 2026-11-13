@@ -1,6 +1,7 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
 import { brancherBalayage, voisin } from "../shared/balayage.js";
 import {
+	accesDuCompte,
 	afficherConnexion as afficherFormulaireConnexion,
 	brancherBiometrie,
 	brancherBoutonPortail,
@@ -26,6 +27,7 @@ import {
 	remplacerContenu,
 } from "../shared/dom.js";
 import { reduireImageSous } from "../shared/image.js";
+import { choixPhotoProfil } from "../shared/profil.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -66,12 +68,6 @@ const REDUCTIONS_PHOTO = [
 	[320, 0.5],
 	[240, 0.4],
 ];
-/** Photo de profil : affichée en petit (en-tête, onglet Famille), elle reste plus légère. */
-const REDUCTIONS_PROFIL = [
-	[256, 0.8],
-	[192, 0.7],
-	[128, 0.6],
-];
 /** Une photo est gardée dans une cellule du classeur (limite vérifiée aussi par l'API). */
 const LONGUEUR_MAX_PHOTO = 45000;
 
@@ -100,9 +96,16 @@ const app = {
 	filtreDisponibles: "",
 	triDisponibles: "priorite",
 	filtreHistorique: "",
+	/** Cadeau offert en cours de modification (null : un nouveau). */
+	entreeEditee: null,
 	selection: new Set(),
 	/** Idée en cours d'édition : { cadeau, pourIds }. */
 	edition: null,
+	/**
+	 * Modifications affichées avant la réponse de l'API (voir modifierEnFond) : chacune transforme
+	 * l'état reçu du serveur en état affiché.
+	 */
+	provisoires: [],
 	/** Photo prise ou choisie dans le formulaire d'une idée, pas encore envoyée. */
 	photoSaisie: null,
 	/** Vrai quand le formulaire demande de retirer la photo de l'idée. */
@@ -120,6 +123,11 @@ const app = {
 	visite: false,
 };
 
+/** Dernier état reçu de l'API ; app.etat y ajoute les modifications provisoires. */
+let etatServeur = null;
+/** Modifications en attente de l'API, envoyées une à une dans l'ordre (voir modifierEnFond). */
+let fileModifications = Promise.resolve();
+
 const etatEnCache = lireStockageJson(CLES.etat);
 if (
 	etatEnCache?.moi &&
@@ -128,6 +136,7 @@ if (
 	Array.isArray(etatEnCache.secretSantas)
 ) {
 	app.etat = etatEnCache;
+	etatServeur = etatEnCache;
 }
 
 // ---------------------------------------------------------------------------
@@ -183,13 +192,14 @@ function traiterErreurConnexion(erreur) {
 }
 
 function appliquerEtat(etat) {
-	app.etat = etat;
+	etatServeur = etat;
+	app.etat = avecProvisoires(etat);
 	app.horsLigne = false;
 	ecrireStockage(CLES.etat, JSON.stringify(etat));
 	ecrireStockage(CLES.compte, compteConnecte()?.id ?? null);
 	// La clé d'invitation a servi (ou le compte était déjà lié) : plus besoin de l'envoyer.
 	if (app.cle) garderCle(null);
-	const ids = new Set(etat.cadeaux.map((c) => c.id));
+	const ids = new Set(app.etat.cadeaux.map((c) => c.id));
 	for (const id of app.selection) if (!ids.has(id)) app.selection.delete(id);
 	afficherBandeauHorsLigne();
 	rendre();
@@ -309,6 +319,61 @@ async function modifier(
 		app.occupe = false;
 		document.body.style.cursor = "";
 	}
+}
+
+const avecProvisoires = (etat) =>
+	app.provisoires.reduce((affiche, provisoire) => provisoire(affiche), etat);
+
+function afficherProvisoires() {
+	if (!etatServeur) return;
+	app.etat = avecProvisoires(etatServeur);
+	rendre();
+}
+
+/**
+ * Modification affichée aussitôt, puis envoyée à l'API en arrière-plan : l'app n'attend pas les
+ * quelques secondes de la Web App. Les envois partent un à un, dans l'ordre ; chaque réponse
+ * remplace l'affichage provisoire par l'état du serveur. En cas d'échec, la modification disparaît
+ * et un message l'explique.
+ * @param parametres async () => les paramètres de l'appel, préparés en arrière-plan (ex : photo
+ * réduite) ; une erreur annule la modification
+ * @param provisoire (etat) => l'état avec la modification, affiché en attendant
+ * @param echec début du message d'erreur (ex : « « Vélo » n'a pas été enregistrée : »)
+ * @return Faux si l'app est hors ligne (rien n'est fait)
+ */
+function modifierEnFond(action, parametres, provisoire, echec) {
+	if (app.horsLigne) {
+		notifier(
+			"Hors ligne : les modifications reviendront avec la connexion.",
+			true,
+		);
+		return false;
+	}
+	app.provisoires.push(provisoire);
+	afficherProvisoires();
+	const retirer = () => {
+		app.provisoires = app.provisoires.filter((p) => p !== provisoire);
+	};
+	fileModifications = fileModifications.then(async () => {
+		try {
+			const { etat } = await appelerApi(action, await parametres(), {
+				discret: true,
+			});
+			retirer();
+			// Déconnecté entre-temps : rien à afficher.
+			if (etatServeur) appliquerEtat(etat);
+		} catch (erreur) {
+			retirer();
+			afficherProvisoires();
+			if (traiterErreurConnexion(erreur)) return;
+			notifier(`${echec} ${erreur.message}`, true);
+			if (erreur instanceof ErreurReseau) {
+				app.horsLigne = true;
+				afficherBandeauHorsLigne();
+			}
+		}
+	});
+	return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -453,15 +518,8 @@ function prenoms(ids) {
 const estPourMoi = (cadeau) => cadeau.pourIds.includes(moi());
 const offreurs = (cadeau) => cadeau.reserveParIds ?? [];
 
-/**
- * Même règle que le serveur : ses idées et suggestions, les souhaits communs dont on est
- * destinataire, et les idées des proches sans compte.
- */
-function peutModifier(cadeau) {
-	if (cadeau.ajouteParId === moi()) return true;
-	if (estPourMoi(cadeau)) return cadeau.pourIds.includes(cadeau.ajouteParId);
-	return cadeau.pourIds.every((id) => personne(id)?.compte === false);
-}
+/** Même règle que le serveur : seul l'auteur d'une idée (souhait ou suggestion) la modifie. */
+const peutModifier = (cadeau) => cadeau.ajouteParId === moi();
 
 function parPriorite(a, b) {
 	return a.priorite - b.priorite || a.titre.localeCompare(b.titre, "fr");
@@ -535,27 +593,49 @@ function carteCadeau(cadeau, { pour, selectionnable = false }) {
 		ENVIES[cadeau.priorite] ?? "",
 	);
 
-	if (pour === "moi") {
-		actions.append(
-			el(
-				"button",
-				{
-					type: "button",
-					class: "bouton petit",
-					onclick: () => ouvrirFormulaireCadeau(cadeau),
-				},
-				"Modifier",
-			),
-			el(
-				"button",
-				{
-					type: "button",
-					class: "bouton petit danger",
-					onclick: () => supprimer(cadeau),
-				},
-				"Supprimer",
-			),
+	// Les idées qu'il a ajoutées (souhaits et suggestions) : crayon et croix en haut à droite ; pas
+	// tant qu'elles sont en cours d'enregistrement.
+	const icones =
+		pour !== "reservation" &&
+		!retire &&
+		!cadeau.provisoire &&
+		peutModifier(cadeau)
+			? el(
+					"div",
+					{ class: "carte-icones" },
+					el(
+						"button",
+						{
+							type: "button",
+							class: "icone-modifier",
+							"aria-label": `Modifier ${cadeau.titre}`,
+							title: "Modifier",
+							onclick: () => ouvrirFormulaireCadeau(cadeau),
+						},
+						"✎",
+					),
+					el(
+						"button",
+						{
+							type: "button",
+							class: "icone-supprimer",
+							"aria-label": `Supprimer ${cadeau.titre}`,
+							title: "Supprimer",
+							onclick: () => supprimer(cadeau),
+						},
+						"×",
+					),
+				)
+			: null;
+
+	if (cadeau.provisoire) {
+		etiquette = el(
+			"span",
+			{ class: "badge enregistrement" },
+			"Enregistrement…",
 		);
+	} else if (pour === "moi") {
+		// Rien d'autre : sur sa propre liste, ni réservation ni suggestion.
 	} else if (retire) {
 		etiquette = el("span", { class: "badge pris" }, "Retiré de la liste");
 		actions.append(
@@ -570,29 +650,6 @@ function carteCadeau(cadeau, { pour, selectionnable = false }) {
 			),
 		);
 	} else {
-		// Ses suggestions et les idées des proches sans compte : modifiables et supprimables ici.
-		if (pour === "autre" && peutModifier(cadeau)) {
-			actions.append(
-				el(
-					"button",
-					{
-						type: "button",
-						class: "bouton petit",
-						onclick: () => ouvrirFormulaireCadeau(cadeau),
-					},
-					"Modifier",
-				),
-				el(
-					"button",
-					{
-						type: "button",
-						class: "bouton petit danger",
-						onclick: () => supprimer(cadeau),
-					},
-					"Supprimer",
-				),
-			);
-		}
 		const autres = offreurs(cadeau).filter((id) => id !== moi());
 		if (offreurs(cadeau).includes(moi())) {
 			const avec = autres.length ? ` avec ${prenoms(autres)}` : "";
@@ -709,11 +766,15 @@ function carteCadeau(cadeau, { pour, selectionnable = false }) {
 					`Ta part ≈ ${prix(cadeau.prix / offreurs(cadeau).length)}`,
 				)
 			: null;
-	const libre = pour !== "moi" && !retire && offreurs(cadeau).length === 0;
+	const libre =
+		pour !== "moi" &&
+		!retire &&
+		!cadeau.provisoire &&
+		offreurs(cadeau).length === 0;
 	return el(
 		"article",
 		{
-			class: `carte${selectionne ? " selectionnee" : ""}${retire ? " retire" : ""}`,
+			class: `carte${selectionne ? " selectionnee" : ""}${retire ? " retire" : ""}${cadeau.provisoire ? " provisoire" : ""}`,
 		},
 		selectionnable && libre
 			? el(
@@ -735,6 +796,7 @@ function carteCadeau(cadeau, { pour, selectionnable = false }) {
 				{ class: "carte-haut" },
 				el("h3", { class: "carte-titre" }, cadeau.titre),
 				el("span", { class: "carte-prix" }, prix(cadeau.prix)),
+				icones,
 			),
 			photoCadeau(cadeau),
 			cadeau.description
@@ -796,6 +858,8 @@ function rendreMaListe() {
 			),
 		];
 	}
+	// Flottant en bas à droite, au-dessus des idées : toujours à portée, même en bas d'une longue liste.
+	ajouter.classList.add("flottant");
 	return [
 		el(
 			"p",
@@ -810,7 +874,7 @@ function rendreMaListe() {
 				)
 			: null,
 		...miens.map((c) => carteCadeau(c, { pour: "moi" })),
-		el("div", {}, ajouter),
+		ajouter,
 	];
 }
 
@@ -1352,7 +1416,7 @@ function rendreHistorique() {
 		{
 			type: "button",
 			class: "bouton principal",
-			onclick: ouvrirFormulaireHistorique,
+			onclick: () => ouvrirFormulaireHistorique(),
 		},
 		"+ Ajouter",
 	);
@@ -1417,7 +1481,7 @@ function rendreHistorique() {
 			),
 			ajouter,
 		),
-		el("p", { class: "discret" }, "Visible de toi seul."),
+		el("p", { class: "discret" }, "Visible par toi seul."),
 		[...annees].map(([annee, liste]) =>
 			el(
 				"section",
@@ -1458,8 +1522,20 @@ function rendreHistorique() {
 							"button",
 							{
 								type: "button",
+								class: "icone-modifier",
+								"aria-label": `Modifier ${e.details}`,
+								title: "Modifier",
+								onclick: () => ouvrirFormulaireHistorique(e),
+							},
+							"✎",
+						),
+						el(
+							"button",
+							{
+								type: "button",
 								class: "icone-supprimer",
 								"aria-label": `Supprimer ${e.details}`,
+								title: "Supprimer",
 								onclick: () => supprimerEntree(e),
 							},
 							"×",
@@ -1507,13 +1583,21 @@ function rendreEntete() {
 				f.nom,
 			),
 		),
-		el("button", {
-			type: "button",
-			class: "puce-ajout",
-			"aria-label": "Rejoindre ou créer une famille",
-			onclick: () => $("#dialogue-ajout-famille").showModal(),
-		}),
+		boutonAjoutFamille(),
 	);
+}
+
+const ouvrirAjoutFamille = () => $("#dialogue-ajout-famille").showModal();
+
+/** « + » rond pour rejoindre ou créer une famille (en-tête, Mon profil), dans des `.puces`. */
+function boutonAjoutFamille(onclick = ouvrirAjoutFamille) {
+	return el("button", {
+		type: "button",
+		class: "puce-ajout",
+		"aria-label": "Rejoindre ou créer une famille",
+		title: "Rejoindre ou créer une famille",
+		onclick,
+	});
 }
 
 function rendre() {
@@ -1529,7 +1613,15 @@ function rendre() {
 	pastille.hidden = nbReservations === 0;
 	pastille.textContent = String(nbReservations);
 
-	remplacerContenu($("#contenu"), ...RENDUS[app.onglet]());
+	const elements = RENDUS[app.onglet]().flat();
+	remplacerContenu(
+		$("#contenu"),
+		elements.filter((e) => !e?.classList?.contains("flottant")),
+	);
+	remplacerContenu(
+		$("#flottant"),
+		elements.filter((e) => e?.classList?.contains("flottant")),
+	);
 	rendreSelection();
 }
 
@@ -1654,12 +1746,18 @@ async function annuler(ids, message) {
 // Idées : ajout (pour soi ou pour un proche), modification, suppression
 // ---------------------------------------------------------------------------
 
-function afficherApercuPhoto(source) {
+/**
+ * Avec une photo : l'aperçu, la croix pour la retirer et le crayon pour la changer ; sans photo,
+ * les boutons pour en prendre ou en choisir une.
+ * @param avecPhoto vrai aussi quand l'idée a une photo pas encore reçue (sans aperçu)
+ */
+function afficherApercuPhoto(source, avecPhoto = Boolean(source)) {
 	const apercu = $("#apercu-photo");
 	apercu.hidden = !source;
 	if (source) apercu.src = source;
 	else apercu.removeAttribute("src");
-	$("#bouton-retirer-photo").hidden = !source;
+	$("#cadre-photo").hidden = !avecPhoto;
+	$("#choix-photo").hidden = avecPhoto;
 }
 
 function photoChoisieDansFormulaire(evenement) {
@@ -1678,15 +1776,39 @@ function retirerPhotoDuFormulaire() {
 	afficherApercuPhoto(null);
 }
 
-/** La photo à envoyer : l'image réduite, "" pour la retirer, undefined si elle ne change pas. */
-async function photoDuFormulaire() {
-	if (app.photoRetiree) return "";
-	if (!app.photoSaisie) return undefined;
-	return reduireImageSous(
-		app.photoSaisie,
+/**
+ * La photo à envoyer, d'après le formulaire tel qu'il était à l'enregistrement : l'image réduite,
+ * "" pour la retirer, undefined si elle ne change pas. Une nouvelle photo est gardée sur l'appareil
+ * sous son empreinte (la même que celle du serveur) : l'app n'a pas à la redemander.
+ */
+async function photoAEnvoyer({ photoSaisie, photoRetiree }) {
+	if (photoRetiree) return "";
+	if (!photoSaisie) return undefined;
+	const photo = await reduireImageSous(
+		photoSaisie,
 		REDUCTIONS_PHOTO,
 		LONGUEUR_MAX_PHOTO,
 	);
+	app.photos[await empreinteSha256(photo)] = photo;
+	ecrireStockage(CLES.photos, JSON.stringify(app.photos));
+	return photo;
+}
+
+/** Empreinte SHA-256 en hexadécimal, comme empreinteSha256 du projet shared (Apps Script). */
+async function empreinteSha256(texte) {
+	const octets = await crypto.subtle.digest(
+		"SHA-256",
+		new TextEncoder().encode(texte),
+	);
+	return [...new Uint8Array(octets)]
+		.map((octet) => octet.toString(16).padStart(2, "0"))
+		.join("");
+}
+
+/** Prix saisi, tel que l'app l'affiche en attendant le serveur (null s'il est vide ou illisible). */
+function prixSaisi(texte) {
+	const prix = Number(String(texte).replace(",", ".").trim());
+	return String(texte).trim() && Number.isFinite(prix) ? prix : null;
 }
 
 /** @param pourIds destinataires de l'idée (plusieurs : idée commune) */
@@ -1697,8 +1819,10 @@ function ouvrirFormulaireCadeau(cadeau, pourIds = cadeau?.pourIds ?? [moi()]) {
 	app.photoSaisie = null;
 	app.photoRetiree = false;
 	const photoActuelle = cadeau?.photo && app.photos[cadeau.photo];
-	afficherApercuPhoto(photoActuelle ? urlPhoto(photoActuelle) : null);
-	$("#bouton-retirer-photo").hidden = !cadeau?.photo;
+	afficherApercuPhoto(
+		photoActuelle ? urlPhoto(photoActuelle) : null,
+		Boolean(cadeau?.photo),
+	);
 	const pourMoi = pourIds.includes(moi());
 	const comptes = pourIds.filter((id) => id !== moi() && personne(id)?.compte);
 	$("#titre-dialogue").textContent = cadeau
@@ -1713,11 +1837,9 @@ function ouvrirFormulaireCadeau(cadeau, pourIds = cadeau?.pourIds ?? [moi()]) {
 				? `${prenoms(comptes)} ne ${comptes.length > 1 ? "verront" : "verra"} pas cette idée ; les autres pourront la réserver.`
 				: "Personne sans compte : l'idée rejoint sa liste.";
 	$("#erreur-cadeau").textContent = "";
-	$("#bouton-supprimer-cadeau").hidden = !cadeau;
-	// Seul l'auteur choisit les familles qui voient l'idée, parmi les siennes qui comptent un
+	// L'auteur choisit les familles qui voient l'idée, parmi les siennes qui comptent un
 	// destinataire (toutes cochées quand il n'en a limité aucune).
-	const possibles =
-		!cadeau || cadeau.ajouteParId === moi() ? famillesPossibles(pourIds) : [];
+	const possibles = famillesPossibles(pourIds);
 	const choisies = cadeau?.familleIds ?? [];
 	$("#champ-visible-par").hidden = possibles.length < 2;
 	$("#cadeau-familles").replaceChildren(
@@ -1766,66 +1888,115 @@ async function enregistrerCadeau(evenement) {
 		}
 	}
 	const { cadeau: existant, pourIds } = app.edition;
-	$("#erreur-cadeau").textContent = "";
-	try {
-		cadeau.photo = await photoDuFormulaire();
-	} catch (erreur) {
-		$("#erreur-cadeau").textContent = erreur.message;
-		return;
-	}
-	const reussi = await modifier(
+	// Le formulaire se ferme aussitôt : sa photo est lue maintenant, réduite en arrière-plan.
+	const photo = {
+		photoSaisie: app.photoSaisie,
+		photoRetiree: app.photoRetiree,
+	};
+	const parametres = async () => {
+		const envoi = { ...cadeau, photo: await photoAEnvoyer(photo) };
+		return existant
+			? { cadeauId: existant.id, cadeau: envoi }
+			: { cadeau: envoi, pourIds };
+	};
+	// Carte affichée en attendant le serveur (« Enregistrement… »).
+	const affiche = {
+		...cadeau,
+		prix: prixSaisi(cadeau.prix),
+		familleIds: cadeau.familleIds ?? existant?.familleIds ?? [],
+		photo: photo.photoRetiree ? "" : (existant?.photo ?? ""),
+		provisoire: true,
+	};
+	const nouveau = {
+		...affiche,
+		id: `provisoire-${Date.now()}`,
+		pourIds,
+		ajouteParId: moi(),
+		statut: "actif",
+		reserveParIds: [],
+	};
+	const lance = modifierEnFond(
 		existant ? "modifier-cadeau" : "ajouter-cadeau",
-		existant ? { cadeauId: existant.id, cadeau } : { cadeau, pourIds },
-		existant
-			? "Idée modifiée."
-			: pourIds.length === 1 && pourIds[0] === moi()
-				? "Idée ajoutée à ta liste."
-				: `Idée ajoutée pour ${prenoms(pourIds)}.`,
-		(message) => {
-			$("#erreur-cadeau").textContent = message;
-		},
+		parametres,
+		(etat) => ({
+			...etat,
+			cadeaux: existant
+				? etat.cadeaux.map((c) =>
+						c.id === existant.id ? { ...c, ...affiche } : c,
+					)
+				: [...etat.cadeaux, nouveau],
+		}),
+		`« ${cadeau.titre} » n'a pas été enregistrée :`,
 	);
-	if (reussi) $("#dialogue-cadeau").close();
+	if (lance) $("#dialogue-cadeau").close();
 }
 
-async function supprimer(cadeau) {
-	if (!confirm(`Supprimer « ${cadeau.titre} » ?`)) return false;
-	return Boolean(
-		await modifier(
-			"supprimer-cadeau",
-			{ cadeauId: cadeau.id },
-			"Idée supprimée.",
-		),
+function supprimer(cadeau) {
+	if (!confirm(`Supprimer « ${cadeau.titre} » ?`)) return;
+	modifierEnFond(
+		"supprimer-cadeau",
+		async () => ({ cadeauId: cadeau.id }),
+		(etat) => ({
+			...etat,
+			cadeaux: etat.cadeaux.filter((c) => c.id !== cadeau.id),
+		}),
+		`« ${cadeau.titre} » n'a pas été supprimée :`,
 	);
-}
-
-async function supprimerDepuisFormulaire() {
-	const { cadeau } = app.edition;
-	if (cadeau && (await supprimer(cadeau))) $("#dialogue-cadeau").close();
 }
 
 // ---------------------------------------------------------------------------
 // Historique
 // ---------------------------------------------------------------------------
 
-function ouvrirFormulaireHistorique() {
+/** @param entree cadeau offert à modifier ; absent pour en ajouter un */
+function ouvrirFormulaireHistorique(entree = null) {
+	app.entreeEditee = entree;
 	const form = $("#form-historique");
 	form.reset();
+	$("#titre-historique").textContent = entree
+		? "Modifier le cadeau offert"
+		: "Cadeau offert";
 	$("#erreur-historique").textContent = "";
-	form.date.value = versChampDate(aujourdhui());
-	const proches = app.etat.personnes
-		.filter((p) => p.id !== moi())
-		.sort((a, b) => a.prenom.localeCompare(b.prenom, "fr"));
-	$("#historique-personnes").replaceChildren(
-		...proches.map((p) =>
-			el(
-				"label",
-				{ class: "case-texte" },
-				el("input", { type: "checkbox", name: "destinataire", value: p.id }),
-				p.prenom,
-			),
-		),
+	const coches = new Set(
+		(entree?.destinataires ?? []).map((d) => d.id).filter(Boolean),
 	);
+	// Les proches, et les destinataires déjà là qui ne le sont plus (ils restent cochés).
+	const proches = new Map(
+		app.etat.personnes
+			.filter((p) => p.id !== moi())
+			.map((p) => [p.id, p.prenom]),
+	);
+	for (const d of entree?.destinataires ?? [])
+		if (d.id && !proches.has(d.id)) proches.set(d.id, d.nom);
+	$("#historique-personnes").replaceChildren(
+		...[...proches]
+			.sort((a, b) => a[1].localeCompare(b[1], "fr"))
+			.map(([id, prenom]) =>
+				el(
+					"label",
+					{ class: "case-texte" },
+					el("input", {
+						type: "checkbox",
+						name: "destinataire",
+						value: id,
+						checked: coches.has(id),
+					}),
+					prenom,
+				),
+			),
+	);
+	if (entree) {
+		form.details.value = entree.details;
+		form.date.value = versChamp(entree.date);
+		form.occasion.value = entree.occasion;
+		form.autres.value = entree.destinataires
+			.filter((d) => !d.id)
+			.map((d) => d.nom)
+			.join(", ");
+		form.prix.value = entree.prix ?? "";
+	} else {
+		form.date.value = versChampDate(aujourdhui());
+	}
 	$("#dialogue-historique").showModal();
 	form.details.focus();
 }
@@ -1843,10 +2014,11 @@ async function enregistrerHistorique(evenement) {
 		autresDestinataires: form.autres.value,
 		prix: form.prix.value,
 	};
+	const existante = app.entreeEditee;
 	const reussi = await modifier(
-		"ajouter-historique",
-		{ entree },
-		"Ajouté à ton historique.",
+		existante ? "modifier-historique" : "ajouter-historique",
+		existante ? { entreeId: existante.id, entree } : { entree },
+		existante ? "Cadeau offert modifié." : "Ajouté à ton historique.",
 		(message) => {
 			$("#erreur-historique").textContent = message;
 		},
@@ -2031,9 +2203,11 @@ async function supprimerSecretSanta(s) {
  * @param valider (valeurs, afficherErreur) => Promise<boolean> : vrai pour fermer
  * @param bas éléments affichés sous les champs
  */
+/** @param entete élément affiché à droite du titre et de l'aide (ex : la photo du profil) */
 function ouvrirDialogueSimple({
 	titre,
 	aide = "",
+	entete = null,
 	champs,
 	bas = [],
 	bouton = "Valider",
@@ -2042,6 +2216,7 @@ function ouvrirDialogueSimple({
 	fermerMenu();
 	$("#simple-titre").textContent = titre;
 	$("#simple-aide").textContent = aide;
+	remplacerContenu($("#simple-entete-droite"), entete);
 	$("#simple-valider").textContent = bouton;
 	$("#erreur-simple").textContent = "";
 	$("#simple-champs").replaceChildren(
@@ -2173,95 +2348,6 @@ function ouvrirAjoutPersonne() {
 	});
 }
 
-/**
- * Choix de la photo de profil dans « Mon profil » : prise avec l'appareil, choisie, ou retirée.
- * @return Les éléments à afficher, et `photo()` : l'image réduite à envoyer, "" pour la retirer,
- * undefined si elle ne change pas
- */
-function choixPhotoProfil(membre) {
-	let fichier = null;
-	let retiree = false;
-	const actuelle = membre.photo && app.photos[membre.photo];
-	const apercu = el("img", {
-		class: "apercu-photo apercu-profil",
-		alt: "",
-		src: actuelle ? urlPhoto(actuelle) : null,
-		hidden: !actuelle,
-	});
-	const retirer = el(
-		"button",
-		{
-			type: "button",
-			class: "bouton petit danger",
-			hidden: !membre.photo,
-			onclick: () => {
-				fichier = null;
-				retiree = Boolean(membre.photo);
-				apercu.hidden = true;
-				apercu.removeAttribute("src");
-				retirer.hidden = true;
-			},
-		},
-		"Retirer",
-	);
-	const champ = (attributs) =>
-		el("input", {
-			type: "file",
-			accept: "image/*",
-			hidden: true,
-			...attributs,
-			onchange: (evenement) => {
-				const choisi = evenement.target.files[0];
-				if (!choisi) return;
-				fichier = choisi;
-				retiree = false;
-				apercu.src = URL.createObjectURL(choisi);
-				apercu.hidden = false;
-				retirer.hidden = false;
-				// Vidé aussitôt : la même image peut être choisie de nouveau.
-				evenement.target.value = "";
-			},
-		});
-	const camera = champ({ capture: "user" });
-	const galerie = champ({});
-	return {
-		elements: [
-			el("p", { class: "sous-titre" }, "Ma photo"),
-			apercu,
-			el(
-				"div",
-				{ class: "choix-photo" },
-				el(
-					"button",
-					{
-						type: "button",
-						class: "bouton petit bouton-camera",
-						onclick: () => camera.click(),
-					},
-					"Prendre une photo",
-				),
-				el(
-					"button",
-					{
-						type: "button",
-						class: "bouton petit",
-						onclick: () => galerie.click(),
-					},
-					"Choisir une image",
-				),
-				retirer,
-			),
-			camera,
-			galerie,
-		],
-		photo: async () => {
-			if (retiree) return "";
-			if (!fichier) return undefined;
-			return reduireImageSous(fichier, REDUCTIONS_PROFIL, LONGUEUR_MAX_PHOTO);
-		},
-	};
-}
-
 function ouvrirProfil() {
 	const membre = app.etat.moi;
 	// Ferme le profil avant une autre action : le petit formulaire ne s'ouvre pas deux fois, et la
@@ -2270,11 +2356,22 @@ function ouvrirProfil() {
 		$("#dialogue-simple").close();
 		action();
 	};
-	const choixPhoto = choixPhotoProfil(membre);
+	// Photo du compte, la même dans toutes les apps (shared/profil.js).
+	const choixPhoto = choixPhotoProfil({
+		prenom: membre.prenom,
+		photo: (membre.photo && app.photos[membre.photo]) || null,
+	});
 	ouvrirDialogueSimple({
-		titre: `Mon profil : ${membre.prenom}`,
-		aide: "Ton anniversaire et ta photo s'affichent pour les membres de tes familles.",
+		titre: "Mon profil",
+		aide: "Ton prénom et ta photo sont aussi ceux de ton compte, dans toutes les apps. Ton anniversaire et ta photo s'affichent pour les membres de tes familles.",
+		entete: choixPhoto.element,
 		champs: [
+			{
+				nom: "prenom",
+				libelle: "Prénom",
+				maxlength: 40,
+				valeur: membre.prenom,
+			},
 			{
 				nom: "nom",
 				libelle: "Nom (facultatif)",
@@ -2291,8 +2388,16 @@ function ouvrirProfil() {
 			},
 		],
 		bas: [
-			...choixPhoto.elements,
-			el("p", { class: "sous-titre" }, "Mes familles"),
+			el(
+				"div",
+				{ class: "titre-familles" },
+				el("p", { class: "sous-titre" }, "Mes familles"),
+				el(
+					"div",
+					{ class: "puces" },
+					boutonAjoutFamille(puis(ouvrirAjoutFamille)),
+				),
+			),
 			...app.etat.familles.map((f) =>
 				el(
 					"button",
@@ -2306,20 +2411,6 @@ function ouvrirProfil() {
 					el("strong", {}, f.code),
 				),
 			),
-			el(
-				"div",
-				{ class: "ligne deux" },
-				el(
-					"button",
-					{ type: "button", class: "bouton", onclick: puis(ouvrirRejoindre) },
-					"Rejoindre",
-				),
-				el(
-					"button",
-					{ type: "button", class: "bouton", onclick: puis(ouvrirCreer) },
-					"Créer",
-				),
-			),
 		],
 		bouton: "Enregistrer",
 		valider: async (profil, erreur) => {
@@ -2329,7 +2420,7 @@ function ouvrirProfil() {
 				erreur(e.message);
 				return false;
 			}
-			return Boolean(
+			const enregistre = Boolean(
 				await modifier(
 					"modifier-profil",
 					{ profil },
@@ -2337,6 +2428,9 @@ function ouvrirProfil() {
 					erreur,
 				),
 			);
+			// Prénom et photo du compte, gardés pour les autres apps.
+			if (enregistre) accesDuCompte().catch(() => {});
+			return enregistre;
 		},
 	});
 }
@@ -2393,6 +2487,8 @@ function afficherConnexionCompte(message = "", invitation = null) {
 /** Compte sans accès à Cadeaux : la session est gardée (elle sert aux autres apps). */
 function afficherRefus(message) {
 	app.etat = null;
+	etatServeur = null;
+	app.provisoires = [];
 	ecrireStockage(CLES.etat, null);
 	afficherPartieConnexion("refus");
 	$("#message-refus").textContent = message;
@@ -2475,6 +2571,8 @@ async function ajouterMoi(evenement) {
 /** Premier chargement, une fois l'appareil connecté (ou une invitation reçue). */
 async function chargerApresConnexion() {
 	app.etat = null;
+	etatServeur = null;
+	app.provisoires = [];
 	ecrireStockage(CLES.etat, null);
 	afficherAttente();
 	try {
@@ -2696,6 +2794,8 @@ function deconnecter(message = "") {
 	fermerMenu();
 	oublierConnexion();
 	app.etat = null;
+	etatServeur = null;
+	app.provisoires = [];
 	app.photos = {};
 	app.photosDemandees.clear();
 	// La version de l'API et la visite guidée déjà vue restent : elles ne disent rien du membre.
@@ -2875,10 +2975,6 @@ function brancherEvenements() {
 	$("#bouton-scanner").addEventListener("click", ouvrirScanner);
 	$("#bouton-fermer-scanner").addEventListener("click", arreterScanner);
 	$("#dialogue-scanner").addEventListener("cancel", arreterScanner);
-	$("#bouton-supprimer-cadeau").addEventListener(
-		"click",
-		supprimerDepuisFormulaire,
-	);
 	$("#form-cadeau").addEventListener("submit", enregistrerCadeau);
 	$("#bouton-camera").addEventListener("click", () =>
 		$("#champ-camera").click(),
@@ -2892,6 +2988,10 @@ function brancherEvenements() {
 	$("#bouton-retirer-photo").addEventListener(
 		"click",
 		retirerPhotoDuFormulaire,
+	);
+	// Sur téléphone, le sélecteur propose aussi l'appareil photo.
+	$("#bouton-changer-photo").addEventListener("click", () =>
+		$("#champ-photo").click(),
 	);
 	$("#form-historique").addEventListener("submit", enregistrerHistorique);
 	$("#form-secret-santa").addEventListener("submit", enregistrerSecretSanta);

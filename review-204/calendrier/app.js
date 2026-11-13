@@ -27,9 +27,9 @@ import {
 	masquerBandeau,
 	notifier,
 	remplacerContenu,
-	remplirCarteMenu,
 } from "../shared/dom.js";
 import { reduireImage } from "../shared/image.js";
+import { afficherProfil, brancherProfil } from "../shared/profil.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -636,8 +636,7 @@ function afficherEcran(nom) {
 	$("#ecran-planning").hidden = nom !== "planning";
 	$("#bouton-actualiser").hidden = nom !== "planning";
 	$("#bouton-menu").hidden = nom === "connexion";
-	const compte = compteConnecte();
-	remplirCarteMenu(compte?.prenom ?? "");
+	afficherProfil();
 	if (nom === "planning") rendrePlanning();
 }
 
@@ -788,6 +787,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherProfil();
 	brancherBoutonPortail();
 	// Lien de connexion d'un appareil (…#invitation=<code>), retiré aussitôt de l'adresse.
 	const invitation = invitationDuLien(location.hash);

@@ -137,6 +137,9 @@
 		</header>
 
 		<main id="contenu" class="contenu" aria-live="polite"></main>
+		<!-- Bouton flottant de l'onglet affiché, hors de #contenu : le balayage anime #contenu, ce qui
+		     déplacerait un élément fixe qui s'y trouve. -->
+		<div id="flottant"></div>
 
 		<div id="barre-selection" class="barre-selection" hidden>
 			<p id="resume-selection"></p>
@@ -195,11 +198,14 @@
 			</div>
 			<fieldset class="destinataires">
 				<legend>Photo <span class="discret">(facultative)</span></legend>
-				<img id="apercu-photo" class="apercu-photo" alt="" hidden>
-				<div class="choix-photo">
+				<div id="cadre-photo" class="cadre-photo" hidden>
+					<img id="apercu-photo" class="apercu-photo" alt="" hidden>
+					<button type="button" id="bouton-retirer-photo" class="pastille-photo retirer" aria-label="Retirer la photo" title="Retirer la photo">×</button>
+					<button type="button" id="bouton-changer-photo" class="pastille-photo modifier" aria-label="Changer la photo" title="Changer la photo">✎</button>
+				</div>
+				<div id="choix-photo" class="choix-photo">
 					<button type="button" id="bouton-camera" class="bouton petit">Prendre une photo</button>
 					<button type="button" id="bouton-galerie" class="bouton petit">Choisir une image</button>
-					<button type="button" id="bouton-retirer-photo" class="bouton petit danger" hidden>Retirer</button>
 				</div>
 				<input id="champ-camera" type="file" accept="image/*" capture="environment" hidden>
 				<input id="champ-photo" type="file" accept="image/*" hidden>
@@ -210,8 +216,6 @@
 			</fieldset>
 			<p id="erreur-cadeau" class="erreur" role="alert"></p>
 			<div class="ligne fin">
-				<button type="button" id="bouton-supprimer-cadeau" class="bouton danger" hidden>Supprimer</button>
-				<span class="espace"></span>
 				<button type="button" class="bouton" data-fermer>Annuler</button>
 				<button type="submit" class="bouton principal">Enregistrer</button>
 			</div>
@@ -244,7 +248,7 @@
 	<!-- Formulaire d'un cadeau offert (historique) -->
 	<dialog id="dialogue-historique" class="dialogue">
 		<form id="form-historique" method="dialog" class="pile">
-			<h2>Cadeau offert</h2>
+			<h2 id="titre-historique">Cadeau offert</h2>
 			<label for="historique-details">Quoi ?</label>
 			<input id="historique-details" name="details" maxlength="300" required>
 			<div class="ligne deux">
@@ -323,9 +327,15 @@
 	<!-- Petit formulaire générique (rejoindre / créer une famille, ajouter une personne) -->
 	<dialog id="dialogue-simple" class="dialogue">
 		<form id="form-simple" method="dialog" class="pile">
-			<!-- biome-ignore lint/a11y/useHeadingContent: titre écrit par app.js à chaque ouverture. -->
-			<h2 id="simple-titre"></h2>
-			<p id="simple-aide" class="discret"></p>
+			<div class="simple-entete">
+				<div class="pile">
+					<!-- biome-ignore lint/a11y/useHeadingContent: titre écrit par app.js à chaque ouverture. -->
+					<h2 id="simple-titre"></h2>
+					<p id="simple-aide" class="discret"></p>
+				</div>
+				<!-- À droite du titre (ex : la photo de « Mon profil »), vide sinon. -->
+				<div id="simple-entete-droite"></div>
+			</div>
 			<div id="simple-champs" class="pile"></div>
 			<p id="erreur-simple" class="erreur" role="alert"></p>
 			<div class="ligne fin">

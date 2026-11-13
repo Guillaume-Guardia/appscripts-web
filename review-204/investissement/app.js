@@ -4,13 +4,8 @@ import {
 	connecterUnAutreAppareil,
 	exigerAccesApp,
 } from "../shared/connexion.js";
-import {
-	$,
-	el,
-	notifier,
-	remplacerContenu,
-	remplirCarteMenu,
-} from "../shared/dom.js";
+import { $, el, notifier, remplacerContenu } from "../shared/dom.js";
+import { afficherProfil, brancherProfil } from "../shared/profil.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -358,9 +353,10 @@ afficherVersion();
 afficher();
 enregistrerServiceWorker();
 // Réservée aux comptes qui ont accès à Investissement (onglet Droits du projet droits).
+brancherProfil();
 const acces = exigerAccesApp({
 	cle: "investissement",
 	nomApp: "Investissement",
-	surOuverte: (compte) => remplirCarteMenu(compte?.prenom ?? ""),
+	surOuverte: () => afficherProfil(),
 });
 brancherEvenements();
