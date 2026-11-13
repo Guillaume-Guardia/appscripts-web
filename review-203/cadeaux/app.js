@@ -455,15 +455,8 @@ function prenoms(ids) {
 const estPourMoi = (cadeau) => cadeau.pourIds.includes(moi());
 const offreurs = (cadeau) => cadeau.reserveParIds ?? [];
 
-/**
- * Même règle que le serveur : ses idées et suggestions, les souhaits communs dont on est
- * destinataire, et les idées des proches sans compte.
- */
-function peutModifier(cadeau) {
-	if (cadeau.ajouteParId === moi()) return true;
-	if (estPourMoi(cadeau)) return cadeau.pourIds.includes(cadeau.ajouteParId);
-	return cadeau.pourIds.every((id) => personne(id)?.compte === false);
-}
+/** Même règle que le serveur : seul l'auteur d'une idée (souhait ou suggestion) la modifie. */
+const peutModifier = (cadeau) => cadeau.ajouteParId === moi();
 
 function parPriorite(a, b) {
 	return a.priorite - b.priorite || a.titre.localeCompare(b.titre, "fr");
@@ -537,37 +530,36 @@ function carteCadeau(cadeau, { pour, selectionnable = false }) {
 		ENVIES[cadeau.priorite] ?? "",
 	);
 
-	// Ses idées, ses suggestions et celles des proches sans compte : crayon et croix en haut à droite.
-	const modifiable =
-		pour === "moi" || (pour === "autre" && !retire && peutModifier(cadeau));
-	const icones = modifiable
-		? el(
-				"div",
-				{ class: "carte-icones" },
-				el(
-					"button",
-					{
-						type: "button",
-						class: "icone-modifier",
-						"aria-label": `Modifier ${cadeau.titre}`,
-						title: "Modifier",
-						onclick: () => ouvrirFormulaireCadeau(cadeau),
-					},
-					"✎",
-				),
-				el(
-					"button",
-					{
-						type: "button",
-						class: "icone-supprimer",
-						"aria-label": `Supprimer ${cadeau.titre}`,
-						title: "Supprimer",
-						onclick: () => supprimer(cadeau),
-					},
-					"×",
-				),
-			)
-		: null;
+	// Les idées qu'il a ajoutées (souhaits et suggestions) : crayon et croix en haut à droite.
+	const icones =
+		pour !== "reservation" && !retire && peutModifier(cadeau)
+			? el(
+					"div",
+					{ class: "carte-icones" },
+					el(
+						"button",
+						{
+							type: "button",
+							class: "icone-modifier",
+							"aria-label": `Modifier ${cadeau.titre}`,
+							title: "Modifier",
+							onclick: () => ouvrirFormulaireCadeau(cadeau),
+						},
+						"✎",
+					),
+					el(
+						"button",
+						{
+							type: "button",
+							class: "icone-supprimer",
+							"aria-label": `Supprimer ${cadeau.titre}`,
+							title: "Supprimer",
+							onclick: () => supprimer(cadeau),
+						},
+						"×",
+					),
+				)
+			: null;
 
 	if (pour === "moi") {
 		// Rien d'autre : sur sa propre liste, ni réservation ni suggestion.
@@ -1736,10 +1728,9 @@ function ouvrirFormulaireCadeau(cadeau, pourIds = cadeau?.pourIds ?? [moi()]) {
 				? `${prenoms(comptes)} ne ${comptes.length > 1 ? "verront" : "verra"} pas cette idée ; les autres pourront la réserver.`
 				: "Personne sans compte : l'idée rejoint sa liste.";
 	$("#erreur-cadeau").textContent = "";
-	// Seul l'auteur choisit les familles qui voient l'idée, parmi les siennes qui comptent un
+	// L'auteur choisit les familles qui voient l'idée, parmi les siennes qui comptent un
 	// destinataire (toutes cochées quand il n'en a limité aucune).
-	const possibles =
-		!cadeau || cadeau.ajouteParId === moi() ? famillesPossibles(pourIds) : [];
+	const possibles = famillesPossibles(pourIds);
 	const choisies = cadeau?.familleIds ?? [];
 	$("#champ-visible-par").hidden = possibles.length < 2;
 	$("#cadeau-familles").replaceChildren(
