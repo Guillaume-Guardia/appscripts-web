@@ -296,8 +296,9 @@ h3 {
 	background: var(--surface-2);
 }
 
-/* Rond du compte : l'initiale du prénom */
+/* Rond du compte : l'initiale du prénom, recouverte par sa photo quand il en a une (profil.js) */
 .avatar {
+	position: relative;
 	display: grid;
 	place-items: center;
 	flex: none;
@@ -305,6 +306,83 @@ h3 {
 	overflow: hidden;
 	font-weight: 700;
 	line-height: 1;
+}
+.avatar img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+/* Bouton du menu, dans l'en-tête : le rond du compte */
+#bouton-menu .avatar {
+	width: 34px;
+	height: 34px;
+	background: var(--sur-entete);
+	color: var(--entete);
+	font-size: 1rem;
+}
+
+/* « Mon profil » : la photo (ou l'initiale), une croix pour la retirer, un crayon pour la changer */
+.profil-photo {
+	display: flex;
+	justify-content: center;
+	margin: 8px 0 4px;
+}
+.cadre-photo {
+	position: relative;
+	width: 96px;
+	height: 96px;
+	border-radius: 10px;
+	background: var(--surface-2);
+}
+.cadre-photo.rond {
+	border-radius: 50%;
+}
+.photo-profil {
+	flex: none;
+	display: grid;
+	place-items: center;
+}
+.photo-profil img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	object-fit: cover;
+}
+.initiale-profil {
+	font-size: 2.2rem;
+	font-weight: 700;
+	color: var(--texte-doux);
+}
+.pastille-photo {
+	position: absolute;
+	right: -6px;
+	display: grid;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+	min-height: 0;
+	padding: 0;
+	border: 2px solid var(--fond);
+	border-radius: 50%;
+	background: var(--surface);
+	color: var(--texte);
+	box-shadow: var(--ombre);
+	font: inherit;
+	font-size: 1rem;
+	line-height: 1;
+	cursor: pointer;
+}
+.pastille-photo.retirer {
+	top: -6px;
+	color: var(--danger);
+	font-size: 1.3rem;
+}
+.pastille-photo.modifier {
+	bottom: -6px;
 }
 
 /* Menu : carte du compte en haut (rond + prénom), puis des sections titrées */
@@ -594,6 +672,11 @@ textarea {
 	background: var(--surface);
 	color: var(--texte);
 	box-shadow: var(--ombre);
+}
+
+/* Fenêtre qui reçoit le focus à l'ouverture (« Mon profil ») : pas de contour autour d'elle. */
+.dialogue:focus {
+	outline: none;
 }
 
 .dialogue::backdrop {

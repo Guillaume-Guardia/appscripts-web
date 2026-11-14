@@ -16,13 +16,8 @@ import {
 	lireSession,
 	oublierConnexion,
 } from "../shared/connexion.js";
-import {
-	$,
-	el,
-	notifier,
-	remplacerContenu,
-	remplirCarteMenu,
-} from "../shared/dom.js";
+import { $, el, notifier, remplacerContenu } from "../shared/dom.js";
+import { afficherProfil, brancherProfil } from "../shared/profil.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -478,8 +473,7 @@ function afficherEcran(nom) {
 	}
 	$("#bouton-actualiser").hidden = nom !== "app";
 	$("#bouton-menu").hidden = nom === "connexion";
-	const compte = compteConnecte();
-	remplirCarteMenu(compte?.prenom ?? "");
+	afficherProfil();
 }
 
 /** Charge l'état ; celui gardé sur l'appareil reste affiché pendant ce temps, et hors ligne. */
@@ -626,6 +620,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherProfil();
 	brancherBoutonPortail();
 	// Lien de connexion d'un appareil (…#invitation=<code>), retiré aussitôt de l'adresse.
 	const invitation = invitationDuLien(location.hash);

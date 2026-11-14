@@ -15,10 +15,11 @@ import {
 import {
 	$,
 	el,
+	normaliser,
 	notifier,
 	remplacerContenu,
-	remplirCarteMenu,
 } from "../shared/dom.js";
+import { afficherProfil, brancherProfil } from "../shared/profil.js";
 import {
 	brancherInstallation,
 	enregistrerServiceWorker,
@@ -33,10 +34,43 @@ import { ouvrirSignalement } from "../shared/signalement.js";
 const app = {
 	/** { apps, comptes } renvoyé par l'API (action administration). */
 	administration: null,
-	occupe: false,
+	/**
+	 * Modifications envoyées une à une, dans l'ordre des clics : `file` (la dernière promesse) et
+	 * `restantes` (envoyées ou en attente).
+	 */
+	modifications: { file: Promise.resolve(), restantes: 0 },
 	/** Version de l'API, renvoyée avec chaque réponse (affichée avec celle de l'app). */
 	versionApi: null,
+	/** Onglet affiché, et liste des comptes : recherche, filtre, tri, comptes dépliés (Ids). */
+	vue: {
+		onglet: "comptes",
+		recherche: "",
+		filtre: "tous",
+		tri: "prenom",
+		ouverts: new Set(),
+	},
 };
+
+/** Prénom et nom d'un compte (« Max Rolland », ou « Max » sans nom). */
+const nomComplet = ({ prenom, nom }) => [prenom, nom].filter(Boolean).join(" ");
+
+/** Filtres de la liste des comptes (puces sous la recherche). */
+const FILTRES = [
+	{ cle: "tous", nom: "Tous", garde: () => true },
+	{ cle: "bloques", nom: "Bloqués", garde: (compte) => compte.bloque },
+	{
+		cle: "sans-app",
+		nom: "Sans app",
+		garde: (compte) => !compte.toutes && !compte.apps.length,
+	},
+	{
+		cle: "sans-appareil",
+		nom: "Sans appareil",
+		garde: (compte) => compte.appareils === 0,
+	},
+];
+
+const pluriel = (nombre, mot) => `${nombre} ${mot}${nombre > 1 ? "s" : ""}`;
 
 /** Compte connecté sans accès à l'app droits (MESSAGE_ACCES_REFUSE du projet shared). */
 const estAccesRefuse = (erreur) =>
@@ -66,6 +100,8 @@ async function actualiser() {
 	const bouton = $("#bouton-actualiser");
 	bouton.classList.add("tourne");
 	try {
+		// Après les modifications en attente : la liste les montre toutes.
+		await app.modifications.file;
 		app.administration = await appelerApi("administration");
 		afficherEcran("comptes");
 	} catch (erreur) {
@@ -75,21 +111,29 @@ async function actualiser() {
 	}
 }
 
-/** Lance une modification ; l'API renvoie la liste à jour. */
-async function modifier(action, parametres, messageSucces) {
-	if (app.occupe) return;
-	app.occupe = true;
-	try {
-		app.administration = await appelerApi(action, parametres);
-		notifier(messageSucces);
-	} catch (erreur) {
-		if (erreur instanceof ErreurReseau) notifier(erreur.message, true);
-		else traiterErreur(erreur);
-	} finally {
-		app.occupe = false;
-		// Liste à jour, ou remise des cases comme avant en cas d'échec.
-		if (app.administration) rendreComptes();
-	}
+/**
+ * Ajoute une modification à la file : elle part après les précédentes, sans en perdre aucune
+ * (plusieurs cases cochées vite, pendant qu'un appel est en cours). L'API renvoie à chaque fois la
+ * liste à jour ; elle n'est redessinée qu'une fois la file vide, pour ne pas décocher les cases
+ * encore en attente.
+ */
+function modifier(action, parametres, messageSucces) {
+	const modifications = app.modifications;
+	modifications.restantes++;
+	modifications.file = modifications.file.then(async () => {
+		try {
+			app.administration = await appelerApi(action, parametres);
+			notifier(messageSucces);
+		} catch (erreur) {
+			if (erreur instanceof ErreurReseau) notifier(erreur.message, true);
+			else traiterErreur(erreur);
+		} finally {
+			modifications.restantes--;
+			// Liste à jour, ou remise des cases comme avant pour celles qui ont échoué.
+			if (!modifications.restantes && app.administration) rendreComptes();
+		}
+	});
+	return modifications.file;
 }
 
 // ---------------------------------------------------------------------------
@@ -293,7 +337,7 @@ function choisirAppDuLien(compte) {
 	dialogue.showModal();
 }
 
-/** Modes de connexion d'un compte existant, activés ou non pour tous. */
+/** Modes de connexion d'un compte existant, activés ou non pour tous (onglet Modes). */
 function rendreModes() {
 	const { modes } = app.administration;
 	remplacerContenu(
@@ -322,12 +366,18 @@ function rendreModes() {
 			el(
 				"p",
 				{ class: "aide" },
-				"Pour tous les comptes, aussitôt. Un appareil déjà connecté le reste ; les invitations, les liens de connexion ci-dessous et le QR code du classeur restent possibles.",
+				"Pour tous les comptes, aussitôt. Un appareil déjà connecté le reste ; les invitations, les liens de connexion des comptes et le QR code du classeur restent possibles.",
 			),
 		),
+	);
+}
+
+/** Onglet Inviter ; rendu à l'ouverture et à l'actualisation seulement, pour garder la saisie. */
+function rendreInvitation() {
+	remplacerContenu(
+		$("#invitation"),
 		el("h2", { class: "titre-section" }, "Inviter une personne"),
 		formulaireInvitation(),
-		el("h2", { class: "titre-section" }, "Comptes"),
 	);
 }
 
@@ -342,6 +392,11 @@ function formulaireInvitation() {
 		required: true,
 		autocomplete: "off",
 		maxlength: "40",
+	});
+	const nom = el("input", {
+		id: "invitation-nom",
+		autocomplete: "off",
+		maxlength: "60",
 	});
 	const cases = apps.map(({ cle, nom }) => ({
 		cle,
@@ -364,6 +419,7 @@ function formulaireInvitation() {
 				try {
 					await inviterPersonne({
 						prenom: prenom.value,
+						nom: nom.value,
 						apps: choisies.map((c) => c.cle),
 						// Le site vu d'ici (front de review compris).
 						page: new URL(`../${choisies[0].cle}/`, location.href).href,
@@ -379,8 +435,14 @@ function formulaireInvitation() {
 		},
 		el("label", { for: "invitation-prenom" }, "Son prénom"),
 		prenom,
-		cases.map(({ element, nom }) =>
-			el("label", { class: "case" }, element, nom),
+		el("label", { for: "invitation-nom" }, "Son nom (facultatif)"),
+		nom,
+		el(
+			"div",
+			{ class: "grille-cases" },
+			cases.map(({ element, nom }) =>
+				el("label", { class: "case" }, element, nom),
+			),
 		),
 		el(
 			"p",
@@ -391,8 +453,24 @@ function formulaireInvitation() {
 	);
 }
 
-function carteCompte(compte, apps) {
+/**
+ * Un compte : une ligne (prénom, nombre d'apps et d'appareils), qui se déplie sur ses droits et
+ * ses actions.
+ * @param seul Seul compte affiché (recherche) : déplié d'office
+ */
+function carteCompte(compte, apps, seul) {
 	const moi = compte.id === compteConnecte()?.id;
+	const resume = [
+		compte.bloque
+			? "bloqué"
+			: compte.toutes
+				? "toutes les apps"
+				: pluriel(compte.apps.length, "app"),
+		pluriel(compte.appareils, "appareil"),
+		moi ? "toi" : "",
+	]
+		.filter(Boolean)
+		.join(" · ");
 	const detail = [
 		`Appareils connectés : ${compte.appareils}`,
 		compte.biometrie ? `biométrie : ${compte.biometrie}` : "",
@@ -403,13 +481,44 @@ function carteCompte(compte, apps) {
 		.filter(Boolean)
 		.join(" · ");
 	return el(
-		"article",
-		{ class: `carte carte-compte${compte.bloque ? " bloque" : ""}` },
-		el("h3", {}, compte.prenom || "Sans prénom"),
-		el("p", { class: "detail" }, detail),
-		casesDesApps(compte, apps, moi),
-		casePortail(compte, moi),
-		caseTableaux(compte, moi),
+		"details",
+		{
+			class: `carte carte-compte${compte.bloque ? " bloque" : ""}`,
+			open: seul || app.vue.ouverts.has(compte.id),
+		},
+		el(
+			"summary",
+			{
+				// Au clic, avant que le compte se déplie ou se replie : gardé déplié d'un rendu à l'autre.
+				onclick: (e) => {
+					if (e.currentTarget.parentElement.open) {
+						app.vue.ouverts.delete(compte.id);
+					} else {
+						app.vue.ouverts.add(compte.id);
+					}
+				},
+			},
+			el("span", { class: "prenom" }, nomComplet(compte) || "Sans prénom"),
+			el("span", { class: "resume" }, resume),
+		),
+		el(
+			"div",
+			{ class: "contenu-compte" },
+			el("p", { class: "detail" }, detail),
+			el(
+				"div",
+				{ class: "grille-cases" },
+				casesDesApps(compte, apps, moi),
+				casePortail(compte, moi),
+				caseTableaux(compte, moi),
+			),
+			boutonsDuCompte(compte, moi),
+		),
+	);
+}
+
+function boutonsDuCompte(compte, moi) {
+	return [
 		!moi &&
 			!compte.bloque &&
 			el(
@@ -453,18 +562,100 @@ function carteCompte(compte, apps) {
 					"Supprimer",
 				),
 			),
+	];
+}
+
+/**
+ * Comptes du filtre choisi dont le prénom, ou le nom d'une app ouverte, contient la recherche
+ * (accents et casse ignorés), triés par prénom ou du plus récent au plus ancien (l'API les donne
+ * dans l'ordre de l'onglet Comptes, où chaque compte créé s'ajoute en bas).
+ */
+function comptesVisibles() {
+	const { apps, comptes } = app.administration;
+	const { recherche, filtre, tri } = app.vue;
+	const texte = normaliser(recherche);
+	const { garde } = FILTRES.find((f) => f.cle === filtre);
+	const correspond = (compte) =>
+		[
+			compte.prenom,
+			compte.nom,
+			nomComplet(compte),
+			...apps
+				.filter(({ cle }) => compte.toutes || compte.apps.includes(cle))
+				.map(({ nom }) => nom),
+		].some((mot) => normaliser(mot).includes(texte));
+	const visibles = comptes.filter(
+		(compte) => garde(compte) && (!texte || correspond(compte)),
+	);
+	return tri === "recents"
+		? visibles.reverse()
+		: visibles.sort((a, b) =>
+				nomComplet(a).localeCompare(nomComplet(b), "fr", {
+					sensitivity: "base",
+				}),
+			);
+}
+
+/** Puces des filtres, avec le nombre de comptes de chacun. */
+function rendreFiltres() {
+	const { comptes } = app.administration;
+	remplacerContenu(
+		$("#filtres-comptes"),
+		FILTRES.map(({ cle, nom, garde }) =>
+			el(
+				"button",
+				{
+					type: "button",
+					class: "puce",
+					"aria-pressed": String(app.vue.filtre === cle),
+					onclick: () => {
+						app.vue.filtre = cle;
+						rendreListe();
+					},
+				},
+				`${nom} (${comptes.filter(garde).length})`,
+			),
+		),
 	);
 }
 
-function rendreComptes() {
+/** Liste des comptes (onglet Comptes), selon la recherche, le filtre et le tri. */
+function rendreListe() {
 	const { apps, comptes } = app.administration;
-	rendreModes();
+	const visibles = comptesVisibles();
+	rendreFiltres();
+	$("#nombre-comptes").textContent =
+		visibles.length === comptes.length
+			? pluriel(comptes.length, "compte")
+			: `${visibles.length} sur ${pluriel(comptes.length, "compte")}`;
 	remplacerContenu(
 		$("#liste-comptes"),
-		comptes.length
-			? comptes.map((compte) => carteCompte(compte, apps))
-			: el("p", { class: "vide" }, "Aucun compte."),
+		visibles.length
+			? visibles.map((compte) =>
+					carteCompte(compte, apps, visibles.length === 1),
+				)
+			: el(
+					"p",
+					{ class: "vide" },
+					comptes.length ? "Aucun compte ne correspond." : "Aucun compte.",
+				),
 	);
+}
+
+/** Modes et liste des comptes, après chaque modification (l'onglet Inviter garde sa saisie). */
+function rendreComptes() {
+	rendreModes();
+	rendreListe();
+}
+
+function afficherOnglet(nom) {
+	app.vue.onglet = nom;
+	for (const bouton of document.querySelectorAll("#onglets-droits button")) {
+		bouton.setAttribute("aria-selected", String(bouton.dataset.onglet === nom));
+	}
+	for (const onglet of ["comptes", "inviter", "modes"]) {
+		$(`#onglet-${onglet}`).hidden = onglet !== nom;
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -477,9 +668,12 @@ function afficherEcran(nom) {
 	$("#ecran-comptes").hidden = nom !== "comptes";
 	$("#bouton-actualiser").hidden = nom !== "comptes";
 	$("#bouton-menu").hidden = nom === "connexion";
-	const compte = compteConnecte();
-	remplirCarteMenu(compte?.prenom ?? "");
-	if (nom === "comptes") rendreComptes();
+	afficherProfil();
+	if (nom === "comptes") {
+		rendreComptes();
+		rendreInvitation();
+		afficherOnglet(app.vue.onglet);
+	}
 }
 
 /**
@@ -540,6 +734,19 @@ function afficherVersions() {
 
 function brancherEvenements() {
 	$("#bouton-actualiser").addEventListener("click", actualiser);
+	for (const bouton of document.querySelectorAll("#onglets-droits button")) {
+		bouton.addEventListener("click", () =>
+			afficherOnglet(bouton.dataset.onglet),
+		);
+	}
+	$("#recherche-comptes").addEventListener("input", (e) => {
+		app.vue.recherche = e.target.value;
+		if (app.administration) rendreListe();
+	});
+	$("#tri-comptes").addEventListener("change", (e) => {
+		app.vue.tri = e.target.value;
+		if (app.administration) rendreListe();
+	});
 	$("#bouton-menu").addEventListener("click", (e) => {
 		e.stopPropagation();
 		basculerMenu();
@@ -573,6 +780,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherProfil();
 	brancherBoutonPortail();
 	// Lien de connexion d'un appareil (…#invitation=<code>), retiré aussitôt de l'adresse.
 	const invitation = invitationDuLien(location.hash);

@@ -34,14 +34,14 @@
 				<span class="infobulle">Suggestion ou bug</span>
 			</button>
 			<button type="button" id="bouton-menu" class="bouton-icone" aria-label="Paramètres" aria-expanded="false" aria-controls="menu" hidden>
-				<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M10.14 5.05L10.4 1.93L13.6 1.93L13.86 5.05L15.6 5.76L18 3.75L20.25 6L18.24 8.4L18.95 10.14L22.07 10.4L22.07 13.6L18.95 13.86L18.24 15.6L20.25 18L18 20.25L15.6 18.24L13.86 18.95L13.6 22.07L10.4 22.07L10.14 18.95L8.4 18.24L6 20.25L3.75 18L5.76 15.6L5.05 13.86L1.93 13.6L1.93 10.4L5.05 10.14L5.76 8.4L3.75 6L6 3.75L8.4 5.76z" /></svg>
+				<span class="avatar" aria-hidden="true"></span>
 				<span class="infobulle">Paramètres</span>
 			</button>
 			<nav id="menu" class="menu" hidden>
-				<div class="menu-carte">
+				<button type="button" id="menu-profil" class="menu-carte">
 					<span class="avatar" aria-hidden="true"></span>
-					<span class="menu-carte-texte"><strong id="menu-compte"></strong></span>
-				</div>
+					<span class="menu-carte-texte"><strong id="menu-compte"></strong><span>Mon profil</span></span>
+				</button>
 				<div class="menu-section">
 					<p class="menu-titre">Cet appareil</p>
 					<button type="button" role="switch" aria-checked="false" id="menu-biometrie" class="bascule" hidden>Biométrie</button>

@@ -17,13 +17,8 @@ import {
 	oublierConnexion,
 } from "../shared/connexion.js";
 import { aujourdhui, joursEntre, pluriel, versDate } from "../shared/dates.js";
-import {
-	$,
-	el,
-	notifier,
-	remplacerContenu,
-	remplirCarteMenu,
-} from "../shared/dom.js";
+import { $, el, notifier, remplacerContenu } from "../shared/dom.js";
+import { afficherProfil, brancherProfil } from "../shared/profil.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -266,8 +261,7 @@ function afficherEcran(nom) {
 	$("#bouton-actualiser").hidden = !["suivi", "etats-des-lieux"].includes(nom);
 	$("#bouton-retour").hidden = ["connexion", "refus", "suivi"].includes(nom);
 	$("#bouton-menu").hidden = nom === "connexion";
-	const compte = compteConnecte();
-	remplirCarteMenu(compte?.prenom ?? "");
+	afficherProfil();
 }
 
 function afficherConnexion(message = "", invitation = null) {
@@ -360,6 +354,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherProfil();
 	brancherBoutonPortail();
 	// Lien de connexion d'un appareil (…#invitation=<code>), retiré aussitôt de l'adresse. Les
 	// autres ancres (états des lieux) restent : elles choisissent l'écran.

@@ -29,8 +29,8 @@ import {
 	normaliser,
 	notifier,
 	remplacerContenu,
-	remplirCarteMenu,
 } from "../shared/dom.js";
+import { afficherProfil, brancherProfil } from "../shared/profil.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -1561,7 +1561,7 @@ function afficherEcran(nom) {
 		$(id).hidden = !connecte;
 	}
 	if (connecte) {
-		remplirCarteMenu(compteConnecte()?.prenom ?? "");
+		afficherProfil();
 		rendre();
 		if (!app.etat.profils.length && !$("#dialogue-profil").open) {
 			ouvrirProfil(null, true);
@@ -1809,6 +1809,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherProfil();
 	brancherBoutonPortail();
 	// Ancienne connexion par clé (avant les comptes) : plus utilisée.
 	ecrireStockage(CLES.ancienneCle, null);

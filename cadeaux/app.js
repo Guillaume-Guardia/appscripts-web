@@ -1,6 +1,7 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
 import { brancherBalayage, voisin } from "../shared/balayage.js";
 import {
+	accesDuCompte,
 	afficherConnexion as afficherFormulaireConnexion,
 	brancherBiometrie,
 	brancherBoutonPortail,
@@ -26,6 +27,7 @@ import {
 	remplacerContenu,
 } from "../shared/dom.js";
 import { reduireImageSous } from "../shared/image.js";
+import { choixPhotoProfil } from "../shared/profil.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -65,12 +67,6 @@ const REDUCTIONS_PHOTO = [
 	[400, 0.6],
 	[320, 0.5],
 	[240, 0.4],
-];
-/** Photo de profil : affichée en petit (en-tête, onglet Famille), elle reste plus légère. */
-const REDUCTIONS_PROFIL = [
-	[256, 0.8],
-	[192, 0.7],
-	[128, 0.6],
 ];
 /** Une photo est gardée dans une cellule du classeur (limite vérifiée aussi par l'API). */
 const LONGUEUR_MAX_PHOTO = 45000;
@@ -343,9 +339,10 @@ function afficherProvisoires() {
  * réduite) ; une erreur annule la modification
  * @param provisoire (etat) => l'état avec la modification, affiché en attendant
  * @param echec début du message d'erreur (ex : « « Vélo » n'a pas été enregistrée : »)
+ * @param surSucces appelée une fois la modification enregistrée (facultatif)
  * @return Faux si l'app est hors ligne (rien n'est fait)
  */
-function modifierEnFond(action, parametres, provisoire, echec) {
+function modifierEnFond(action, parametres, provisoire, echec, surSucces) {
 	if (app.horsLigne) {
 		notifier(
 			"Hors ligne : les modifications reviendront avec la connexion.",
@@ -366,6 +363,7 @@ function modifierEnFond(action, parametres, provisoire, echec) {
 			retirer();
 			// Déconnecté entre-temps : rien à afficher.
 			if (etatServeur) appliquerEtat(etat);
+			surSucces?.();
 		} catch (erreur) {
 			retirer();
 			afficherProvisoires();
@@ -2352,76 +2350,6 @@ function ouvrirAjoutPersonne() {
 	});
 }
 
-/**
- * Photo de profil dans « Mon profil », à droite du titre : le rond (sa photo, ou l'initiale de son
- * prénom), une croix pour la retirer et un crayon pour la changer (sur téléphone, le sélecteur
- * propose aussi l'appareil photo).
- * @return `element` à afficher, et `photo()` : l'image réduite à envoyer, "" pour la retirer,
- * undefined si elle ne change pas
- */
-function choixPhotoProfil(membre) {
-	let fichier = null;
-	let retiree = false;
-	const actuelle = membre.photo && app.photos[membre.photo];
-	const apercu = el("img", {
-		alt: "",
-		src: actuelle ? urlPhoto(actuelle) : null,
-		hidden: !actuelle,
-	});
-	const pastille = (classe, libelle, symbole, onclick) =>
-		el(
-			"button",
-			{
-				type: "button",
-				class: `pastille-photo ${classe}`,
-				"aria-label": libelle,
-				title: libelle,
-				onclick,
-			},
-			symbole,
-		);
-	const retirer = pastille("retirer", "Retirer la photo", "×", () => {
-		fichier = null;
-		retiree = Boolean(membre.photo);
-		apercu.hidden = true;
-		apercu.removeAttribute("src");
-		retirer.hidden = true;
-	});
-	retirer.hidden = !membre.photo;
-	const galerie = el("input", {
-		type: "file",
-		accept: "image/*",
-		hidden: true,
-		onchange: (evenement) => {
-			const choisi = evenement.target.files[0];
-			if (!choisi) return;
-			fichier = choisi;
-			retiree = false;
-			apercu.src = URL.createObjectURL(choisi);
-			apercu.hidden = false;
-			retirer.hidden = false;
-			// Vidé aussitôt : la même image peut être choisie de nouveau.
-			evenement.target.value = "";
-		},
-	});
-	return {
-		element: el(
-			"div",
-			{ class: "cadre-photo rond photo-profil" },
-			el("span", { class: "initiale-profil" }, initiale(membre.prenom)),
-			apercu,
-			retirer,
-			pastille("modifier", "Changer la photo", "✎", () => galerie.click()),
-			galerie,
-		),
-		photo: async () => {
-			if (retiree) return "";
-			if (!fichier) return undefined;
-			return reduireImageSous(fichier, REDUCTIONS_PROFIL, LONGUEUR_MAX_PHOTO);
-		},
-	};
-}
-
 function ouvrirProfil() {
 	const membre = app.etat.moi;
 	// Ferme le profil avant une autre action : le petit formulaire ne s'ouvre pas deux fois, et la
@@ -2430,12 +2358,22 @@ function ouvrirProfil() {
 		$("#dialogue-simple").close();
 		action();
 	};
-	const choixPhoto = choixPhotoProfil(membre);
+	// Photo du compte, la même dans toutes les apps (shared/profil.js).
+	const choixPhoto = choixPhotoProfil({
+		prenom: membre.prenom,
+		photo: (membre.photo && app.photos[membre.photo]) || null,
+	});
 	ouvrirDialogueSimple({
-		titre: `Mon profil : ${membre.prenom}`,
+		titre: "Mon profil",
 		aide: "Ton anniversaire et ta photo s'affichent pour les membres de tes familles.",
 		entete: choixPhoto.element,
 		champs: [
+			{
+				nom: "prenom",
+				libelle: "Prénom",
+				maxlength: 40,
+				valeur: membre.prenom,
+			},
 			{
 				nom: "nom",
 				libelle: "Nom (facultatif)",
@@ -2477,6 +2415,8 @@ function ouvrirProfil() {
 			),
 		],
 		bouton: "Enregistrer",
+		// Affiché aussitôt et enregistré en arrière-plan (modifierEnFond) : seule la réduction de la
+		// photo, rapide, se fait avant de fermer.
 		valider: async (profil, erreur) => {
 			try {
 				profil.photo = await choixPhoto.photo();
@@ -2484,16 +2424,50 @@ function ouvrirProfil() {
 				erreur(e.message);
 				return false;
 			}
-			return Boolean(
-				await modifier(
-					"modifier-profil",
-					{ profil },
-					"Profil enregistré.",
-					erreur,
-				),
+			return modifierEnFond(
+				"modifier-profil",
+				async () => ({ profil }),
+				(etat) => avecProfilProvisoire(etat, profil),
+				"Ton profil n'a pas été enregistré :",
+				// Prénom, nom et photo du compte, gardés pour les autres apps.
+				() => accesDuCompte().catch(() => {}),
 			);
 		},
 	});
+}
+
+/** Photo choisie dans « Mon profil », affichée avant la réponse de l'API. */
+const PHOTO_PROFIL_PROVISOIRE = "provisoire-profil";
+
+/**
+ * L'état avec le profil saisi, en attendant l'API : prénom, nom, anniversaire et photo de moi, et
+ * de moi parmi les personnes des familles.
+ * @param profil Saisie de « Mon profil » ; photo : réduite, "" pour la retirer, undefined si
+ * inchangée
+ */
+function avecProfilProvisoire(etat, { prenom, nom, naissance, photo }) {
+	if (photo) app.photos[PHOTO_PROFIL_PROVISOIRE] = photo;
+	const modifie = (personne) => ({
+		...personne,
+		prenom: prenom.trim() || personne.prenom,
+		nom: nom.trim(),
+		naissance: naissance
+			? new Date(`${naissance}T12:00:00`).toISOString()
+			: null,
+		photo:
+			photo === undefined
+				? personne.photo
+				: photo
+					? PHOTO_PROFIL_PROVISOIRE
+					: "",
+	});
+	return {
+		...etat,
+		moi: modifie(etat.moi),
+		personnes: etat.personnes.map((p) =>
+			p.id === etat.moi.id ? modifie(p) : p,
+		),
+	};
 }
 
 async function copierCode(famille) {

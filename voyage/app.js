@@ -9,7 +9,6 @@ import {
 	estSessionRefusee,
 	invitationDuLien,
 	lireSession,
-	modifierPrenom,
 	oublierConnexion,
 	ouvrirInvitation,
 } from "../shared/connexion.js";
@@ -22,8 +21,8 @@ import {
 	normaliser,
 	notifier,
 	remplacerContenu,
-	remplirCarteMenu,
 } from "../shared/dom.js";
+import { afficherProfil, brancherProfil } from "../shared/profil.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -1065,8 +1064,7 @@ async function chargerApresConnexion() {
 
 /** Prénom du compte, en tête du menu. */
 function afficherCompte() {
-	const compte = app.etat?.moi ?? compteConnecte();
-	remplirCarteMenu(compte?.prenom ?? "");
+	afficherProfil();
 }
 
 /** Oublie la connexion de l'appareil et ses données, puis affiche la connexion. */
@@ -1084,20 +1082,6 @@ async function seDeconnecter() {
 	if (!confirm("Te déconnecter de cet appareil ?")) return;
 	await deconnecterAppareil();
 	deconnecter();
-}
-
-async function changerPrenom() {
-	fermerMenu();
-	const prenom = prompt("Ton prénom :", app.etat?.moi?.prenom ?? "");
-	if (prenom === null) return;
-	try {
-		await modifierPrenom(prenom);
-		await actualiser();
-		afficherCompte();
-		notifier("Prénom changé.");
-	} catch (erreur) {
-		notifier(erreur.message, true);
-	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1176,7 +1160,6 @@ function brancherEvenements() {
 	document.addEventListener("keydown", (e) => {
 		if (e.key === "Escape") fermerMenu();
 	});
-	$("#menu-prenom").addEventListener("click", changerPrenom);
 	$("#menu-inviter").addEventListener("click", () => {
 		fermerMenu();
 		ouvrirInvitation("Voyage");
@@ -1210,6 +1193,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherProfil({ apresEnregistrement: actualiser });
 	brancherBoutonPortail();
 	// Liens ouverts dans l'app, retirés aussitôt de l'adresse : connexion d'un appareil
 	// (…#invitation=<code>), ou partage d'un voyage (…#rejoindre=<Id>:<code>), gardé jusqu'à la
