@@ -674,6 +674,11 @@ textarea {
 	box-shadow: var(--ombre);
 }
 
+/* Fenêtre qui reçoit le focus à l'ouverture (« Mon profil ») : pas de contour autour d'elle. */
+.dialogue:focus {
+	outline: none;
+}
+
 .dialogue::backdrop {
 	background: rgb(0 0 0 / 0.45);
 }

@@ -142,16 +142,22 @@ export async function accesDuCompte() {
 }
 
 /**
- * Garde le profil reçu de l'API (moi, modifier-profil) : le prénom (changé peut-être dans une autre
- * app), et la photo quand son empreinte n'est plus celle gardée. L'image est alors demandée à part
+ * Garde le profil reçu de l'API (moi, modifier-profil) : le prénom et le nom (changés peut-être
+ * dans une autre app), et la photo quand son empreinte n'est plus celle gardée. L'image est alors demandée à part
  * (action photo-profil, appel discret), sauf si elle est connue (`image`).
- * @param profil { prenom, photo } (photo : l'empreinte, vide sans photo)
+ * @param profil { prenom, nom, photo } (photo : l'empreinte, vide sans photo)
  */
-async function garderProfil({ prenom, photo: empreinte = "" }, image = null) {
+async function garderProfil(
+	{ prenom, nom = "", photo: empreinte = "" },
+	image = null,
+) {
 	const compte = compteConnecte();
 	if (!compte) return;
-	if (prenom && prenom !== compte.prenom) {
-		ecrireStockage(CLES.compte, JSON.stringify({ ...compte, prenom }));
+	if ((prenom && prenom !== compte.prenom) || nom !== (compte.nom ?? "")) {
+		ecrireStockage(
+			CLES.compte,
+			JSON.stringify({ ...compte, prenom: prenom || compte.prenom, nom }),
+		);
 	}
 	if ((lireStockageJson(CLES.photo)?.empreinte ?? "") !== empreinte) {
 		const photo =
@@ -192,12 +198,13 @@ export function brancherBoutonPortail({ rafraichir = true } = {}) {
 }
 
 /**
- * Change le profil du compte connecté, le même dans toutes les apps : son prénom et sa photo.
+ * Change le profil du compte connecté, le même dans toutes les apps : son prénom, son nom
+ * (facultatif) et sa photo.
  * @param photo JPEG en base64, "" pour la retirer, undefined pour la garder
- * @return Le compte à jour ({ id, prenom })
+ * @return Le compte à jour ({ id, prenom, nom })
  */
-export async function modifierProfil({ prenom, photo }) {
-	const profil = await appelerDroits("modifier-profil", { prenom, photo });
+export async function modifierProfil({ prenom, nom, photo }) {
+	const profil = await appelerDroits("modifier-profil", { prenom, nom, photo });
 	await garderProfil(profil, photo || null);
 	return compteConnecte();
 }
@@ -238,20 +245,26 @@ const cleApp = () =>
  * @param nomApp Nom de l'app, pour le message qui accompagne le lien envoyé
  * @throws Si l'API refuse (prénom déjà pris, app qui ne peut pas être ouverte, hors ligne)
  */
-export async function inviterPersonne({ prenom, apps, page, nomApp }) {
-	const code = await appelerDroits("inviter-personne", { prenom, apps });
-	const nom = prenom.trim();
+export async function inviterPersonne({
+	prenom,
+	nom = "",
+	apps,
+	page,
+	nomApp,
+}) {
+	const code = await appelerDroits("inviter-personne", { prenom, nom, apps });
+	prenom = prenom.trim();
 	ouvrirQr({
-		titre: `Inviter ${nom}`,
-		aide: `Fais scanner ce QR code à ${nom}, ou envoie-lui le lien : l'app s'ouvre sur son téléphone, son compte est créé et connecté. Valable 7 jours, une seule fois ; envoie-le à ${nom} seulement.`,
+		titre: `Inviter ${prenom}`,
+		aide: `Fais scanner ce QR code à ${prenom}, ou envoie-lui le lien : l'app s'ouvre sur son téléphone, son compte est créé et connecté. Valable 7 jours, une seule fois ; envoie-le à ${prenom} seulement.`,
 		lien: lienInvitation(code, page),
-		texteEnvoi: `${nom}, voici ton invitation à l'app ${nomApp} : ouvre ce lien sur ton téléphone (il est personnel, ne le transfère pas).`,
+		texteEnvoi: `${prenom}, voici ton invitation à l'app ${nomApp} : ouvre ce lien sur ton téléphone (il est personnel, ne le transfère pas).`,
 	});
 }
 
 /**
- * Menu « Inviter quelqu'un » : prénom de la personne, puis QR code qui lui crée un compte avec
- * accès à l'app ouverte (inviterPersonne).
+ * Menu « Inviter quelqu'un » : prénom (et nom, facultatif) de la personne, puis QR code qui lui
+ * crée un compte avec accès à l'app ouverte (inviterPersonne).
  * @param nomApp Nom de l'app
  */
 export function ouvrirInvitation(nomApp) {
@@ -260,6 +273,11 @@ export function ouvrirInvitation(nomApp) {
 		required: true,
 		autocomplete: "off",
 		maxlength: "40",
+	});
+	const nom = el("input", {
+		id: "invitation-nom",
+		autocomplete: "off",
+		maxlength: "60",
 	});
 	const dialogue = el(
 		"dialog",
@@ -276,6 +294,7 @@ export function ouvrirInvitation(nomApp) {
 					try {
 						await inviterPersonne({
 							prenom: prenom.value,
+							nom: nom.value,
 							apps: [cleApp()],
 							nomApp,
 						});
@@ -294,6 +313,8 @@ export function ouvrirInvitation(nomApp) {
 			),
 			el("label", { for: "invitation-prenom" }, "Son prénom"),
 			prenom,
+			el("label", { for: "invitation-nom" }, "Son nom (facultatif)"),
+			nom,
 			el(
 				"div",
 				{ class: "boutons" },

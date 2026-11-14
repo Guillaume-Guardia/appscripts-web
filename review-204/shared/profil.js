@@ -1,4 +1,4 @@
-// Profil du compte, le même dans toutes les apps (projet droits) : son prénom et sa photo. Le rond
+// Profil du compte, le même dans toutes les apps (projet droits) : son prénom, son nom et sa photo. Le rond
 // du bouton du menu (en-tête) et la carte du haut du menu montrent la photo, ou l'initiale du
 // prénom ; la carte ouvre « Mon profil ». Le profil est gardé sur l'appareil (connexion.js) et mis
 // à jour à chaque ouverture d'une app (action moi) : changé dans une app, il suit dans les autres.
@@ -114,7 +114,7 @@ export function choixPhotoProfil({ prenom, photo }) {
 }
 
 /**
- * Fenêtre « Mon profil » : la photo et le prénom du compte, les mêmes dans toutes les apps.
+ * Fenêtre « Mon profil » : la photo, le prénom et le nom du compte, les mêmes dans toutes les apps.
  * @param apresEnregistrement Appelée une fois le profil enregistré (ex : recharger les données)
  */
 export function ouvrirProfil({ apresEnregistrement } = {}) {
@@ -131,11 +131,16 @@ export function ouvrirProfil({ apresEnregistrement } = {}) {
 		maxlength: "40",
 		value: compte.prenom,
 	});
+	const nom = el("input", {
+		id: "profil-nom",
+		autocomplete: "family-name",
+		maxlength: "60",
+		value: compte.nom ?? "",
+	});
 	const erreur = el("p", { class: "erreur", role: "alert", hidden: true });
 	const dialogue = el(
 		"dialog",
-		// Le focus sur la fenêtre, pas sur la croix qui retire la photo.
-		{ class: "dialogue", autofocus: true, onclose: () => dialogue.remove() },
+		{ class: "dialogue", tabindex: "-1", onclose: () => dialogue.remove() },
 		el("h2", {}, "Mon profil"),
 		el(
 			"form",
@@ -149,6 +154,7 @@ export function ouvrirProfil({ apresEnregistrement } = {}) {
 					try {
 						await modifierProfil({
 							prenom: prenom.value,
+							nom: nom.value,
 							photo: await choix.photo(),
 						});
 						dialogue.close();
@@ -165,6 +171,8 @@ export function ouvrirProfil({ apresEnregistrement } = {}) {
 			el("div", { class: "profil-photo" }, choix.element),
 			el("label", { for: "profil-prenom" }, "Ton prénom"),
 			prenom,
+			el("label", { for: "profil-nom" }, "Ton nom (facultatif)"),
+			nom,
 			erreur,
 			el(
 				"div",
@@ -184,6 +192,8 @@ export function ouvrirProfil({ apresEnregistrement } = {}) {
 	);
 	document.body.append(dialogue);
 	dialogue.showModal();
+	// Le focus sur la fenêtre, pas sur la croix qui retire la photo (premier bouton).
+	dialogue.focus();
 }
 
 /**

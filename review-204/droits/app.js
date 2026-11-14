@@ -51,6 +51,9 @@ const app = {
 	},
 };
 
+/** Prénom et nom d'un compte (« Max Rolland », ou « Max » sans nom). */
+const nomComplet = ({ prenom, nom }) => [prenom, nom].filter(Boolean).join(" ");
+
 /** Filtres de la liste des comptes (puces sous la recherche). */
 const FILTRES = [
 	{ cle: "tous", nom: "Tous", garde: () => true },
@@ -390,6 +393,11 @@ function formulaireInvitation() {
 		autocomplete: "off",
 		maxlength: "40",
 	});
+	const nom = el("input", {
+		id: "invitation-nom",
+		autocomplete: "off",
+		maxlength: "60",
+	});
 	const cases = apps.map(({ cle, nom }) => ({
 		cle,
 		element: el("input", { type: "checkbox", value: cle }),
@@ -411,6 +419,7 @@ function formulaireInvitation() {
 				try {
 					await inviterPersonne({
 						prenom: prenom.value,
+						nom: nom.value,
 						apps: choisies.map((c) => c.cle),
 						// Le site vu d'ici (front de review compris).
 						page: new URL(`../${choisies[0].cle}/`, location.href).href,
@@ -426,6 +435,8 @@ function formulaireInvitation() {
 		},
 		el("label", { for: "invitation-prenom" }, "Son prénom"),
 		prenom,
+		el("label", { for: "invitation-nom" }, "Son nom (facultatif)"),
+		nom,
 		el(
 			"div",
 			{ class: "grille-cases" },
@@ -487,7 +498,7 @@ function carteCompte(compte, apps, seul) {
 					}
 				},
 			},
-			el("span", { class: "prenom" }, compte.prenom || "Sans prénom"),
+			el("span", { class: "prenom" }, nomComplet(compte) || "Sans prénom"),
 			el("span", { class: "resume" }, resume),
 		),
 		el(
@@ -567,6 +578,8 @@ function comptesVisibles() {
 	const correspond = (compte) =>
 		[
 			compte.prenom,
+			compte.nom,
+			nomComplet(compte),
 			...apps
 				.filter(({ cle }) => compte.toutes || compte.apps.includes(cle))
 				.map(({ nom }) => nom),
@@ -577,7 +590,9 @@ function comptesVisibles() {
 	return tri === "recents"
 		? visibles.reverse()
 		: visibles.sort((a, b) =>
-				a.prenom.localeCompare(b.prenom, "fr", { sensitivity: "base" }),
+				nomComplet(a).localeCompare(nomComplet(b), "fr", {
+					sensitivity: "base",
+				}),
 			);
 }
 
