@@ -339,9 +339,10 @@ function afficherProvisoires() {
  * réduite) ; une erreur annule la modification
  * @param provisoire (etat) => l'état avec la modification, affiché en attendant
  * @param echec début du message d'erreur (ex : « « Vélo » n'a pas été enregistrée : »)
+ * @param surSucces appelée une fois la modification enregistrée (facultatif)
  * @return Faux si l'app est hors ligne (rien n'est fait)
  */
-function modifierEnFond(action, parametres, provisoire, echec) {
+function modifierEnFond(action, parametres, provisoire, echec, surSucces) {
 	if (app.horsLigne) {
 		notifier(
 			"Hors ligne : les modifications reviendront avec la connexion.",
@@ -362,6 +363,7 @@ function modifierEnFond(action, parametres, provisoire, echec) {
 			retirer();
 			// Déconnecté entre-temps : rien à afficher.
 			if (etatServeur) appliquerEtat(etat);
+			surSucces?.();
 		} catch (erreur) {
 			retirer();
 			afficherProvisoires();
@@ -2413,6 +2415,8 @@ function ouvrirProfil() {
 			),
 		],
 		bouton: "Enregistrer",
+		// Affiché aussitôt et enregistré en arrière-plan (modifierEnFond) : seule la réduction de la
+		// photo, rapide, se fait avant de fermer.
 		valider: async (profil, erreur) => {
 			try {
 				profil.photo = await choixPhoto.photo();
@@ -2420,19 +2424,50 @@ function ouvrirProfil() {
 				erreur(e.message);
 				return false;
 			}
-			const enregistre = Boolean(
-				await modifier(
-					"modifier-profil",
-					{ profil },
-					"Profil enregistré.",
-					erreur,
-				),
+			return modifierEnFond(
+				"modifier-profil",
+				async () => ({ profil }),
+				(etat) => avecProfilProvisoire(etat, profil),
+				"Ton profil n'a pas été enregistré :",
+				// Prénom, nom et photo du compte, gardés pour les autres apps.
+				() => accesDuCompte().catch(() => {}),
 			);
-			// Prénom et photo du compte, gardés pour les autres apps.
-			if (enregistre) accesDuCompte().catch(() => {});
-			return enregistre;
 		},
 	});
+}
+
+/** Photo choisie dans « Mon profil », affichée avant la réponse de l'API. */
+const PHOTO_PROFIL_PROVISOIRE = "provisoire-profil";
+
+/**
+ * L'état avec le profil saisi, en attendant l'API : prénom, nom, anniversaire et photo de moi, et
+ * de moi parmi les personnes des familles.
+ * @param profil Saisie de « Mon profil » ; photo : réduite, "" pour la retirer, undefined si
+ * inchangée
+ */
+function avecProfilProvisoire(etat, { prenom, nom, naissance, photo }) {
+	if (photo) app.photos[PHOTO_PROFIL_PROVISOIRE] = photo;
+	const modifie = (personne) => ({
+		...personne,
+		prenom: prenom.trim() || personne.prenom,
+		nom: nom.trim(),
+		naissance: naissance
+			? new Date(`${naissance}T12:00:00`).toISOString()
+			: null,
+		photo:
+			photo === undefined
+				? personne.photo
+				: photo
+					? PHOTO_PROFIL_PROVISOIRE
+					: "",
+	});
+	return {
+		...etat,
+		moi: modifie(etat.moi),
+		personnes: etat.personnes.map((p) =>
+			p.id === etat.moi.id ? modifie(p) : p,
+		),
+	};
 }
 
 async function copierCode(famille) {

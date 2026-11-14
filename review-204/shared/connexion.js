@@ -204,9 +204,41 @@ export function brancherBoutonPortail({ rafraichir = true } = {}) {
  * @return Le compte à jour ({ id, prenom, nom })
  */
 export async function modifierProfil({ prenom, nom, photo }) {
-	const profil = await appelerDroits("modifier-profil", { prenom, nom, photo });
+	const profil = await appelerDroits(
+		"modifier-profil",
+		{ prenom, nom, photo },
+		{ discret: true },
+	);
 	await garderProfil(profil, photo || null);
 	return compteConnecte();
+}
+
+/**
+ * Affiche aussitôt un profil en cours d'enregistrement (prénom, nom, photo), avant la réponse de
+ * l'API (voir modifierProfil, qui le remplace par celui du serveur).
+ * @param photo JPEG en base64, "" pour la retirer, undefined pour la garder
+ * @return annuler() : remet le profil d'avant (enregistrement refusé)
+ */
+export function profilProvisoire({ prenom, nom, photo }) {
+	const compte = compteConnecte();
+	if (!compte) return () => {};
+	const photoGardee = lireStockage(CLES.photo);
+	ecrireStockage(
+		CLES.compte,
+		JSON.stringify({ ...compte, prenom: prenom.trim(), nom: nom.trim() }),
+	);
+	if (photo !== undefined) {
+		ecrireStockage(
+			CLES.photo,
+			photo ? JSON.stringify({ empreinte: "provisoire", image: photo }) : null,
+		);
+	}
+	annoncerProfil();
+	return () => {
+		ecrireStockage(CLES.compte, JSON.stringify(compte));
+		ecrireStockage(CLES.photo, photoGardee);
+		annoncerProfil();
+	};
 }
 
 /** Code d'invitation d'un lien de connexion (…#invitation=<code>), ou null. */

@@ -7,6 +7,7 @@ import {
 	compteConnecte,
 	modifierProfil,
 	photoDuCompte,
+	profilProvisoire,
 	surProfilChange,
 } from "./connexion.js";
 import { $, el, initiale, notifier } from "./dom.js";
@@ -113,6 +114,28 @@ export function choixPhotoProfil({ prenom, photo }) {
 	};
 }
 
+/** Enregistrements du profil en cours, envoyés un à un dans l'ordre. */
+let fileProfil = Promise.resolve();
+
+/**
+ * Enregistre le profil en arrière-plan : il est affiché aussitôt (profilProvisoire), puis
+ * remplacé par celui du serveur. En cas d'échec, le profil d'avant revient et un message
+ * l'explique.
+ */
+function enregistrerEnFond(saisie, apresEnregistrement) {
+	const annuler = profilProvisoire(saisie);
+	fileProfil = fileProfil.then(async () => {
+		try {
+			await modifierProfil(saisie);
+			notifier("Profil enregistré.");
+			apresEnregistrement?.();
+		} catch (probleme) {
+			annuler();
+			notifier(`Ton profil n'a pas été enregistré : ${probleme.message}`, true);
+		}
+	});
+}
+
 /**
  * Fenêtre « Mon profil » : la photo, le prénom et le nom du compte, les mêmes dans toutes les apps.
  * @param apresEnregistrement Appelée une fois le profil enregistré (ex : recharger les données)
@@ -146,26 +169,27 @@ export function ouvrirProfil({ apresEnregistrement } = {}) {
 			"form",
 			{
 				class: "formulaire",
+				// Seule la réduction de la photo, rapide, se fait avant de fermer : le profil est
+				// affiché aussitôt et enregistré en arrière-plan (enregistrerEnFond).
 				onsubmit: async (e) => {
 					e.preventDefault();
 					const bouton = e.submitter ?? e.target.querySelector("[type=submit]");
 					bouton.disabled = true;
 					erreur.hidden = true;
+					let photo;
 					try {
-						await modifierProfil({
-							prenom: prenom.value,
-							nom: nom.value,
-							photo: await choix.photo(),
-						});
-						dialogue.close();
-						notifier("Profil enregistré.");
-						apresEnregistrement?.();
+						photo = await choix.photo();
 					} catch (probleme) {
 						erreur.textContent = probleme.message;
 						erreur.hidden = false;
-					} finally {
 						bouton.disabled = false;
+						return;
 					}
+					dialogue.close();
+					enregistrerEnFond(
+						{ prenom: prenom.value, nom: nom.value, photo },
+						apresEnregistrement,
+					);
 				},
 			},
 			el("div", { class: "profil-photo" }, choix.element),
