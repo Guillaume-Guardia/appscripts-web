@@ -2363,7 +2363,7 @@ function ouvrirProfil() {
 	});
 	ouvrirDialogueSimple({
 		titre: "Mon profil",
-		aide: "Ton prénom et ta photo sont aussi ceux de ton compte, dans toutes les apps. Ton anniversaire et ta photo s'affichent pour les membres de tes familles.",
+		aide: "Ton anniversaire et ta photo s'affichent pour les membres de tes familles.",
 		entete: choixPhoto.element,
 		champs: [
 			{

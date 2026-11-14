@@ -165,11 +165,6 @@ export function ouvrirProfil({ apresEnregistrement } = {}) {
 			el("div", { class: "profil-photo" }, choix.element),
 			el("label", { for: "profil-prenom" }, "Ton prénom"),
 			prenom,
-			el(
-				"p",
-				{ class: "aide" },
-				"Ton prénom et ta photo sont les mêmes dans toutes les apps.",
-			),
 			erreur,
 			el(
 				"div",
