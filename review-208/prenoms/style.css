@@ -692,6 +692,38 @@ main {
 	font-size: 18px;
 }
 
-#parents-projet p {
+#participants-projet .aide {
 	margin: 0 0 12px;
+}
+
+.participants {
+	display: grid;
+	gap: 8px;
+	margin: 4px 0 12px;
+	padding: 0;
+	list-style: none;
+}
+
+.participants li {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font-weight: 600;
+}
+
+.rond-initiale {
+	display: grid;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background: var(--surface-2);
+	color: var(--texte);
+	font-size: 14px;
+	font-weight: 700;
+}
+
+.participants .moi .rond-initiale {
+	background: var(--accent);
+	color: var(--sur-accent);
 }

@@ -1,7 +1,7 @@
 {
 	"name": "Prénoms",
 	"short_name": "Prénoms",
-	"description": "Choisir le prénom de bébé à deux : chacun garde ses prénoms préférés, puis vos matchs s'affrontent en duels.",
+	"description": "Choisir le prénom de bébé ensemble : chacun garde ses prénoms préférés, puis vos matchs s'affrontent en duels.",
 	"lang": "fr",
 	"id": "./",
 	"start_url": "./",

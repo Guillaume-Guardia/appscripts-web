@@ -17,6 +17,7 @@ import {
 	$,
 	afficherBandeau,
 	el,
+	initiale,
 	masquerBandeau,
 	notifier,
 	remplacerContenu,
@@ -57,7 +58,7 @@ const CLES = {
 	/** Projet affiché (son Id) : le filtre de toute l'app. */
 	projet: "prenoms.projet",
 	versionApi: "prenoms.versionApi",
-	/** Lien de l'autre parent ouvert avant d'être connecté : { projetId, code }. */
+	/** Lien d'invitation à un projet ouvert avant d'être connecté : { projetId, code }. */
 	rejoindre: "prenoms.rejoindre",
 	/** Votes et duels pas encore enregistrés par l'API (voir envoyer). */
 	votes: "prenoms.votesEnAttente",
@@ -448,7 +449,8 @@ function duels() {
 
 const projet = () => app.etat?.projet ?? null;
 const nomFamille = () => projet()?.nomFamille ?? "";
-const projetComplet = () => (projet()?.parents.length ?? 0) >= 2;
+/** Vrai si le projet a au moins deux participants : des matchs sont possibles. */
+const projetComplet = () => (projet()?.participants.length ?? 0) >= 2;
 
 /** Sexe des duels et du classement : celui du projet, sinon celui choisi à l'écran. */
 const sexeAffiche = () => projet()?.sexe ?? app.sexe;
@@ -488,7 +490,7 @@ function preparerPile() {
 	const restants = candidats();
 	const valides = new Set(restants.map((p) => p.cle));
 	app.pile = app.pile.filter((cle) => valides.has(cle));
-	// Un prénom ajouté par l'autre parent passe devant.
+	// Un prénom ajouté par un autre participant passe devant.
 	const ajoutes = restants
 		.filter((p) => p.ajoute && !app.pile.includes(p.cle))
 		.map((p) => p.cle);
@@ -571,8 +573,9 @@ function voterCarteDuDessus(vote) {
 	);
 }
 
-function rendreInvitationParent() {
-	const conteneur = $("#invitation-parent");
+/** Invitation au-dessus de la pile, tant que personne n'a rejoint le projet. */
+function rendreInvitation() {
+	const conteneur = $("#invitation");
 	if (projetComplet()) {
 		remplacerContenu(conteneur);
 		return;
@@ -585,7 +588,7 @@ function rendreInvitationParent() {
 			el(
 				"p",
 				{},
-				"L'autre parent n'a pas encore rejoint le projet : vos matchs viendront ensuite.",
+				"Personne n'a encore rejoint ce projet : invite quelqu'un pour trouver vos matchs.",
 			),
 			el(
 				"button",
@@ -601,7 +604,7 @@ function rendreInvitationParent() {
  * pas changé (une réponse de l'API arrive pendant qu'on la glisse).
  */
 function rendreSelection({ forcer = false } = {}) {
-	rendreInvitationParent();
+	rendreInvitation();
 	const zone = $("#pile");
 	if (!app.donnees) {
 		remplacerContenu(
@@ -818,7 +821,7 @@ function rendreDuels() {
 		remplacerContenu(
 			zone,
 			videDuels(
-				"Les duels départagent vos matchs : invite d'abord l'autre parent.",
+				"Les duels départagent vos matchs : invite d'abord quelqu'un dans le projet.",
 			),
 		);
 		return;
@@ -891,7 +894,7 @@ function rendreClassement() {
 			videDuels(
 				projetComplet()
 					? "Pas encore de match : les prénoms gardés par vous deux apparaîtront ici, classés par vos duels."
-					: "Invite l'autre parent : vos matchs apparaîtront ici, classés par vos duels.",
+					: "Invite quelqu'un dans le projet : vos matchs apparaîtront ici, classés par vos duels.",
 			),
 		);
 		return;
@@ -1015,7 +1018,9 @@ async function ajouterPrenom(prenom, sexe) {
 			{ discret: true },
 		);
 		recevoirEtat(etat);
-		notifier(`${prenom} est ajouté : l'autre parent le verra passer.`);
+		notifier(
+			`${prenom} est ajouté : les autres participants le verront passer.`,
+		);
 	} catch (erreur) {
 		if (estSessionRefusee(erreur)) {
 			deconnecter(erreur.message);
@@ -1160,7 +1165,7 @@ function ouvrirFiche(prenom) {
 }
 
 // ---------------------------------------------------------------------------
-// Projet : création, modification, partage avec l'autre parent
+// Projet : création, modification, invitation des participants
 // ---------------------------------------------------------------------------
 
 /** Remplit les champs du projet d'un formulaire (modèle #champs-projet). */
@@ -1200,7 +1205,7 @@ function lireChampsProjet(formulaire) {
 
 /**
  * Crée un projet (écran sans projet, ou « + » de l'en-tête) : il devient le projet affiché, et l'app
- * propose d'inviter l'autre parent.
+ * propose d'inviter les autres participants.
  */
 async function creerProjet(evenement) {
 	evenement.preventDefault();
@@ -1217,7 +1222,7 @@ async function creerProjet(evenement) {
 		);
 		if (cree) {
 			formulaire.closest("dialog")?.close();
-			notifier("Projet créé : invite l'autre parent.");
+			notifier("Projet créé : invite les autres participants.");
 			partagerProjet();
 		}
 	} finally {
@@ -1270,22 +1275,20 @@ function rejoindreDuLien(texte) {
 		: null;
 }
 
+/** QR code et lien qui font rejoindre le projet affiché, à autant de personnes qu'on veut. */
 function partagerProjet() {
 	fermerMenu();
 	const p = projet();
 	if (!p) return;
-	const autre = p.parents.find((parent) => parent.id !== app.etat.moi.id);
 	ouvrirQr({
-		titre: "Inviter l'autre parent",
-		aide: autre
-			? `${autre.prenom} a déjà rejoint votre projet.`
-			: "À scanner avec l'appareil photo, ou envoie le lien : l'autre parent rejoint votre projet (et crée son compte si besoin). Vos votes restent secrets : seuls vos matchs sont communs.",
+		titre: "Inviter dans le projet",
+		aide: "À scanner avec l'appareil photo, ou envoie le lien : la personne rejoint le projet (et crée son compte si besoin). Les votes de chacun restent secrets : seuls les prénoms gardés par tous deviennent des matchs.",
 		lien: lienDuProjet(p),
 		texteEnvoi: "Choisissons le prénom de bébé ensemble :",
 	});
 }
 
-/** Lien de l'autre parent ouvert avant d'être connecté : utilisé une fois connecté. */
+/** Lien d'invitation ouvert avant d'être connecté : utilisé une fois connecté. */
 async function rejoindreEnAttente() {
 	const lien = lireStockageJson(CLES.rejoindre);
 	if (!lien) return;
@@ -1345,7 +1348,7 @@ function rendreProjetsEntete() {
 }
 
 // ---------------------------------------------------------------------------
-// Paramètres : les projets du compte, celui affiché, l'autre parent
+// Paramètres : le projet affiché et ses participants
 // ---------------------------------------------------------------------------
 
 function rendreParametres() {
@@ -1355,24 +1358,45 @@ function rendreParametres() {
 		preparerChampsProjet(formulaire, p);
 		formulaire.dataset.projet = p.id;
 	}
-	const autre = p.parents.find((parent) => parent.id !== app.etat.moi.id);
+	// Moi d'abord, puis les autres dans l'ordre où ils ont rejoint le projet.
+	const moi = app.etat.moi.id;
+	const participants = [
+		...p.participants.filter((x) => x.id === moi),
+		...p.participants.filter((x) => x.id !== moi),
+	];
 	remplacerContenu(
-		$("#parents-projet"),
+		$("#participants-projet"),
+		el(
+			"ul",
+			{ class: "participants" },
+			participants.map((x) =>
+				el(
+					"li",
+					{ class: x.id === moi ? "moi" : null },
+					el(
+						"span",
+						{ class: "rond-initiale", "aria-hidden": "true" },
+						initiale(x.prenom),
+					),
+					x.id === moi ? "Moi" : x.prenom,
+				),
+			),
+		),
 		el(
 			"p",
-			{},
-			autre
-				? `Avec ${autre.prenom} : vos matchs sont communs, vos autres votes restent secrets.`
-				: "L'autre parent n'a pas encore rejoint ce projet.",
+			{ class: "aide" },
+			participants.length < 2
+				? "Invite quelqu'un : les prénoms gardés par tous deviennent des matchs."
+				: "Les prénoms gardés par tous sont des matchs ; les autres votes restent secrets.",
 		),
 		el(
 			"button",
 			{
 				type: "button",
-				class: autre ? "" : "bouton-principal",
+				class: participants.length < 2 ? "bouton-principal" : "",
 				onclick: partagerProjet,
 			},
-			autre ? "Revoir le lien d'invitation" : "Inviter l'autre parent",
+			"Inviter quelqu'un",
 		),
 	);
 }
@@ -1653,7 +1677,7 @@ function brancherEvenements() {
 		ouvrirSignalement({ app: "Prénoms", prenom: compteConnecte()?.prenom });
 	});
 	$("#menu-deconnecter").addEventListener("click", seDeconnecter);
-	// Retour sur l'app : l'autre parent a peut-être voté entre-temps (nouveaux matchs).
+	// Retour sur l'app : les autres participants ont peut-être voté entre-temps (nouveaux matchs).
 	document.addEventListener("visibilitychange", () => {
 		if (document.visibilityState === "hidden") {
 			envoyer();
@@ -1682,7 +1706,7 @@ function demarrer() {
 		(erreur) => notifier(erreur.message, true),
 	);
 	// Liens ouverts dans l'app, retirés aussitôt de l'adresse : connexion d'un appareil
-	// (…#invitation=<code>), ou invitation de l'autre parent (…#rejoindre=<Id>:<code>), gardée
+	// (…#invitation=<code>), ou invitation à un projet (…#rejoindre=<Id>:<code>), gardée
 	// jusqu'à la connexion.
 	const invitation = invitationDuLien(location.hash);
 	const rejoindre = rejoindreDuLien(location.hash);
