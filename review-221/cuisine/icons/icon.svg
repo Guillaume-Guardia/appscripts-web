@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+	<title>Cuisine</title>
+	<rect width="512" height="512" rx="112" fill="#8f3d15" />
+	<path d="M196 196c-16-24 16-44 0-70M256 196c-16-24 16-44 0-70M316 196c-16-24 16-44 0-70" fill="none" stroke="#f4f1ea" stroke-width="22" stroke-linecap="round" />
+	<path d="M92 236h328a164 164 0 0 1-328 0z" fill="#f4f1ea" />
+	<path d="M120 296h272" stroke="#e6550d" stroke-width="22" stroke-linecap="round" />
+	<rect x="186" y="398" width="140" height="28" rx="14" fill="#f4f1ea" />
+</svg>

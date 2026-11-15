@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+	<title>Voyage</title>
+	<rect width="512" height="512" rx="112" fill="#0f5f66" />
+	<path d="M200 168v-34a26 26 0 0 1 26-26h60a26 26 0 0 1 26 26v34" fill="none" stroke="#f4f1ea" stroke-width="26" stroke-linejoin="round" />
+	<rect x="112" y="160" width="288" height="236" rx="40" fill="#f4f1ea" />
+	<path d="M190 160v236M322 160v236" stroke="#0f5f66" stroke-width="20" opacity=".35" />
+	<path d="M200 284l40 38 76-80" fill="none" stroke="#2b7a4b" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" />
+	<circle cx="160" cy="410" r="14" fill="#f4f1ea" />
+	<circle cx="352" cy="410" r="14" fill="#f4f1ea" />
+</svg>
