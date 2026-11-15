@@ -45,10 +45,14 @@ import {
 import { courbePoids, histogrammeKcal } from "./graphiques.js";
 import {
 	additionner,
+	arrondir,
+	calculerRecette,
 	KCAL_PAR_GRAMME,
 	multiplier,
 	NUTRIMENTS,
 	nombre,
+	nombreSaisi,
+	pour100gComplet,
 	quantiteTexte,
 	resume,
 	vides,
@@ -93,7 +97,11 @@ const app = {
 	/** Nom de la recette en cours de modification (null : nouvelle recette). */
 	recette: null,
 	horsLigne: false,
-	occupe: false,
+	/**
+	 * Modifications affichées avant la réponse de l'API (voir modifierEnFond) : chacune transforme
+	 * l'état du serveur en l'état affiché.
+	 */
+	provisoires: [],
 	/** Version de l'API, renvoyée avec chaque réponse (affichée avec celle de l'app). */
 	versionApi: lireStockage(CLES.versionApi),
 };
@@ -108,6 +116,10 @@ if (
 ) {
 	app.etat = etatEnCache;
 }
+/** État renvoyé par l'API, sans les modifications en attente (app.etat les ajoute). */
+let etatServeur = app.etat;
+/** Modifications en attente de l'API, envoyées une à une dans l'ordre (voir modifierEnFond). */
+let fileModifications = Promise.resolve();
 
 // ---------------------------------------------------------------------------
 // API (Web App Apps Script, projet cuisine)
@@ -125,7 +137,7 @@ const appelerApi = creerApi({
 });
 
 function enregistrerEtat() {
-	ecrireStockage(CLES.etat, JSON.stringify(app.etat));
+	ecrireStockage(CLES.etat, JSON.stringify(etatServeur));
 	ecrireStockage(CLES.compte, compteConnecte()?.id ?? null);
 }
 
@@ -134,8 +146,16 @@ function passerHorsLigne() {
 	afficherBandeauHorsLigne();
 }
 
+/** Plus d'état (déconnexion, accès refusé) : les modifications en attente ne s'affichent plus. */
+function oublierEtat() {
+	etatServeur = null;
+	app.etat = null;
+	app.provisoires = [];
+}
+
 function appliquerEtat(etat) {
-	app.etat = etat;
+	etatServeur = etat;
+	app.etat = avecProvisoires(etat);
 	app.horsLigne = false;
 	enregistrerEtat();
 	afficherBandeauHorsLigne();
@@ -176,43 +196,71 @@ async function actualiser({ silencieux = false } = {}) {
 	}
 }
 
+const avecProvisoires = (etat) =>
+	app.provisoires.reduce((affiche, provisoire) => provisoire(affiche), etat);
+
+function afficherProvisoires() {
+	if (!etatServeur) return;
+	app.etat = avecProvisoires(etatServeur);
+	rendre();
+}
+
+/** Transformation de l'état qui ne change que le journal. */
+const avecJournal = (changer) => (etat) => ({
+	...etat,
+	journal: changer(etat.journal),
+});
+
+let compteurProvisoire = 0;
+/** Id d'un élément pas encore enregistré. */
+const idProvisoire = () => `provisoire-${Date.now()}-${compteurProvisoire++}`;
+
 /**
- * Lance une modification ; l'API renvoie { resultat, etat }.
- * @param surErreur affiche l'erreur (par défaut : une notification)
- * @return le résultat (true s'il n'y en a pas), ou null en cas d'échec
+ * Modification affichée aussitôt, puis envoyée à l'API en arrière-plan : l'app n'attend pas les
+ * quelques secondes de la Web App. Les envois partent un à un, dans l'ordre ; chaque réponse
+ * remplace l'affichage provisoire par l'état du serveur. En cas d'échec, la modification disparaît
+ * et un message l'explique (skill enregistrement-en-fond).
+ * @param provisoire (etat) => l'état avec la modification, affiché en attendant
+ * @param echec début du message d'erreur (ex : « Œuf n'a pas été ajouté : »)
+ * @param surSucces (resultat) => …, une fois la modification enregistrée (facultatif)
+ * @return Faux si l'app est hors ligne (rien n'est fait)
  */
-async function modifier(
-	action,
-	parametres,
-	messageSucces,
-	surErreur = (message) => notifier(message, true),
-) {
-	if (app.occupe) return null;
+function modifierEnFond(action, parametres, provisoire, echec, surSucces) {
 	if (app.horsLigne) {
-		surErreur("Hors ligne : les modifications reviendront avec la connexion.");
-		return null;
+		notifier(
+			"Hors ligne : les modifications reviendront avec la connexion.",
+			true,
+		);
+		return false;
 	}
-	app.occupe = true;
-	document.body.style.cursor = "progress";
-	try {
-		const { resultat, etat } = await appelerApi(action, parametres);
-		// Un jour plus ancien que l'état est relu : il vient peut-être de changer.
-		app.joursAnciens.clear();
-		appliquerEtat(etat);
-		if (messageSucces) notifier(messageSucces);
-		return resultat ?? true;
-	} catch (erreur) {
-		if (estSessionRefusee(erreur) || estAccesRefuse(erreur)) {
-			signalerErreur(erreur);
-			return null;
+	app.provisoires.push(provisoire);
+	afficherProvisoires();
+	const retirer = () => {
+		app.provisoires = app.provisoires.filter((p) => p !== provisoire);
+	};
+	fileModifications = fileModifications.then(async () => {
+		try {
+			const { resultat, etat } = await appelerApi(action, parametres, {
+				discret: true,
+			});
+			retirer();
+			// Un jour plus ancien que l'état est relu : il vient peut-être de changer.
+			app.joursAnciens.clear();
+			// Déconnecté entre-temps : rien à afficher.
+			if (etatServeur) appliquerEtat(etat);
+			surSucces?.(resultat);
+		} catch (erreur) {
+			retirer();
+			afficherProvisoires();
+			if (estSessionRefusee(erreur) || estAccesRefuse(erreur)) {
+				signalerErreur(erreur);
+				return;
+			}
+			notifier(`${echec} ${erreur.message}`, true);
+			if (erreur instanceof ErreurReseau) passerHorsLigne();
 		}
-		surErreur(erreur.message);
-		if (erreur instanceof ErreurReseau) passerHorsLigne();
-		return null;
-	} finally {
-		app.occupe = false;
-		document.body.style.cursor = "";
-	}
+	});
+	return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -255,7 +303,10 @@ function entreesDuJour(jour) {
 		return app.etat.journal.filter((e) => e.date === jour);
 	}
 	const anciennes = app.joursAnciens.get(jour);
-	return Array.isArray(anciennes) ? anciennes : null;
+	if (!Array.isArray(anciennes)) return null;
+	return avecProvisoires({ ...etatServeur, journal: anciennes }).journal.filter(
+		(e) => e.date === jour,
+	);
 }
 
 /** Charge un jour plus ancien que l'état (action journal), puis le réaffiche. */
@@ -471,6 +522,7 @@ function ligneEntree(entree) {
 			{
 				type: "button",
 				class: "entree",
+				disabled: entree.provisoire,
 				onclick: () => ouvrirEntree(entree),
 			},
 			el(
@@ -573,18 +625,27 @@ function rendreJournal(profil) {
 	);
 }
 
+/** Copie un repas de la veille : affiché aussitôt, enregistré en arrière-plan. */
 function copierRepasDeLaVeille(repas) {
-	modifier(
+	const profil = profilActif().nom;
+	const depuis = decalerJour(app.jour, -1);
+	const copies = (entreesDuJour(depuis) ?? [])
+		.filter((e) => e.profil === profil && e.repas === repas)
+		.map((e) => ({
+			...e,
+			id: idProvisoire(),
+			date: app.jour,
+			provisoire: true,
+		}));
+	if (entreesDuJour(depuis) && copies.length === 0) {
+		notifier("Rien à copier pour ce repas.", true);
+		return;
+	}
+	modifierEnFond(
 		"copier-repas",
-		{
-			copie: {
-				profil: profilActif().nom,
-				repas,
-				depuis: decalerJour(app.jour, -1),
-				vers: app.jour,
-			},
-		},
-		`${repas} : copié de la veille.`,
+		{ copie: { profil, repas, depuis, vers: app.jour } },
+		avecJournal((journal) => [...journal, ...copies]),
+		`${repas} n'a pas été copié de la veille :`,
 	);
 }
 
@@ -764,34 +825,42 @@ function choisir(choix) {
 	if (!$("#dialogue-ajout").open) $("#dialogue-ajout").showModal();
 }
 
-async function enregistrerAjout(evenement) {
+/** Ajout au journal : affiché aussitôt, enregistré en arrière-plan. */
+function enregistrerAjout(evenement) {
 	evenement.preventDefault();
 	const erreur = evenement.target.querySelector(".erreur");
 	erreur.textContent = "";
 	const { choix } = app.ajout;
-	const resultat = await modifier(
-		"ajouter-entree",
-		{
-			entree: {
-				date: app.jour,
-				profil: profilActif().nom,
-				repas: $("#champ-repas").value,
-				nom: choix.nom,
-				type: choix.type,
-				quantite: $("#champ-quantite").value,
-			},
-		},
-		null,
-		(message) => {
-			erreur.textContent = message;
-		},
-	);
-	if (resultat) {
-		$("#dialogue-ajout").close();
-		notifier(
-			`${resultat.nom} : ${nombre(resultat.nutriments.kcal, 0)} kcal ajoutées.`,
-		);
+	const quantite = nombreSaisi($("#champ-quantite").value);
+	if (!(quantite > 0)) {
+		erreur.textContent = "Indique une quantité.";
+		return;
 	}
+	const entree = {
+		date: app.jour,
+		profil: profilActif().nom,
+		repas: $("#champ-repas").value,
+		nom: choix.nom,
+		type: choix.type,
+		quantite: $("#champ-quantite").value,
+	};
+	const nutriments = arrondir(valeursDe(choix, quantite));
+	const affichee = {
+		...entree,
+		id: idProvisoire(),
+		quantite,
+		nutriments,
+		provisoire: true,
+	};
+	const lance = modifierEnFond(
+		"ajouter-entree",
+		{ entree },
+		avecJournal((journal) => [...journal, affichee]),
+		`${choix.nom} n'a pas été ajouté :`,
+	);
+	if (!lance) return;
+	$("#dialogue-ajout").close();
+	notifier(`${choix.nom} : ${nombre(nutriments.kcal, 0)} kcal ajoutées.`);
 }
 
 // ---------------------------------------------------------------------------
@@ -820,35 +889,53 @@ function ouvrirEntree(entree) {
 	$("#dialogue-entree").showModal();
 }
 
-async function enregistrerEntree(evenement) {
+/** Modification d'une entrée du journal : affichée aussitôt, enregistrée en arrière-plan. */
+function enregistrerEntree(evenement) {
 	evenement.preventDefault();
 	const erreur = evenement.target.querySelector(".erreur");
 	erreur.textContent = "";
-	const fait = await modifier(
+	const { entree } = app;
+	const quantite = nombreSaisi($("#champ-quantite-entree").value);
+	if (!(quantite > 0)) {
+		erreur.textContent = "Indique une quantité.";
+		return;
+	}
+	const repas = $("#champ-repas-entree").value;
+	const lance = modifierEnFond(
 		"modifier-entree",
 		{
-			entreeId: app.entree.id,
-			entree: {
-				quantite: $("#champ-quantite-entree").value,
-				repas: $("#champ-repas-entree").value,
-			},
+			entreeId: entree.id,
+			entree: { quantite: $("#champ-quantite-entree").value, repas },
 		},
-		`${app.entree.nom} modifié.`,
-		(message) => {
-			erreur.textContent = message;
-		},
+		avecJournal((journal) =>
+			journal.map((e) =>
+				e.id === entree.id
+					? {
+							...e,
+							quantite,
+							repas,
+							nutriments: arrondir(
+								multiplier(e.nutriments, quantite / e.quantite),
+							),
+						}
+					: e,
+			),
+		),
+		`${entree.nom} n'a pas été modifié :`,
 	);
-	if (fait) $("#dialogue-entree").close();
+	if (lance) $("#dialogue-entree").close();
 }
 
-async function supprimerEntree() {
+/** Retrait d'une entrée du journal : aussitôt, enregistré en arrière-plan. */
+function supprimerEntree() {
 	const { entree } = app;
-	const fait = await modifier(
+	const lance = modifierEnFond(
 		"supprimer-entree",
 		{ entreeId: entree.id },
-		`${entree.nom} retiré du journal.`,
+		avecJournal((journal) => journal.filter((e) => e.id !== entree.id)),
+		`${entree.nom} n'a pas été retiré du journal :`,
 	);
-	if (fait) $("#dialogue-entree").close();
+	if (lance) $("#dialogue-entree").close();
 }
 
 // ---------------------------------------------------------------------------
@@ -1003,7 +1090,8 @@ function ouvrirFormulaireAliment(produit = {}) {
 	$(produit.nom ? "#champ-categorie" : "#champ-nom-aliment").focus();
 }
 
-async function enregistrerAliment(evenement) {
+/** Nouvel aliment : ajouté aussitôt au catalogue affiché, enregistré en arrière-plan. */
+function enregistrerAliment(evenement) {
 	evenement.preventDefault();
 	const form = evenement.target;
 	const erreur = form.querySelector(".erreur");
@@ -1018,19 +1106,46 @@ async function enregistrerAliment(evenement) {
 			NUTRIMENTS.map((n) => [n, form.elements[n].value]),
 		),
 	};
-	const resultat = await modifier(
+	const nom = aliment.nom.trim();
+	const meme = parNom(app.etat.aliments, nom);
+	if (meme) {
+		erreur.textContent = `${meme.nom} est déjà dans les aliments.`;
+		return;
+	}
+	const categorie = aliment.categorie.trim();
+	const affiche = {
+		nom,
+		categorie,
+		codeBarres: aliment.codeBarres.trim(),
+		portion: nombreSaisi(aliment.portion),
+		nomPortion: aliment.nomPortion.trim(),
+		pour100g: pour100gComplet(aliment.pour100g),
+		provisoire: true,
+	};
+	const lance = modifierEnFond(
 		"ajouter-aliment",
 		{ aliment },
-		null,
-		(message) => {
-			erreur.textContent = message;
-		},
+		(etat) => ({
+			...etat,
+			aliments: [...etat.aliments, affiche],
+			options: {
+				...etat.options,
+				categories:
+					categorie &&
+					!etat.options.categories.some(
+						(c) => normaliser(c) === normaliser(categorie),
+					)
+						? [...etat.options.categories, categorie]
+						: etat.options.categories,
+			},
+		}),
+		`${nom} n'a pas été ajouté aux aliments :`,
 	);
-	if (!resultat) return;
+	if (!lance) return;
 	$("#dialogue-aliment").close();
 	if ($("#dialogue-off").open) $("#dialogue-off").close();
-	notifier(`${resultat.nom} ajouté aux aliments.`);
-	const choix = app.ajout && trouverChoix("aliment", resultat.nom);
+	notifier(`${nom} ajouté aux aliments.`);
+	const choix = app.ajout && trouverChoix("aliment", nom);
 	if (choix && $("#dialogue-ajout").open) choisir(choix);
 }
 
@@ -1178,33 +1293,66 @@ function rendrePoids(profil) {
 	);
 }
 
-async function enregistrerPoids(evenement) {
+/** Pesée du jour : affichée aussitôt (remplace celle du même jour), enregistrée en arrière-plan. */
+function enregistrerPoids(evenement) {
 	evenement.preventDefault();
 	const erreur = evenement.target.querySelector(".erreur");
 	erreur.textContent = "";
-	await modifier(
+	const profil = profilActif().nom;
+	const date = $("#champ-date-poids").value;
+	const poids = nombreSaisi($("#champ-poids").value);
+	if (!date) {
+		erreur.textContent = "Indique la date.";
+		return;
+	}
+	if (poids === null) {
+		erreur.textContent = "Indique le poids.";
+		return;
+	}
+	const lance = modifierEnFond(
 		"enregistrer-poids",
-		{
-			pesee: {
-				profil: profilActif().nom,
-				date: $("#champ-date-poids").value,
-				poids: $("#champ-poids").value,
-			},
+		{ pesee: { profil, date, poids: $("#champ-poids").value } },
+		(etat) => {
+			const meme = etat.poids.find(
+				(p) => p.profil === profil && p.date === date,
+			);
+			const pesee = meme
+				? { ...meme, poids }
+				: { id: idProvisoire(), date, profil, poids, provisoire: true };
+			return {
+				...etat,
+				poids: [...etat.poids.filter((p) => p !== meme), pesee].sort((a, b) =>
+					a.date.localeCompare(b.date),
+				),
+			};
 		},
-		"Poids enregistré.",
-		(message) => {
-			erreur.textContent = message;
-		},
+		"Le poids n'a pas été enregistré :",
 	);
+	if (lance) notifier("Poids enregistré.");
 }
 
+/** Suppression d'une pesée : aussitôt, enregistrée en arrière-plan. */
 function supprimerPoids(pesee) {
+	// Pas encore enregistrée : son Id n'existe pas côté serveur.
+	if (pesee.provisoire) {
+		notifier("Cette pesée est en cours d'enregistrement.", true);
+		return;
+	}
 	if (
 		!confirm(`Supprimer la pesée du ${formatDateLongue.format(pesee.date)} ?`)
 	) {
 		return;
 	}
-	modifier("supprimer-poids", { peseeId: pesee.id }, "Pesée supprimée.");
+	const lance = modifierEnFond(
+		"supprimer-poids",
+		{ peseeId: pesee.id },
+		(etat) => ({
+			...etat,
+			poids: etat.poids.filter((p) => p.id !== pesee.id),
+		}),
+		"La pesée n'a pas été supprimée :",
+	);
+	if (lance) notifier("Pesée supprimée.");
 }
 
 // ---------------------------------------------------------------------------
@@ -1359,42 +1507,90 @@ function ouvrirRecette(recette = null) {
 	if (!recette) $("#champ-nom-recette").focus();
 }
 
-async function enregistrerRecette(evenement) {
+/** Recette : affichée aussitôt (valeurs calculées d'après le catalogue), enregistrée en arrière-plan. */
+function enregistrerRecette(evenement) {
 	evenement.preventDefault();
 	const erreur = evenement.target.querySelector(".erreur");
 	erreur.textContent = "";
-	const fait = await modifier(
+	const nom = $("#champ-nom-recette").value.trim();
+	const portions = nombreSaisi($("#champ-portions").value);
+	const saisis = ingredientsSaisis();
+	const ancienNom = app.recette;
+	if (!(portions > 0)) {
+		erreur.textContent = "Indique le nombre de portions.";
+		return;
+	}
+	if (saisis.length === 0) {
+		erreur.textContent = "Ajoute au moins un ingrédient.";
+		return;
+	}
+	const meme = parNom(app.etat.recettes, nom);
+	if (meme && normaliser(meme.nom) !== normaliser(ancienNom ?? "")) {
+		erreur.textContent = `La recette ${meme.nom} existe déjà.`;
+		return;
+	}
+	const ingredients = saisis.map((i) => ({
+		aliment: i.aliment,
+		quantite: nombreSaisi(i.quantite) ?? 0,
+	}));
+	const affichee = {
+		nom,
+		portions,
+		ingredients,
+		...calculerRecette({ portions, ingredients }, (aliment) =>
+			parNom(app.etat.aliments, aliment),
+		),
+		provisoire: true,
+	};
+	const remplacee = normaliser(ancienNom ?? nom);
+	const lance = modifierEnFond(
 		"enregistrer-recette",
 		{
 			recette: {
-				nom: $("#champ-nom-recette").value,
+				nom,
 				portions: $("#champ-portions").value,
-				ingredients: ingredientsSaisis(),
-				ancienNom: app.recette,
+				ingredients: saisis,
+				ancienNom,
 			},
 		},
-		"Recette enregistrée.",
-		(message) => {
-			erreur.textContent = message;
-		},
+		(etat) => ({
+			...etat,
+			recettes: [
+				...etat.recettes.filter((r) => normaliser(r.nom) !== remplacee),
+				affichee,
+			].sort((a, b) => a.nom.localeCompare(b.nom, "fr")),
+		}),
+		`La recette ${nom} n'a pas été enregistrée :`,
 	);
-	if (fait) $("#dialogue-recette").close();
+	if (!lance) return;
+	$("#dialogue-recette").close();
+	notifier("Recette enregistrée.");
 }
 
-async function supprimerRecette() {
+/** Suppression d'une recette : aussitôt, enregistrée en arrière-plan. */
+function supprimerRecette() {
+	const nom = app.recette;
 	if (
 		!confirm(
-			`Supprimer la recette ${app.recette} ? Ce qui en a été mangé reste dans le journal.`,
+			`Supprimer la recette ${nom} ? Ce qui en a été mangé reste dans le journal.`,
 		)
 	) {
 		return;
 	}
-	const fait = await modifier(
+	const lance = modifierEnFond(
 		"supprimer-recette",
-		{ nom: app.recette },
-		"Recette supprimée.",
+		{ nom },
+		(etat) => ({
+			...etat,
+			recettes: etat.recettes.filter(
+				(r) => normaliser(r.nom) !== normaliser(nom),
+			),
+		}),
+		`La recette ${nom} n'a pas été supprimée :`,
 	);
-	if (fait) $("#dialogue-recette").close();
+	if (!lance) return;
+	$("#dialogue-recette").close();
+	notifier("Recette supprimée.");
 }
 
 // ---------------------------------------------------------------------------
@@ -1441,30 +1637,44 @@ function ouvrirProfil(profil = null, oblige = false) {
 	if (!profil) $("#champ-nom-profil").focus();
 }
 
-async function enregistrerProfil(evenement) {
+/** Profil suivi : affiché et choisi aussitôt, enregistré en arrière-plan. */
+function enregistrerProfil(evenement) {
 	evenement.preventDefault();
 	const form = evenement.target;
 	const erreur = form.querySelector(".erreur");
 	erreur.textContent = "";
-	const resultat = await modifier(
-		"enregistrer-profil",
-		{
-			profil: {
-				nom: $("#champ-nom-profil").value,
-				objectifs: Object.fromEntries(
-					CHAMPS_OBJECTIFS.map((c) => [c, form.elements[c].value]),
-				),
-			},
-		},
-		null,
-		(message) => {
-			erreur.textContent = message;
-		},
+	const nom = $("#champ-nom-profil").value.trim();
+	if (!nom) {
+		erreur.textContent = "Indique le nom.";
+		return;
+	}
+	const saisis = Object.fromEntries(
+		CHAMPS_OBJECTIFS.map((c) => [c, form.elements[c].value]),
 	);
-	if (!resultat) return;
+	const objectifs = Object.fromEntries(
+		CHAMPS_OBJECTIFS.map((c) => [c, nombreSaisi(saisis[c])]),
+	);
+	const lance = modifierEnFond(
+		"enregistrer-profil",
+		{ profil: { nom, objectifs: saisis } },
+		(etat) => {
+			const existant = parNom(etat.profils, nom);
+			return {
+				...etat,
+				profils: existant
+					? etat.profils.map((p) =>
+							p === existant ? { nom: p.nom, objectifs } : p,
+						)
+					: [...etat.profils, { nom, objectifs }],
+			};
+		},
+		`Le profil de ${nom} n'a pas été enregistré :`,
+		(resultat) => choisirProfil(resultat.nom),
+	);
+	if (!lance) return;
 	$("#dialogue-profil").close();
-	notifier(`Profil de ${resultat.nom} enregistré.`);
-	choisirProfil(resultat.nom);
+	notifier(`Profil de ${nom} enregistré.`);
+	choisirProfil(parNom(app.etat.profils, nom)?.nom ?? nom);
 }
 
 function rendreChoixProfil() {
@@ -1593,7 +1803,7 @@ function afficherConnexion(message = "", invitation = null) {
 
 /** Compte connecté sans accès à Cuisine : la session est gardée (elle sert aux autres apps). */
 function afficherRefus(message) {
-	app.etat = null;
+	oublierEtat();
 	ecrireStockage(CLES.etat, null);
 	afficherEcran("connexion");
 	$("#connexion").hidden = true;
@@ -1603,7 +1813,7 @@ function afficherRefus(message) {
 
 /** Premier chargement du journal, une fois l'appareil connecté. */
 async function chargerApresConnexion() {
-	app.etat = null;
+	oublierEtat();
 	ecrireStockage(CLES.etat, null);
 	try {
 		appliquerEtat(await appelerApi("etat"));
@@ -1617,7 +1827,7 @@ async function chargerApresConnexion() {
 function deconnecter(message = "") {
 	fermerMenu();
 	oublierConnexion();
-	app.etat = null;
+	oublierEtat();
 	app.joursAnciens.clear();
 	ecrireStockage(CLES.etat, null);
 	for (const dialogue of document.querySelectorAll("dialog[open]")) {
