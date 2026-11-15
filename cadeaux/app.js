@@ -2539,15 +2539,31 @@ function ouvrirProfil() {
 			),
 			...app.etat.familles.map((f) =>
 				el(
-					"button",
-					{
-						type: "button",
-						class: "code-famille",
-						"aria-label": `Copier le code de la famille ${f.nom}`,
-						onclick: puis(() => copierCode(f)),
-					},
-					el("span", {}, f.nom),
-					el("strong", {}, f.code),
+					"div",
+					{ class: "ligne-famille" },
+					el(
+						"button",
+						{
+							type: "button",
+							class: "code-famille",
+							"aria-label": `Copier le code de la famille ${f.nom}`,
+							onclick: puis(() => copierCode(f)),
+						},
+						el("span", {}, f.nom),
+						el("strong", {}, f.code),
+					),
+					// On ne quitte pas sa seule famille.
+					app.etat.familles.length > 1 &&
+						el(
+							"button",
+							{
+								type: "button",
+								class: "lien-bouton",
+								"aria-label": `Quitter la famille ${f.nom}`,
+								onclick: puis(() => quitterFamille(f)),
+							},
+							"Quitter",
+						),
 				),
 			),
 		],
@@ -2605,6 +2621,44 @@ function avecProfilProvisoire(etat, { prenom, nom, naissance, photo }) {
 			p.id === etat.moi.id ? modifie(p) : p,
 		),
 	};
+}
+
+/**
+ * Quitte une famille, après confirmation : ce qui disparaît (ses réservations d'idées qu'on ne verra
+ * plus, son tirage d'un Secret Santa de cette famille) est annoncé. L'historique ne change pas.
+ */
+async function quitterFamille(famille) {
+	const restantes = app.etat.familles.filter((f) => f.id !== famille.id);
+	const proches = new Set(restantes.flatMap((f) => f.membreIds));
+	const dansRestantes = (ids) => restantes.some((f) => ids.includes(f.id));
+	// Comme l'API (estVisibleDe) : un destinataire encore proche, et une des familles choisies.
+	const reservations = app.etat.cadeaux.filter(
+		(c) =>
+			c.reserveParIds?.includes(moi()) &&
+			(!c.pourIds.some((id) => proches.has(id)) ||
+				(c.ajouteParId !== moi() &&
+					c.familleIds?.length > 0 &&
+					!dansRestantes(c.familleIds))),
+	);
+	const secretSantas = app.etat.secretSantas.filter(
+		(s) => s.participantIds.includes(moi()) && !dansRestantes(s.familleIds),
+	);
+	const message = [
+		`Quitter la famille ${famille.nom} ?`,
+		"Ta liste n'y sera plus visible et tu ne verras plus celles de ses membres. Ton historique ne change pas.",
+		reservations.length > 0 &&
+			`Tes réservations seront annulées : ${reservations.map((c) => `« ${c.titre} »`).join(", ")}.`,
+		secretSantas.length > 0 &&
+			`Tu ne verras plus ton tirage : ${secretSantas.map((s) => `« ${s.nom} »`).join(", ")}.`,
+	]
+		.filter(Boolean)
+		.join("\n\n");
+	if (!confirm(message)) return;
+	await modifier(
+		"quitter-famille",
+		{ familleId: famille.id },
+		`Tu as quitté la famille ${famille.nom}.`,
+	);
 }
 
 async function copierCode(famille) {
