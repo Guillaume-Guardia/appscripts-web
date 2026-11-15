@@ -59,8 +59,6 @@ const CLES = {
 	versionApi: "cadeaux.versionApi",
 	/** Visite guidée déjà vue (ou passée) sur cet appareil. */
 	visite: "cadeaux.visite",
-	/** « compacte » : vue compacte des idées choisie dans le menu, sur cet appareil. */
-	vue: "cadeaux.vue",
 };
 
 /** Réductions essayées pour une photo : [plus grand côté en pixels, qualité JPEG]. */
@@ -123,9 +121,7 @@ const app = {
 	versionApi: lireStockage(CLES.versionApi),
 	/** Vrai pendant la visite guidée (ou en attendant qu'une autre fenêtre se ferme). */
 	visite: false,
-	/** Vue compacte : une ligne par idée, sans photo ni détails. */
-	compacte: lireStockage(CLES.vue) === "compacte",
-	/** Idées dépliées dans la vue compacte (en touchant leur titre). */
+	/** Idées dépliées (touchées) : les autres sont compactes, sans photo ni détails. */
 	deplies: new Set(),
 };
 
@@ -807,19 +803,20 @@ function carteCadeau(cadeau, { pour, selectionnable = false, grise = false }) {
 		visiblePar,
 		part,
 	].filter(Boolean);
-	// Vue compacte : titre, prix, état et boutons ; toucher le titre montre le reste.
-	const repliable = app.compacte && (details.length > 0 || partage);
-	const replie = repliable && !app.deplies.has(cadeau.id);
+	// Carte compacte : titre, prix, état et boutons ; toucher la carte montre le reste. Le titre est
+	// un bouton pour le clavier ; les autres boutons, liens et cases gardent leur rôle.
+	const depliable = details.length > 0 || Boolean(partage);
+	const deplie = depliable && app.deplies.has(cadeau.id);
 	const titre = el(
 		"h3",
 		{ class: "carte-titre" },
-		repliable
+		depliable
 			? el(
 					"button",
 					{
 						type: "button",
 						class: "titre-deplier",
-						"aria-expanded": String(!replie),
+						"aria-expanded": String(deplie),
 						onclick: () => basculerDetails(cadeau.id),
 					},
 					cadeau.titre,
@@ -829,7 +826,13 @@ function carteCadeau(cadeau, { pour, selectionnable = false, grise = false }) {
 	return el(
 		"article",
 		{
-			class: `carte${app.compacte && (replie || !repliable) ? " repliee" : ""}${selectionne ? " selectionnee" : ""}${retire ? " retire" : ""}${grise ? " grise" : ""}${cadeau.provisoire ? " provisoire" : ""}`,
+			class: `carte${deplie ? "" : " repliee"}${depliable ? " depliable" : ""}${selectionne ? " selectionnee" : ""}${retire ? " retire" : ""}${grise ? " grise" : ""}${cadeau.provisoire ? " provisoire" : ""}`,
+			onclick: depliable
+				? (e) => {
+						if (!e.target.closest("button, a, input, label, select"))
+							basculerDetails(cadeau.id);
+					}
+				: null,
 		},
 		selectionnable && libre
 			? el(
@@ -853,23 +856,15 @@ function carteCadeau(cadeau, { pour, selectionnable = false, grise = false }) {
 				el("span", { class: "carte-prix" }, prix(cadeau.prix)),
 				icones,
 			),
-			replie ? null : details,
+			deplie ? details : null,
 			el("div", { class: "carte-bas" }, etiquette, actions),
-			replie ? null : partage,
+			deplie ? partage : null,
 		),
 	);
 }
 
 function basculerDetails(id) {
 	if (!app.deplies.delete(id)) app.deplies.add(id);
-	rendre();
-}
-
-function basculerVueCompacte() {
-	app.compacte = !app.compacte;
-	app.deplies.clear();
-	ecrireStockage(CLES.vue, app.compacte ? "compacte" : null);
-	$("#menu-compacte").setAttribute("aria-checked", String(app.compacte));
 	rendre();
 }
 
@@ -3115,10 +3110,9 @@ function deconnecter(message = "") {
 	app.provisoires = [];
 	app.photos = {};
 	app.photosDemandees.clear();
-	// La version de l'API, la visite guidée déjà vue et la vue compacte restent : elles ne disent
-	// rien du membre.
+	// La version de l'API et la visite guidée déjà vue restent : elles ne disent rien du membre.
 	for (const cle of Object.values(CLES))
-		if (![CLES.versionApi, CLES.visite, CLES.vue].includes(cle))
+		if (cle !== CLES.versionApi && cle !== CLES.visite)
 			ecrireStockage(cle, null);
 	app.cle = null;
 	$("#champ-code").value = "";
@@ -3328,8 +3322,6 @@ function brancherEvenements() {
 		if (e.key === "Escape") fermerMenu();
 	});
 	$("#menu-profil").addEventListener("click", ouvrirProfil);
-	$("#menu-compacte").setAttribute("aria-checked", String(app.compacte));
-	$("#menu-compacte").addEventListener("click", basculerVueCompacte);
 	$("#menu-visite").addEventListener("click", () => {
 		fermerMenu();
 		if (!app.visite) visiter();

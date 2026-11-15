@@ -1151,8 +1151,11 @@ button.menu-carte::after {
 	gap: 4px;
 }
 
-/* Vue compacte (menu) : titre et prix, puis l'état et les boutons, sur une ligne quand il y a la
-   place ; toucher le titre déplie la carte */
+/* Carte compacte : titre et prix, puis l'état et les boutons, sur une ligne quand il y a la place ;
+   toucher la carte la déplie */
+.carte.depliable {
+	cursor: pointer;
+}
 .carte.repliee {
 	padding: 8px 12px;
 	gap: 10px;
