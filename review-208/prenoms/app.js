@@ -1427,7 +1427,6 @@ function rendre() {
 	$("#ecran-projet").hidden = Boolean(p);
 	$("#ecran-app").hidden = !p;
 	$("#onglets").hidden = !p;
-	$("#menu-projet").hidden = !p;
 	$("#projets-entete").hidden = !p;
 	if (!p) {
 		$("#titre").textContent = "Prénoms";
@@ -1656,10 +1655,6 @@ function brancherEvenements() {
 	});
 	document.addEventListener("click", (e) => {
 		if (!$("#menu").hidden && !$("#menu").contains(e.target)) fermerMenu();
-	});
-	$("#menu-projet").addEventListener("click", () => {
-		fermerMenu();
-		changerVue("parametres");
 	});
 	$("#menu-autre-appareil").addEventListener("click", async () => {
 		fermerMenu();
