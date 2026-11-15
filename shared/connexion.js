@@ -973,7 +973,7 @@ export function afficherConnexion(
 }
 
 /**
- * App sans API à elle (Investissement, Perudo) : réservée aux comptes qui y ont accès (onglet
+ * App sans API à elle (Investissement, Perudo, Compteurs) : réservée aux comptes qui y ont accès (onglet
  * Droits du projet droits). Ses calculs se font sur l'appareil : ce contrôle range les apps de
  * chacun, il ne protège pas de données. La page a `#ecran-connexion` (avec `#connexion`),
  * `#ecran-refus` (avec `#message-refus` et `#bouton-deconnecter-refus`) et `#ecran-app`. Les accès

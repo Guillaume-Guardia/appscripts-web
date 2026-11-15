@@ -111,6 +111,17 @@
 			]
 		},
 		{
+			"name": "Compteurs",
+			"url": "compteurs/",
+			"icons": [
+				{
+					"src": "compteurs/icons/icon-192.png",
+					"sizes": "192x192",
+					"type": "image/png"
+				}
+			]
+		},
+		{
 			"name": "Perudo",
 			"url": "perudo/",
 			"icons": [
