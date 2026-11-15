@@ -999,7 +999,10 @@ function rendreFamille() {
 		else if (id === moi() || choisies.length > 1) selection.delete(id);
 		rendre();
 	};
-	const puce = (p, libelle) =>
+	// Compte à soi : pas celui d'avant les comptes, qu'il reste à créer (invitable absent : état
+	// gardé d'avant cette version de l'API).
+	const aUnCompte = (p) => !(p.invitable ?? !p.compte);
+	const puce = (p, libelle, badge = false) =>
 		el(
 			"button",
 			{
@@ -1010,6 +1013,14 @@ function rendreFamille() {
 			// Sa photo devant le prénom ; sans photo, le prénom seul.
 			p.photo ? avatar(p) : null,
 			libelle,
+			badge
+				? el("span", {
+						class: "badge-compte",
+						role: "img",
+						"aria-label": "A un compte",
+						title: "A un compte",
+					})
+				: null,
 		);
 	const moiPersonne = personne(moi());
 	const puces = el(
@@ -1019,8 +1030,8 @@ function rendreFamille() {
 			role: "group",
 			"aria-label": "Personnes (une ou plusieurs)",
 		},
-		moiPersonne ? puce(moiPersonne, "Moi") : null,
-		autres.map((p) => puce(p, p.prenom)),
+		moiPersonne ? puce(moiPersonne, "Moi", true) : null,
+		autres.map((p) => puce(p, p.prenom, aUnCompte(p))),
 		el("button", {
 			type: "button",
 			class: "puce-ajout",

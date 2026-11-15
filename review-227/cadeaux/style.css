@@ -571,6 +571,21 @@ button.menu-carte::after {
 	color: var(--fond);
 	border-color: var(--texte);
 }
+/* Famille : rond vert dans le coin haut de la pastille d'une personne qui a un compte */
+.puces button:has(> .badge-compte) {
+	position: relative;
+}
+.badge-compte {
+	position: absolute;
+	top: 1px;
+	right: 3px;
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	border: 2px solid var(--fond);
+	background: var(--vert);
+	pointer-events: none;
+}
 
 .groupe {
 	display: flex;
