@@ -303,6 +303,8 @@ async function modifier(
 	app.occupe = true;
 	document.body.style.cursor = "progress";
 	try {
+		// Les modifications en arrière-plan passent d'abord.
+		await fileModifications;
 		const { resultat, etat } = await appelerApi(action, parametres);
 		appliquerEtat(etat);
 		if (messageSucces) notifier(messageSucces);
@@ -330,6 +332,21 @@ function afficherProvisoires() {
 	rendre();
 }
 
+/** Transformation de l'état qui change les cadeaux d'Ids donnés. */
+const avecCadeaux = (ids, changer) => (etat) => ({
+	...etat,
+	cadeaux: etat.cadeaux.flatMap((c) => {
+		if (!ids.includes(c.id)) return [c];
+		const change = changer(c);
+		return change ? [change] : [];
+	}),
+});
+
+/** Messages d'une réservation dont l'API a refusé une partie (réservé entre-temps…). */
+function signalerRefus(resultat) {
+	if (resultat?.refuses?.length) notifier(messageRefus(resultat), true);
+}
+
 /**
  * Modification affichée aussitôt, puis envoyée à l'API en arrière-plan : l'app n'attend pas les
  * quelques secondes de la Web App. Les envois partent un à un, dans l'ordre ; chaque réponse
@@ -339,7 +356,7 @@ function afficherProvisoires() {
  * réduite) ; une erreur annule la modification
  * @param provisoire (etat) => l'état avec la modification, affiché en attendant
  * @param echec début du message d'erreur (ex : « « Vélo » n'a pas été enregistrée : »)
- * @param surSucces appelée une fois la modification enregistrée (facultatif)
+ * @param surSucces (resultat) => …, une fois la modification enregistrée (facultatif)
  * @return Faux si l'app est hors ligne (rien n'est fait)
  */
 function modifierEnFond(action, parametres, provisoire, echec, surSucces) {
@@ -357,13 +374,13 @@ function modifierEnFond(action, parametres, provisoire, echec, surSucces) {
 	};
 	fileModifications = fileModifications.then(async () => {
 		try {
-			const { etat } = await appelerApi(action, await parametres(), {
+			const { resultat, etat } = await appelerApi(action, await parametres(), {
 				discret: true,
 			});
 			retirer();
 			// Déconnecté entre-temps : rien à afficher.
 			if (etatServeur) appliquerEtat(etat);
-			surSucces?.();
+			surSucces?.(resultat);
 		} catch (erreur) {
 			retirer();
 			afficherProvisoires();
@@ -1076,7 +1093,38 @@ function rendreFamille() {
 				: null,
 		),
 		choisies.map((p) => dejaOffertA(p.id, seule ? null : p.prenom)),
+		// Admin seulement (l'API le vérifie) : réparer un doublon.
+		seule && app.etat.admin
+			? el(
+					"button",
+					{
+						type: "button",
+						class: "lien-bouton danger",
+						onclick: () => supprimerPersonne(seule),
+					},
+					`Supprimer ${seule.prenom} de Cadeaux`,
+				)
+			: null,
 	];
+}
+
+/** Admin : supprime une personne qui n'a encore rien dans Cadeaux (l'API refuse sinon). */
+async function supprimerPersonne(personne) {
+	const nom = personne.nom
+		? `${personne.prenom} ${personne.nom}`
+		: personne.prenom;
+	if (
+		!confirm(
+			`Supprimer ${nom} de Cadeaux ? Possible seulement sans idée, réservation, historique ni Secret Santa.`,
+		)
+	) {
+		return;
+	}
+	await modifier(
+		"supprimer-personne",
+		{ personneId: personne.id },
+		`${nom} ne fait plus partie de Cadeaux.`,
+	);
 }
 
 function rendreDisponibles() {
@@ -1701,47 +1749,85 @@ function messageRefus(resultat) {
 	return resultat.refuses.map((r) => `${titre(r.id)} : ${r.raison}`).join("\n");
 }
 
-async function reserver(ids) {
-	const resultat = await modifier("reserver", { cadeauIds: ids });
-	if (!resultat) return;
+/** Réservation : affichée aussitôt, envoyée en arrière-plan ; l'API peut en refuser une partie. */
+function reserver(ids) {
+	const lance = modifierEnFond(
+		"reserver",
+		async () => ({ cadeauIds: ids }),
+		avecCadeaux(ids, (c) => ({
+			...c,
+			reserveParIds: [...new Set([...(c.reserveParIds ?? []), moi()])],
+			dateReservation: c.dateReservation ?? new Date().toISOString(),
+		})),
+		ids.length > 1 ? "Réservation non enregistrée :" : "Cadeau non réservé :",
+		signalerRefus,
+	);
+	if (!lance) return;
 	for (const id of ids) app.selection.delete(id);
 	rendre();
-	if (resultat.faits.length)
-		notifier(
-			resultat.faits.length > 1
-				? `${resultat.faits.length} cadeaux réservés. 🎁`
-				: "Cadeau réservé. 🎁",
-		);
-	if (resultat.refuses.length) notifier(messageRefus(resultat), true);
+	notifier(
+		ids.length > 1
+			? `${ids.length} cadeaux réservés. 🎁`
+			: "Cadeau réservé. 🎁",
+	);
 }
 
-/** Rejoindre ceux qui offrent déjà un cadeau (cadeau groupé). */
-async function participer(ids) {
-	const resultat = await modifier("reserver", {
-		cadeauIds: ids,
-		participer: true,
-	});
-	if (!resultat) return;
-	if (resultat.faits.length) notifier("Tu participes à ce cadeau. 🎁");
-	if (resultat.refuses.length) notifier(messageRefus(resultat), true);
+/** Participation à un cadeau partagé : affichée aussitôt, envoyée en arrière-plan. */
+function participer(ids) {
+	const lance = modifierEnFond(
+		"reserver",
+		async () => ({ cadeauIds: ids, participer: true }),
+		avecCadeaux(ids, (c) => ({
+			...c,
+			reserveParIds: [...new Set([...(c.reserveParIds ?? []), moi()])],
+		})),
+		"Participation non enregistrée :",
+		signalerRefus,
+	);
+	if (lance) notifier("Tu participes à ce cadeau. 🎁");
 }
 
-async function partager(cadeau, partage) {
-	const reussi = await modifier(
+/** Case « Partager » d'un cadeau réservé : aussitôt, envoyée en arrière-plan. */
+function partager(cadeau, partage) {
+	const lance = modifierEnFond(
 		"partager-cadeau",
-		{ cadeauId: cadeau.id, partage },
+		async () => ({ cadeauId: cadeau.id, partage }),
+		avecCadeaux([cadeau.id], (c) => ({ ...c, partage })),
+		partage ? "Cadeau non partagé :" : "Cadeau toujours partagé :",
+	);
+	if (!lance) {
+		rendre();
+		return;
+	}
+	notifier(
 		partage
 			? "Cadeau partagé : d'autres peuvent participer."
 			: "Cadeau plus partagé.",
 	);
-	if (!reussi) rendre();
 }
 
-async function annuler(ids, message) {
-	const resultat = await modifier("annuler-reservation", { cadeauIds: ids });
-	if (!resultat) return;
-	if (resultat.faits.length) notifier(message);
-	if (resultat.refuses.length) notifier(messageRefus(resultat), true);
+/**
+ * Annulation de réservation : aussitôt, envoyée en arrière-plan. Un cadeau retiré par son
+ * destinataire disparaît quand plus personne ne le réserve.
+ */
+function annuler(ids, message) {
+	const lance = modifierEnFond(
+		"annuler-reservation",
+		async () => ({ cadeauIds: ids }),
+		avecCadeaux(ids, (c) => {
+			const restants = (c.reserveParIds ?? []).filter((id) => id !== moi());
+			if (restants.length === 0 && c.statut === "retiré") return null;
+			return {
+				...c,
+				reserveParIds: restants,
+				dateReservation: restants.length ? c.dateReservation : null,
+				partage: restants.length > 0 && c.partage,
+			};
+		}),
+		"Réservation non annulée :",
+		signalerRefus,
+	);
+	if (lance) notifier(message);
 }
 
 // ---------------------------------------------------------------------------
@@ -2003,7 +2089,8 @@ function ouvrirFormulaireHistorique(entree = null) {
 	form.details.focus();
 }
 
-async function enregistrerHistorique(evenement) {
+/** Cadeau offert, ajouté ou modifié : affiché aussitôt, enregistré en arrière-plan. */
+function enregistrerHistorique(evenement) {
 	evenement.preventDefault();
 	const form = evenement.target;
 	const entree = {
@@ -2016,25 +2103,69 @@ async function enregistrerHistorique(evenement) {
 		autresDestinataires: form.autres.value,
 		prix: form.prix.value,
 	};
+	const autres = entree.autresDestinataires
+		.split(",")
+		.map((nom) => nom.trim())
+		.filter(Boolean);
+	if (!entree.details.trim()) {
+		$("#erreur-historique").textContent = "Indique le cadeau.";
+		return;
+	}
+	if (entree.destinataireIds.length + autres.length === 0) {
+		$("#erreur-historique").textContent =
+			"Indique à qui le cadeau a été offert.";
+		return;
+	}
 	const existante = app.entreeEditee;
-	const reussi = await modifier(
+	const prix = Number(String(entree.prix).replace(",", "."));
+	const affichee = {
+		...(existante ?? { avec: [] }),
+		id: existante?.id ?? `provisoire-${Date.now()}`,
+		details: entree.details.trim(),
+		date: entree.date
+			? new Date(`${entree.date}T12:00:00`).toISOString()
+			: new Date().toISOString(),
+		occasion: entree.occasion,
+		destinataires: [
+			...entree.destinataireIds.map((id) => ({
+				id,
+				nom: app.etat.personnes.find((p) => p.id === id)?.prenom ?? "?",
+			})),
+			...autres.map((nom) => ({ nom })),
+		],
+		prix: String(entree.prix).trim() === "" || Number.isNaN(prix) ? null : prix,
+		provisoire: true,
+	};
+	const lance = modifierEnFond(
 		existante ? "modifier-historique" : "ajouter-historique",
-		existante ? { entreeId: existante.id, entree } : { entree },
-		existante ? "Cadeau offert modifié." : "Ajouté à ton historique.",
-		(message) => {
-			$("#erreur-historique").textContent = message;
-		},
+		async () => (existante ? { entreeId: existante.id, entree } : { entree }),
+		(etat) => ({
+			...etat,
+			historique: [
+				...etat.historique.filter((e) => e.id !== affichee.id),
+				affichee,
+			].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")),
+		}),
+		`« ${affichee.details} » n'a pas été enregistré :`,
 	);
-	if (reussi) $("#dialogue-historique").close();
+	if (!lance) return;
+	$("#dialogue-historique").close();
+	notifier(existante ? "Cadeau offert modifié." : "Ajouté à ton historique.");
 }
 
-async function supprimerEntree(entree) {
+/** Retrait d'un cadeau offert de l'historique : aussitôt, enregistré en arrière-plan. */
+function supprimerEntree(entree) {
 	if (!confirm(`Retirer « ${entree.details} » de ton historique ?`)) return;
-	await modifier(
+	const lance = modifierEnFond(
 		"supprimer-historique",
-		{ entreeId: entree.id },
-		"Retiré de ton historique.",
+		async () => ({ entreeId: entree.id }),
+		(etat) => ({
+			...etat,
+			historique: etat.historique.filter((e) => e.id !== entree.id),
+		}),
+		`« ${entree.details} » n'a pas été retiré :`,
 	);
+	if (lance) notifier("Retiré de ton historique.");
 }
 
 // ---------------------------------------------------------------------------
@@ -2185,13 +2316,19 @@ async function relancerTirage(s) {
 	);
 }
 
-async function supprimerSecretSanta(s) {
+/** Suppression d'un Secret Santa : aussitôt, enregistrée en arrière-plan. */
+function supprimerSecretSanta(s) {
 	if (!confirm(`Supprimer « ${s.nom} » et son tirage ?`)) return;
-	await modifier(
+	const lance = modifierEnFond(
 		"supprimer-secret-santa",
-		{ secretSantaId: s.id },
-		"Secret Santa supprimé.",
+		async () => ({ secretSantaId: s.id }),
+		(etat) => ({
+			...etat,
+			secretSantas: etat.secretSantas.filter((x) => x.id !== s.id),
+		}),
+		`« ${s.nom} » n'a pas été supprimé :`,
 	);
+	if (lance) notifier("Secret Santa supprimé.");
 }
 
 // ---------------------------------------------------------------------------

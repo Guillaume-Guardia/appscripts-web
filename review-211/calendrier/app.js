@@ -416,32 +416,59 @@ function ouvrirDroit(droit) {
 	$("#champ-jours-droit").focus();
 }
 
-async function enregistrerDroit(evenement) {
+/** Droits à congés en attente de l'API, envoyés un à un dans l'ordre. */
+let fileDroits = Promise.resolve();
+
+/**
+ * Droit à congés : affiché aussitôt, enregistré en arrière-plan (skill enregistrement-en-fond) ;
+ * en cas d'échec, l'ancienne valeur revient et un message l'explique.
+ */
+function enregistrerDroit(evenement) {
 	evenement.preventDefault();
 	const form = evenement.target;
 	const erreur = form.querySelector(".erreur");
-	const bouton = form.querySelector('button[type="submit"]');
 	erreur.textContent = "";
-	bouton.disabled = true;
-	const { ligne, code, annee } = app.droitModifie;
-	try {
-		appliquerPlanning(
-			await appelerApi("modifier-droit-conge", {
-				droit: {
-					ligne,
-					code,
-					annee,
-					jours: Number($("#champ-jours-droit").value),
-				},
-			}),
-		);
-		$("#dialogue-droit").close();
-		notifier(`${code} ${annee} enregistré.`);
-	} catch (probleme) {
-		erreur.textContent = probleme.message;
-	} finally {
-		bouton.disabled = false;
+	const saisie = $("#champ-jours-droit").value;
+	const jours = Number(saisie);
+	if (saisie === "" || !(jours >= 0)) {
+		erreur.textContent = "Indique le nombre de jours.";
+		return;
 	}
+	if (app.horsLigne) {
+		erreur.textContent = "Hors ligne : réessaie avec la connexion.";
+		return;
+	}
+	const { ligne, code, annee } = app.droitModifie;
+	const trouver = () =>
+		app.planning?.droitsConges?.find(
+			(d) => d.ligne === ligne && d.code === code && d.annee === annee,
+		);
+	const avant = trouver()?.jours;
+	const afficher = (valeur) => {
+		const droit = trouver();
+		if (droit) droit.jours = valeur;
+		rendrePlanning();
+	};
+	afficher(jours);
+	$("#dialogue-droit").close();
+	notifier(`${code} ${annee} enregistré.`);
+	fileDroits = fileDroits.then(async () => {
+		try {
+			appliquerPlanning(
+				await appelerApi(
+					"modifier-droit-conge",
+					{ droit: { ligne, code, annee, jours } },
+					{ discret: true },
+				),
+			);
+		} catch (probleme) {
+			afficher(avant);
+			notifier(
+				`${code} ${annee} n'a pas été enregistré : ${probleme.message}`,
+				true,
+			);
+		}
+	});
 }
 
 /** Lien de téléchargement des mots lus par l'OCR ; ocr absent : pas de lien. */
