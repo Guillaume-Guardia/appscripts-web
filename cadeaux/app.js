@@ -601,7 +601,7 @@ function avatar(personne) {
  * @param options.pour "moi" (ma liste), "autre" (liste d'un autre) ou "reservation"
  * @param options.selectionnable case à cocher pour la réservation multiple
  */
-function carteCadeau(cadeau, { pour, selectionnable = false }) {
+function carteCadeau(cadeau, { pour, selectionnable = false, grise = false }) {
 	const selectionne = app.selection.has(cadeau.id);
 	const retire = cadeau.statut === "retiré";
 	const actions = el("div", { class: "carte-actions" });
@@ -793,7 +793,7 @@ function carteCadeau(cadeau, { pour, selectionnable = false }) {
 	return el(
 		"article",
 		{
-			class: `carte${selectionne ? " selectionnee" : ""}${retire ? " retire" : ""}${cadeau.provisoire ? " provisoire" : ""}`,
+			class: `carte${selectionne ? " selectionnee" : ""}${retire ? " retire" : ""}${grise ? " grise" : ""}${cadeau.provisoire ? " provisoire" : ""}`,
 		},
 		selectionnable && libre
 			? el(
@@ -1130,22 +1130,31 @@ async function supprimerPersonne(personne) {
 function rendreDisponibles() {
 	const autres = autresDeLaFamille();
 	const ids = new Set(autres.map((p) => p.id));
-	let libres = app.etat.cadeaux.filter(
+	// Toute la liste des proches, pas seulement les cadeaux libres : ceux déjà réservés restent,
+	// grisés. Les siens n'y sont jamais (estPourMoi) et l'API ne lui envoie pas leurs réservations.
+	let cadeaux = app.etat.cadeaux.filter(
 		(c) =>
 			c.pourIds.some((id) => ids.has(id)) &&
 			!estPourMoi(c) &&
 			c.statut !== "retiré" &&
-			!horsFamillesAffichees(c) &&
-			offreurs(c).length === 0,
+			!horsFamillesAffichees(c),
 	);
 	if (app.filtreDisponibles)
-		libres = libres.filter((c) => c.pourIds.includes(app.filtreDisponibles));
+		cadeaux = cadeaux.filter((c) => c.pourIds.includes(app.filtreDisponibles));
+	const estLibre = (c) => offreurs(c).length === 0;
+	// Cadeaux réservés par d'autres mais partagés : on peut encore y participer.
+	const estAPartager = (c) =>
+		c.partage && !estLibre(c) && !offreurs(c).includes(moi());
 	const tris = {
 		priorite: parPriorite,
 		"prix-croissant": (a, b) => (a.prix ?? Infinity) - (b.prix ?? Infinity),
 		"prix-decroissant": (a, b) => (b.prix ?? -1) - (a.prix ?? -1),
 	};
-	libres.sort(tris[app.triDisponibles]);
+	// Les libres d'abord, puis les réservés, chacun dans l'ordre choisi.
+	const parDisponibilite = (a, b) =>
+		Number(!estLibre(a)) - Number(!estLibre(b)) ||
+		tris[app.triDisponibles](a, b);
+	const libres = cadeaux.filter(estLibre).length;
 
 	const filtres = el(
 		"div",
@@ -1200,21 +1209,7 @@ function rendreDisponibles() {
 			),
 		),
 	);
-	// Cadeaux réservés par d'autres mais partagés : on peut encore y participer.
-	let aPartager = app.etat.cadeaux.filter(
-		(c) =>
-			c.pourIds.some((id) => ids.has(id)) &&
-			!estPourMoi(c) &&
-			c.statut !== "retiré" &&
-			!horsFamillesAffichees(c) &&
-			c.partage &&
-			offreurs(c).length > 0 &&
-			!offreurs(c).includes(moi()),
-	);
-	if (app.filtreDisponibles)
-		aPartager = aPartager.filter((c) =>
-			c.pourIds.includes(app.filtreDisponibles),
-		);
+	const aPartager = cadeaux.filter(estAPartager);
 	const sectionPartage = aPartager.length
 		? el(
 				"section",
@@ -1235,16 +1230,13 @@ function rendreDisponibles() {
 					.map((c) => carteCadeau(c, { pour: "autre" })),
 			)
 		: null;
-	if (libres.length === 0)
-		return [
-			filtres,
-			sectionPartage ??
-				vide("Plus aucun cadeau disponible ici. Tout est déjà réservé !"),
-		];
+	const reste = cadeaux.filter((c) => !estAPartager(c));
+	if (reste.length === 0)
+		return [filtres, sectionPartage ?? vide("Rien de demandé pour l'instant.")];
 
 	// Un groupe par destinataire, ou par groupe de destinataires pour un cadeau commun.
 	const groupes = new Map();
-	for (const c of libres) {
+	for (const c of reste.sort(parDisponibilite)) {
 		const cle = [...c.pourIds].sort().join(",");
 		if (!groupes.has(cle))
 			groupes.set(cle, { titre: `Pour ${prenoms(c.pourIds)}`, cadeaux: [] });
@@ -1255,7 +1247,9 @@ function rendreDisponibles() {
 		el(
 			"p",
 			{ class: "discret" },
-			"Coche plusieurs cadeaux pour les réserver d'un coup.",
+			libres
+				? "Coche plusieurs cadeaux pour les réserver d'un coup. Ceux déjà réservés sont grisés."
+				: "Plus aucun cadeau disponible ici. Tout est déjà réservé !",
 		),
 		sectionPartage,
 		[...groupes.values()]
@@ -1268,10 +1262,18 @@ function rendreDisponibles() {
 						"div",
 						{ class: "groupe-titre" },
 						el("h2", {}, g.titre),
-						el("span", { class: "discret" }, `${g.cadeaux.length}`),
+						el(
+							"span",
+							{ class: "discret" },
+							`${g.cadeaux.filter(estLibre).length} disponible(s) sur ${g.cadeaux.length}`,
+						),
 					),
 					g.cadeaux.map((c) =>
-						carteCadeau(c, { pour: "autre", selectionnable: true }),
+						carteCadeau(c, {
+							pour: "autre",
+							selectionnable: true,
+							grise: !estLibre(c),
+						}),
 					),
 				),
 			),
@@ -3107,7 +3109,7 @@ function etapesVisite() {
 			...onglet("disponibles"),
 			titre: "Disponibles",
 			texte:
-				"Ici, tu verras tous les cadeaux non réservés. Coches-en un ou plusieurs, puis « Je les offre ».",
+				"Ici, tu verras toutes les listes de la famille : les cadeaux déjà réservés sont grisés. Coches-en un ou plusieurs libres, puis « Je les offre ».",
 		},
 		{
 			...onglet("reservations"),
