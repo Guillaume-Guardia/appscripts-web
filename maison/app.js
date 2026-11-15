@@ -75,7 +75,11 @@ const app = {
 	/** Photo prise ou choisie dans le formulaire d'objet, pas encore envoyée. */
 	photoSaisie: null,
 	horsLigne: false,
-	occupe: false,
+	/**
+	 * Modifications affichées avant la réponse de l'API (voir modifierEnFond) : chacune transforme
+	 * l'état du serveur en l'état affiché.
+	 */
+	provisoires: [],
 	versionApi: lireStockage(CLES.versionApi),
 	miniatures: lireStockageJson(CLES.miniatures) ?? {},
 	/** Liens déjà demandés à l'API : une photo sans vignette ne la redemande pas à chaque état. */
@@ -90,6 +94,10 @@ if (
 ) {
 	app.etat = etatEnCache;
 }
+/** État renvoyé par l'API, sans les modifications en attente (app.etat les ajoute). */
+let etatServeur = app.etat;
+/** Modifications en attente de l'API, envoyées une à une dans l'ordre (voir modifierEnFond). */
+let fileModifications = Promise.resolve();
 
 // ---------------------------------------------------------------------------
 // API (Web App Apps Script, projet maison)
@@ -106,8 +114,16 @@ const appelerApi = creerApi({
 	},
 });
 
+/** Plus d'état (déconnexion) : les modifications en attente ne s'affichent plus. */
+function oublierEtat() {
+	etatServeur = null;
+	app.etat = null;
+	app.provisoires = [];
+}
+
 function appliquerEtat(etat) {
-	app.etat = etat;
+	etatServeur = etat;
+	app.etat = avecProvisoires(etat);
 	app.horsLigne = false;
 	ecrireStockage(CLES.etat, JSON.stringify(etat));
 	afficherBandeauHorsLigne();
@@ -170,41 +186,73 @@ async function actualiser({ silencieux = false } = {}) {
 	}
 }
 
+const avecProvisoires = (etat) =>
+	app.provisoires.reduce((affiche, provisoire) => provisoire(affiche), etat);
+
+function afficherProvisoires() {
+	if (!etatServeur) return;
+	app.etat = avecProvisoires(etatServeur);
+	rendre();
+}
+
+/** Transformation de l'état qui change une liste (entretiens, objets…). */
+const avecListe = (cle, changer) => (etat) => ({
+	...etat,
+	[cle]: changer(etat[cle]),
+});
+
 /**
- * Lance une modification ; l'API renvoie { etat }.
- * @param surErreur affiche l'erreur (par défaut : une notification)
- * @return vrai si la modification a réussi
+ * Ligne actuelle d'un entretien ou d'un objet, lue au moment de l'envoi dans le dernier état du
+ * serveur : une suppression envoyée avant décale les lignes suivantes.
+ * @param liste « entretiens » ou « objets » ; champ : « tache » ou « produit »
  */
-async function modifier(
-	action,
-	parametres,
-	messageSucces,
-	surErreur = (message) => notifier(message, true),
-) {
-	if (app.occupe) return false;
+function ligneActuelle(liste, champ, valeur, ligne) {
+	const trouve = etatServeur?.[liste].find(
+		(e) => normaliser(e[champ]) === normaliser(valeur),
+	);
+	return trouve?.ligne ?? ligne;
+}
+
+/**
+ * Modification affichée aussitôt, puis envoyée à l'API en arrière-plan : l'app n'attend pas les
+ * quelques secondes de la Web App. Les envois partent un à un, dans l'ordre ; chaque réponse
+ * remplace l'affichage provisoire par l'état du serveur. En cas d'échec, la modification disparaît
+ * et un message l'explique (skill enregistrement-en-fond).
+ * @param parametres () => les paramètres de l'appel, calculés au moment de l'envoi (lignes à jour)
+ * @param provisoire (etat) => l'état avec la modification, affiché en attendant
+ * @param echec début du message d'erreur (ex : « « Vélo » n'a pas été enregistré : »)
+ * @return Faux si l'app est hors ligne (rien n'est fait)
+ */
+function modifierEnFond(action, parametres, provisoire, echec) {
 	if (app.horsLigne) {
-		surErreur("Hors ligne : réessaie avec la connexion.");
+		notifier("Hors ligne : réessaie avec la connexion.", true);
 		return false;
 	}
-	app.occupe = true;
-	document.body.style.cursor = "progress";
-	try {
-		const { etat } = await appelerApi(action, parametres);
-		appliquerEtat(etat);
-		if (messageSucces) notifier(messageSucces);
-		return true;
-	} catch (erreur) {
-		if (estSessionRefusee(erreur)) {
-			deconnecter(erreur.message);
-			return false;
+	app.provisoires.push(provisoire);
+	afficherProvisoires();
+	const retirer = () => {
+		app.provisoires = app.provisoires.filter((p) => p !== provisoire);
+	};
+	fileModifications = fileModifications.then(async () => {
+		try {
+			const { etat } = await appelerApi(action, parametres(), {
+				discret: true,
+			});
+			retirer();
+			// Déconnecté entre-temps : rien à afficher.
+			if (etatServeur) appliquerEtat(etat);
+		} catch (erreur) {
+			retirer();
+			afficherProvisoires();
+			if (estSessionRefusee(erreur)) {
+				deconnecter(erreur.message);
+				return;
+			}
+			notifier(`${echec} ${erreur.message}`, true);
+			if (erreur instanceof ErreurReseau) passerHorsLigne();
 		}
-		surErreur(erreur.message);
-		if (erreur instanceof ErreurReseau) passerHorsLigne();
-		return false;
-	} finally {
-		app.occupe = false;
-		document.body.style.cursor = "";
-	}
+	});
+	return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -271,6 +319,7 @@ function carteEntretien(entretien) {
 			{
 				type: "button",
 				class: "contenu-carte",
+				disabled: entretien.provisoire,
 				onclick: () => ouvrirEntretien(entretien),
 			},
 			el("h3", {}, entretien.tache),
@@ -290,6 +339,7 @@ function carteEntretien(entretien) {
 			el("input", {
 				type: "checkbox",
 				checked: entretien.actif,
+				disabled: entretien.provisoire,
 				"aria-label": `${entretien.tache} activé`,
 				onchange: (e) => basculerEntretien(entretien, e.target.checked),
 			}),
@@ -317,13 +367,32 @@ function rendreEntretiens() {
 	);
 }
 
-async function basculerEntretien(entretien, actif) {
-	const reussi = await modifier(
+/** Interrupteur d'un entretien : aussitôt, envoyé en arrière-plan. */
+function basculerEntretien(entretien, actif) {
+	const lance = modifierEnFond(
 		"activer-entretien",
-		{ ligne: entretien.ligne, attendu: entretien.tache, actif },
+		() => ({
+			ligne: ligneActuelle(
+				"entretiens",
+				"tache",
+				entretien.tache,
+				entretien.ligne,
+			),
+			attendu: entretien.tache,
+			actif,
+		}),
+		avecListe("entretiens", (liste) =>
+			liste.map((e) => (e.tache === entretien.tache ? { ...e, actif } : e)),
+		),
+		`« ${entretien.tache} » n'a pas été ${actif ? "activé" : "désactivé"} :`,
+	);
+	if (!lance) {
+		rendre();
+		return;
+	}
+	notifier(
 		actif ? "Entretien activé." : "Entretien désactivé : tâche retirée.",
 	);
-	if (!reussi) rendre();
 }
 
 function ouvrirEntretien(entretien = null) {
@@ -364,7 +433,8 @@ function actualiserProchaineFois() {
 	}
 }
 
-async function enregistrerEntretien(e) {
+/** Entretien ajouté ou modifié : affiché aussitôt, enregistré en arrière-plan. */
+function enregistrerEntretien(e) {
 	e.preventDefault();
 	const entretien = {
 		tache: $("#champ-tache").value,
@@ -373,41 +443,80 @@ async function enregistrerEntretien(e) {
 		derniereFois: $("#champ-derniere").value,
 		prochaineFois: $("#champ-prochaine").value,
 	};
-	const surErreur = (message) => {
-		$("#form-entretien .erreur").textContent = message;
+	const tache = entretien.tache.trim();
+	if (!tache) {
+		$("#form-entretien .erreur").textContent = "Indique la tâche.";
+		return;
+	}
+	const edition = app.edition;
+	const frequence =
+		Number(String(entretien.frequence).replace(",", ".")) || null;
+	const unite = entretien.unite || null;
+	const prochaine =
+		entretien.prochaineFois ||
+		(entretien.derniereFois && frequence && unite
+			? versChampDate(
+					calculerProchaineFois(
+						versDate(entretien.derniereFois),
+						frequence,
+						unite,
+					),
+				)
+			: null);
+	const affiche = {
+		ligne: edition?.ligne ?? null,
+		tache,
+		actif: edition?.actif ?? true,
+		frequence,
+		unite,
+		derniereFois: entretien.derniereFois || null,
+		prochaineFois: prochaine,
+		tacheOuverte: edition?.tacheOuverte ?? false,
+		provisoire: !edition,
 	};
-	const reussi = app.edition
-		? await modifier(
-				"modifier-entretien",
-				{
-					ligne: app.edition.ligne,
-					attendu: app.edition.tache,
-					entretien,
-				},
-				"Entretien enregistré.",
-				surErreur,
-			)
-		: await modifier(
-				"creer-entretien",
-				{ entretien },
-				"Entretien ajouté.",
-				surErreur,
-			);
-	if (reussi) $("#dialogue-entretien").close();
+	const lance = modifierEnFond(
+		edition ? "modifier-entretien" : "creer-entretien",
+		() =>
+			edition
+				? {
+						ligne: ligneActuelle(
+							"entretiens",
+							"tache",
+							edition.tache,
+							edition.ligne,
+						),
+						attendu: edition.tache,
+						entretien,
+					}
+				: { entretien },
+		avecListe("entretiens", (liste) =>
+			edition
+				? liste.map((x) => (x.tache === edition.tache ? affiche : x))
+				: [...liste, affiche],
+		),
+		`« ${tache} » n'a pas été enregistré :`,
+	);
+	if (!lance) return;
+	$("#dialogue-entretien").close();
+	notifier(edition ? "Entretien enregistré." : "Entretien ajouté.");
 }
 
-async function supprimerEntretien() {
+/** Suppression d'un entretien (et de sa tâche Google) : aussitôt, enregistrée en arrière-plan. */
+function supprimerEntretien() {
 	const { ligne, tache } = app.edition;
 	if (!confirm(`Supprimer « ${tache} » et sa tâche Google ?`)) return;
-	const reussi = await modifier(
+	const lance = modifierEnFond(
 		"supprimer-entretien",
-		{ ligne, attendu: tache },
-		"Entretien supprimé.",
-		(message) => {
-			$("#form-entretien .erreur").textContent = message;
-		},
+		() => ({
+			ligne: ligneActuelle("entretiens", "tache", tache, ligne),
+			attendu: tache,
+		}),
+		avecListe("entretiens", (liste) => liste.filter((e) => e.tache !== tache)),
+		`« ${tache} » n'a pas été supprimé :`,
 	);
-	if (reussi) $("#dialogue-entretien").close();
+	if (!lance) return;
+	$("#dialogue-entretien").close();
+	notifier("Entretien supprimé.");
 }
 
 // ---------------------------------------------------------------------------
@@ -424,6 +533,7 @@ function carteObjet(objet) {
 		{
 			type: "button",
 			class: "carte carte-objet",
+			disabled: objet.provisoire,
 			onclick: () => ouvrirObjet(objet),
 		},
 		objet.photo
@@ -633,6 +743,11 @@ async function photoChoisie() {
 	return { nom: "photo.jpg", type: "image/jpeg", base64, miniature };
 }
 
+/**
+ * Objet ajouté ou modifié : affiché aussitôt (avec la vignette de la photo choisie), enregistré en
+ * arrière-plan avec ses fichiers. Prix actuel et fin de garantie, calculés par l'API, arrivent avec
+ * sa réponse.
+ */
 async function enregistrerObjet(e) {
 	e.preventDefault();
 	let facture;
@@ -653,32 +768,77 @@ async function enregistrerObjet(e) {
 		dateAchat: $("#champ-date-achat").value,
 		prixAchat: $("#champ-prix-achat").value,
 	};
-	const surErreur = (message) => {
-		$("#form-objet .erreur").textContent = message;
+	const produit = objet.produit.trim();
+	if (!produit) {
+		$("#form-objet .erreur").textContent = "Indique le produit.";
+		return;
+	}
+	const edition = app.edition;
+	const clePhoto = photo ? `provisoire-photo-${Date.now()}` : null;
+	if (clePhoto) app.miniatures[clePhoto] = photo.miniature;
+	const prix = Number(String(objet.prixAchat).replace(",", "."));
+	const affiche = {
+		ligne: edition?.ligne ?? null,
+		categorie: objet.categorie,
+		produit,
+		marque: objet.marque.trim(),
+		taille: objet.taille,
+		dateAchat: objet.dateAchat || null,
+		prixAchat:
+			String(objet.prixAchat).trim() === "" || Number.isNaN(prix) ? null : prix,
+		prixActuel: edition?.prixActuel ?? null,
+		finGarantie: edition?.finGarantie ?? null,
+		facture: facture
+			? { nom: facture.nom, url: "" }
+			: (edition?.facture ?? null),
+		photo: clePhoto
+			? { nom: "photo.jpg", url: clePhoto }
+			: (edition?.photo ?? null),
+		provisoire: !edition,
 	};
-	const reussi = app.edition
-		? await modifier(
-				"modifier-objet",
-				{ ligne: app.edition.ligne, attendu: app.edition.produit, objet },
-				"Objet enregistré.",
-				surErreur,
-			)
-		: await modifier("creer-objet", { objet }, "Objet ajouté.", surErreur);
-	if (reussi) $("#dialogue-objet").close();
+	const lance = modifierEnFond(
+		edition ? "modifier-objet" : "creer-objet",
+		() =>
+			edition
+				? {
+						ligne: ligneActuelle(
+							"objets",
+							"produit",
+							edition.produit,
+							edition.ligne,
+						),
+						attendu: edition.produit,
+						objet,
+					}
+				: { objet },
+		avecListe("objets", (liste) =>
+			edition
+				? liste.map((x) => (x.produit === edition.produit ? affiche : x))
+				: [...liste, affiche],
+		),
+		`« ${produit} » n'a pas été enregistré :`,
+	);
+	if (!lance) return;
+	$("#dialogue-objet").close();
+	notifier(edition ? "Objet enregistré." : "Objet ajouté.");
 }
 
-async function supprimerObjet() {
+/** Suppression d'un objet : aussitôt, enregistrée en arrière-plan. */
+function supprimerObjet() {
 	const { ligne, produit } = app.edition;
 	if (!confirm(`Supprimer « ${produit} » ?`)) return;
-	const reussi = await modifier(
+	const lance = modifierEnFond(
 		"supprimer-objet",
-		{ ligne, attendu: produit },
-		"Objet supprimé.",
-		(message) => {
-			$("#form-objet .erreur").textContent = message;
-		},
+		() => ({
+			ligne: ligneActuelle("objets", "produit", produit, ligne),
+			attendu: produit,
+		}),
+		avecListe("objets", (liste) => liste.filter((o) => o.produit !== produit)),
+		`« ${produit} » n'a pas été supprimé :`,
 	);
-	if (reussi) $("#dialogue-objet").close();
+	if (!lance) return;
+	$("#dialogue-objet").close();
+	notifier("Objet supprimé.");
 }
 
 // ---------------------------------------------------------------------------
@@ -812,23 +972,36 @@ function ouvrirParametrage(parametrage) {
 	$("#dialogue-parametrage").showModal();
 }
 
-async function enregistrerParametrage(e) {
+/** Décote d'une catégorie : affichée aussitôt, enregistrée en arrière-plan (prix actuels recalculés par l'API). */
+function enregistrerParametrage(e) {
 	e.preventDefault();
-	const reussi = await modifier(
+	const parametrage = {
+		categorie: app.edition.categorie,
+		anneesGarantie: $("#champ-garantie").value,
+		anneesDecoteTotale: $("#champ-decote-totale").value,
+	};
+	const annees = (valeur) =>
+		String(valeur).trim() === ""
+			? null
+			: Number(String(valeur).replace(",", "."));
+	const affiche = {
+		categorie: parametrage.categorie,
+		anneesGarantie: annees(parametrage.anneesGarantie),
+		anneesDecoteTotale: annees(parametrage.anneesDecoteTotale),
+	};
+	const lance = modifierEnFond(
 		"modifier-parametrage-decote",
-		{
-			parametrage: {
-				categorie: app.edition.categorie,
-				anneesGarantie: $("#champ-garantie").value,
-				anneesDecoteTotale: $("#champ-decote-totale").value,
-			},
-		},
-		"Décote enregistrée.",
-		(message) => {
-			$("#form-parametrage .erreur").textContent = message;
-		},
+		() => ({ parametrage }),
+		avecListe("parametrageDecote", (liste) =>
+			liste.some((p) => p.categorie === affiche.categorie)
+				? liste.map((p) => (p.categorie === affiche.categorie ? affiche : p))
+				: [...liste, affiche],
+		),
+		`La décote de « ${parametrage.categorie} » n'a pas été enregistrée :`,
 	);
-	if (reussi) $("#dialogue-parametrage").close();
+	if (!lance) return;
+	$("#dialogue-parametrage").close();
+	notifier("Décote enregistrée.");
 }
 
 function ouvrirNouvelleCategorie() {
@@ -837,20 +1010,55 @@ function ouvrirNouvelleCategorie() {
 	$("#dialogue-categorie").showModal();
 }
 
-async function enregistrerCategorie(e) {
+/** Nouvelle catégorie : affichée aussitôt, créée en arrière-plan (avec son dossier Drive). */
+function enregistrerCategorie(e) {
 	e.preventDefault();
-	const reussi = await modifier(
+	const categorie = $("#champ-nouvelle-categorie").value.trim();
+	if (!categorie) {
+		$("#form-categorie .erreur").textContent = "Indique la catégorie.";
+		return;
+	}
+	if (
+		app.etat.categories.some((c) => normaliser(c) === normaliser(categorie))
+	) {
+		$("#form-categorie .erreur").textContent =
+			`La catégorie « ${categorie} » existe déjà.`;
+		return;
+	}
+	const ajouter = (liste) =>
+		[...liste, categorie].sort((a, b) => a.localeCompare(b, "fr"));
+	const lance = modifierEnFond(
 		"creer-categorie",
-		{ categorie: $("#champ-nouvelle-categorie").value },
-		"Catégorie ajoutée.",
-		(message) => {
-			$("#form-categorie .erreur").textContent = message;
-		},
+		() => ({ categorie }),
+		(etat) => ({
+			...etat,
+			categories: ajouter(etat.categories),
+			categoriesDossiers: ajouter(etat.categoriesDossiers),
+		}),
+		`La catégorie « ${categorie} » n'a pas été créée :`,
 	);
-	if (reussi) $("#dialogue-categorie").close();
+	if (!lance) return;
+	$("#dialogue-categorie").close();
+	notifier("Catégorie ajoutée.");
 }
 
-async function supprimerCategorie(categorie) {
+/** L'état sans une catégorie (ses objets déplacés dans `remplacement`, s'il y en a un). */
+const sansCategorie = (categorie, remplacement) => (etat) => {
+	const autre = (c) => normaliser(c) !== normaliser(categorie);
+	return {
+		...etat,
+		categories: etat.categories.filter(autre),
+		categoriesDossiers: etat.categoriesDossiers.filter(autre),
+		objets: remplacement
+			? etat.objets.map((o) =>
+					autre(o.categorie) ? o : { ...o, categorie: remplacement },
+				)
+			: etat.objets,
+	};
+};
+
+/** Suppression d'une catégorie : sans objet, aussitôt (enregistrée en arrière-plan) ; sinon, déplacement de ses objets. */
+function supprimerCategorie(categorie) {
 	const nombre = app.etat.objets.filter(
 		(objet) => normaliser(objet.categorie) === normaliser(categorie),
 	).length;
@@ -865,7 +1073,13 @@ async function supprimerCategorie(categorie) {
 	) {
 		return;
 	}
-	await modifier("supprimer-categorie", { categorie }, "Catégorie supprimée.");
+	const lance = modifierEnFond(
+		"supprimer-categorie",
+		() => ({ categorie }),
+		sansCategorie(categorie),
+		`La catégorie « ${categorie} » n'a pas été supprimée :`,
+	);
+	if (lance) notifier("Catégorie supprimée.");
 }
 
 /** Une catégorie qui a des objets : ils doivent d'abord passer dans une autre. */
@@ -893,18 +1107,20 @@ function ouvrirMigration(categorie, nombre) {
 	$("#dialogue-migration").showModal();
 }
 
-async function migrerCategorie(e) {
+/** Suppression d'une catégorie avec déplacement de ses objets : aussitôt, enregistrée en arrière-plan. */
+function migrerCategorie(e) {
 	e.preventDefault();
+	const categorie = app.edition;
 	const remplacement = $("#champ-categorie-migration").value;
-	const reussi = await modifier(
+	const lance = modifierEnFond(
 		"supprimer-categorie",
-		{ categorie: app.edition, remplacement },
-		`Catégorie supprimée, objets déplacés dans « ${remplacement} ».`,
-		(message) => {
-			$("#form-migration .erreur").textContent = message;
-		},
+		() => ({ categorie, remplacement }),
+		sansCategorie(categorie, remplacement),
+		`La catégorie « ${categorie} » n'a pas été supprimée :`,
 	);
-	if (reussi) $("#dialogue-migration").close();
+	if (!lance) return;
+	$("#dialogue-migration").close();
+	notifier(`Catégorie supprimée, objets déplacés dans « ${remplacement} ».`);
 }
 
 // ---------------------------------------------------------------------------
@@ -967,7 +1183,7 @@ function afficherConnexion(message = "", invitation = null) {
 }
 
 async function chargerApresConnexion() {
-	app.etat = null;
+	oublierEtat();
 	ecrireStockage(CLES.etat, null);
 	try {
 		appliquerEtat(await appelerApi("etat"));
@@ -980,7 +1196,7 @@ async function chargerApresConnexion() {
 function deconnecter(message = "") {
 	fermerMenu();
 	oublierConnexion();
-	app.etat = null;
+	oublierEtat();
 	app.miniatures = {};
 	ecrireStockage(CLES.etat, null);
 	ecrireStockage(CLES.miniatures, null);

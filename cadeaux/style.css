@@ -229,6 +229,9 @@ button:focus-visible {
 	cursor: pointer;
 	padding: 4px;
 }
+.lien-bouton.danger {
+	color: var(--danger);
+}
 
 /* Icônes de l'en-tête : au trait, sans fond ; seul le profil (photo ou initiale) est un rond plein */
 .icone-bouton {
