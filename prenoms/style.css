@@ -601,12 +601,24 @@ main {
 	font-size: 12px;
 }
 
-.signification p {
+.texte-fiche {
+	margin-bottom: 12px;
+}
+
+.texte-fiche h3 {
+	margin: 0 0 4px;
+	color: var(--texte-doux);
+	font-size: 13px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.texte-fiche p {
 	margin: 0 0 6px;
 	line-height: 1.5;
 }
 
-.signification a {
+.texte-fiche a {
 	color: var(--accent);
 }
 
