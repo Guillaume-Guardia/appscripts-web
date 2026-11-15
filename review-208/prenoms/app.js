@@ -68,6 +68,13 @@ const CLES = {
 };
 
 const VUES = ["selection", "duels", "classement", "liste", "parametres"];
+const TITRES = {
+	selection: "Sélection",
+	duels: "Duels",
+	classement: "Classement",
+	liste: "Ma sélection",
+	parametres: "Paramètres",
+};
 /** Attente après un vote avant d'envoyer le lot, en millisecondes : les votes suivants s'y ajoutent. */
 const DELAI_ENVOI_MS = 2000;
 /** Au-delà, le lot part sans attendre. */
@@ -1210,7 +1217,6 @@ async function creerProjet(evenement) {
 		);
 		if (cree) {
 			formulaire.closest("dialog")?.close();
-			changerVue("selection");
 			notifier("Projet créé : invite l'autre parent.");
 			partagerProjet();
 		}
@@ -1219,7 +1225,7 @@ async function creerProjet(evenement) {
 	}
 }
 
-/** « + » de l'en-tête ou des paramètres : la fenêtre d'un nouveau projet. */
+/** « + » des pastilles de l'en-tête : la fenêtre d'un nouveau projet. */
 function ouvrirNouveauProjet() {
 	fermerMenu();
 	preparerChampsProjet($("#form-projet"));
@@ -1289,26 +1295,53 @@ async function rejoindreEnAttente() {
 		return;
 	}
 	if (await modifier("rejoindre-projet", lien)) {
-		changerVue("selection");
 		notifier("Tu as rejoint votre projet : à vous les prénoms !");
 	}
 }
 
 /**
- * Affiche un autre projet : il filtre toute l'app (sélection, matchs, duels, classement). Son état
- * gardé s'affiche aussitôt, puis l'API le met à jour.
+ * Affiche un autre projet (pastille de l'en-tête) : il filtre toute l'app (sélection, matchs,
+ * duels, classement), dans l'onglet ouvert. Son état gardé s'affiche aussitôt, puis l'API le met
+ * à jour.
  */
 function changerProjet(projetId) {
-	if (projetId !== app.projetId) {
-		app.projetId = projetId;
-		ecrireStockage(CLES.projet, projetId);
-		app.pile = [];
-		app.duel = null;
-		const garde = etatGarde(projetId);
-		if (garde) appliquerEtat(garde);
-		actualiser({ silencieux: Boolean(garde) });
-	}
-	changerVue("selection");
+	if (projetId === app.projetId) return;
+	app.projetId = projetId;
+	ecrireStockage(CLES.projet, projetId);
+	app.pile = [];
+	app.duel = null;
+	const garde = etatGarde(projetId);
+	if (garde) appliquerEtat(garde);
+	else rendre();
+	actualiser({ silencieux: Boolean(garde) });
+}
+
+/**
+ * Les projets du compte en pastilles sous le titre, comme les familles de Cadeaux, suivies de « + »
+ * pour en créer un. Une seule est choisie : le projet affiché.
+ */
+function rendreProjetsEntete() {
+	remplacerContenu(
+		$("#projets-entete"),
+		app.etat.projets.map((p) =>
+			el(
+				"button",
+				{
+					type: "button",
+					"aria-pressed": String(p.id === app.projetId),
+					onclick: () => changerProjet(p.id),
+				},
+				p.nom,
+			),
+		),
+		el("button", {
+			type: "button",
+			class: "puce-ajout",
+			"aria-label": "Nouveau projet",
+			title: "Nouveau projet",
+			onclick: ouvrirNouveauProjet,
+		}),
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -1317,25 +1350,6 @@ function changerProjet(projetId) {
 
 function rendreParametres() {
 	const p = projet();
-	remplacerContenu(
-		$("#liste-projets"),
-		app.etat.projets.map((autre) =>
-			el(
-				"li",
-				{},
-				el(
-					"button",
-					{
-						type: "button",
-						class: "choix-liste",
-						"aria-pressed": String(autre.id === p.id),
-						onclick: () => changerProjet(autre.id),
-					},
-					autre.nom,
-				),
-			),
-		),
-	);
 	const formulaire = $("#form-parametres-projet");
 	if (formulaire.dataset.projet !== p.id) {
 		preparerChampsProjet(formulaire, p);
@@ -1390,8 +1404,7 @@ function rendre() {
 	$("#ecran-app").hidden = !p;
 	$("#onglets").hidden = !p;
 	$("#menu-projet").hidden = !p;
-	$("#bouton-nouveau-projet").hidden = !p;
-	$("#titre").disabled = !p;
+	$("#projets-entete").hidden = !p;
 	if (!p) {
 		$("#titre").textContent = "Prénoms";
 		const formulaire = $("#form-creer-projet");
@@ -1400,8 +1413,8 @@ function rendre() {
 		}
 		return;
 	}
-	$("#titre").textContent =
-		app.etat.projets.find((autre) => autre.id === app.projetId)?.nom ?? p.nom;
+	$("#titre").textContent = TITRES[app.vue];
+	rendreProjetsEntete();
 	$("#chargement-projet").hidden = !enChargement;
 	for (const vue of VUES) {
 		$(`#vue-${vue}`).hidden = enChargement || app.vue !== vue;
@@ -1604,9 +1617,6 @@ function brancherEvenements() {
 	$("#form-creer-projet").addEventListener("submit", creerProjet);
 	$("#form-projet").addEventListener("submit", creerProjet);
 	$("#form-parametres-projet").addEventListener("submit", enregistrerProjet);
-	$("#titre").addEventListener("click", () => changerVue("parametres"));
-	$("#bouton-nouveau-projet").addEventListener("click", ouvrirNouveauProjet);
-	$("#bouton-ajouter-projet").addEventListener("click", ouvrirNouveauProjet);
 	$("#form-recherche").addEventListener("submit", (e) => e.preventDefault());
 	$("#champ-recherche").addEventListener("input", (e) => {
 		app.recherche = e.target.value;

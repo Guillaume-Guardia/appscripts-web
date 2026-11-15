@@ -16,13 +16,7 @@
 	</head>
 	<body>
 		<header class="entete">
-			<h1 class="titre-projet">
-				<button type="button" id="titre" class="choix-projet" disabled>Prénoms</button>
-				<button type="button" id="bouton-nouveau-projet" class="bouton-icone" aria-label="Nouveau projet" hidden>
-					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-					<span class="infobulle">Nouveau projet</span>
-				</button>
-			</h1>
+			<h1 id="titre">Prénoms</h1>
 			<a href="../" class="bouton-icone" aria-label="Mes apps">
 				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" /></svg>
 				<span class="infobulle">Mes apps</span>
@@ -62,6 +56,8 @@
 				</div>
 				<p class="version"></p>
 			</nav>
+			<!-- biome-ignore lint/a11y/useSemanticElements: des pastilles dans l'en-tête, pas un champ de formulaire. -->
+			<div id="projets-entete" class="puces-entete" role="group" aria-label="Projet affiché" hidden></div>
 		</header>
 		<div id="chargement" class="chargement" hidden></div>
 		<div id="bandeau" class="bandeau" hidden></div>
@@ -121,12 +117,6 @@
 				</section>
 
 				<section id="vue-parametres" hidden>
-					<div class="carte bloc">
-						<h2>Mes projets</h2>
-						<p class="aide">Le projet choisi filtre toute l'app : sa sélection, ses matchs, ses duels et son classement.</p>
-						<ul id="liste-projets" class="liste-projets"></ul>
-						<button type="button" id="bouton-ajouter-projet">+ Nouveau projet</button>
-					</div>
 					<form id="form-parametres-projet" class="carte bloc formulaire">
 						<h2>Ce projet</h2>
 						<div data-champs-projet></div>

@@ -121,6 +121,8 @@ const app = {
 	versionApi: lireStockage(CLES.versionApi),
 	/** Vrai pendant la visite guidée (ou en attendant qu'une autre fenêtre se ferme). */
 	visite: false,
+	/** Idées dépliées (touchées) : les autres sont compactes, sans photo ni détails. */
+	deplies: new Set(),
 };
 
 /** Dernier état reçu de l'API ; app.etat y ajoute les modifications provisoires. */
@@ -790,10 +792,47 @@ function carteCadeau(cadeau, { pour, selectionnable = false, grise = false }) {
 		!retire &&
 		!cadeau.provisoire &&
 		offreurs(cadeau).length === 0;
+	const details = [
+		photoCadeau(cadeau),
+		cadeau.description
+			? el("p", { class: "carte-description" }, cadeau.description)
+			: null,
+		lienCadeau(cadeau),
+		commun,
+		suggestion,
+		visiblePar,
+		part,
+	].filter(Boolean);
+	// Carte compacte : titre, prix, état et boutons ; toucher la carte montre le reste. Le titre est
+	// un bouton pour le clavier ; les autres boutons, liens et cases gardent leur rôle.
+	const depliable = details.length > 0 || Boolean(partage);
+	const deplie = depliable && app.deplies.has(cadeau.id);
+	const titre = el(
+		"h3",
+		{ class: "carte-titre" },
+		depliable
+			? el(
+					"button",
+					{
+						type: "button",
+						class: "titre-deplier",
+						"aria-expanded": String(deplie),
+						onclick: () => basculerDetails(cadeau.id),
+					},
+					cadeau.titre,
+				)
+			: cadeau.titre,
+	);
 	return el(
 		"article",
 		{
-			class: `carte${selectionne ? " selectionnee" : ""}${retire ? " retire" : ""}${grise ? " grise" : ""}${cadeau.provisoire ? " provisoire" : ""}`,
+			class: `carte${deplie ? "" : " repliee"}${depliable ? " depliable" : ""}${selectionne ? " selectionnee" : ""}${retire ? " retire" : ""}${grise ? " grise" : ""}${cadeau.provisoire ? " provisoire" : ""}`,
+			onclick: depliable
+				? (e) => {
+						if (!e.target.closest("button, a, input, label, select"))
+							basculerDetails(cadeau.id);
+					}
+				: null,
 		},
 		selectionnable && libre
 			? el(
@@ -813,23 +852,20 @@ function carteCadeau(cadeau, { pour, selectionnable = false, grise = false }) {
 			el(
 				"div",
 				{ class: "carte-haut" },
-				el("h3", { class: "carte-titre" }, cadeau.titre),
+				titre,
 				el("span", { class: "carte-prix" }, prix(cadeau.prix)),
 				icones,
 			),
-			photoCadeau(cadeau),
-			cadeau.description
-				? el("p", { class: "carte-description" }, cadeau.description)
-				: null,
-			lienCadeau(cadeau),
-			commun,
-			suggestion,
-			visiblePar,
-			part,
+			deplie ? details : null,
 			el("div", { class: "carte-bas" }, etiquette, actions),
-			partage,
+			deplie ? partage : null,
 		),
 	);
+}
+
+function basculerDetails(id) {
+	if (!app.deplies.delete(id)) app.deplies.add(id);
+	rendre();
 }
 
 function vide(message, ...enfants) {

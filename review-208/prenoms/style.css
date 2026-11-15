@@ -626,39 +626,58 @@ main {
 	color: var(--surface);
 }
 
-/* En-tête : le nom du projet ouvre les paramètres, « + » en crée un autre */
+/* En-tête : les projets en pastilles sous le titre, comme les familles de Cadeaux */
 
-.titre-projet {
+.entete {
+	flex-wrap: wrap;
+}
+
+.puces-entete {
 	display: flex;
+	flex-basis: 100%;
 	align-items: center;
-	gap: 2px;
-	min-width: 0;
+	gap: 6px;
+	padding: 2px 0 2px;
+	overflow-x: auto;
+	scrollbar-width: none;
 }
 
-.choix-projet {
-	min-width: 0;
+.puces-entete[hidden] {
+	display: none;
+}
+
+.puces-entete button {
+	flex: none;
 	min-height: 0;
-	margin-left: -8px;
-	padding: 6px 8px;
-	overflow: hidden;
-	border: 0;
-	border-radius: 10px;
+	padding: 4px 12px;
+	border: 1px solid color-mix(in srgb, var(--sur-entete) 55%, transparent);
+	border-radius: 999px;
 	background: transparent;
-	color: inherit;
+	color: var(--sur-entete);
 	font: inherit;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	font-size: 0.85rem;
+	font-weight: 600;
 }
 
-.choix-projet:not(:disabled)::after {
-	content: " ▾";
-	font-size: 14px;
-	opacity: 0.8;
+.puces-entete button[aria-pressed="true"] {
+	border-color: var(--sur-entete);
+	background: var(--sur-entete);
+	color: var(--entete);
 }
 
-.choix-projet:disabled {
-	opacity: 1;
-	cursor: default;
+/* « + » dans un rond : deux traits dessinés, centrés au pixel près */
+.puces-entete .puce-ajout {
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	background-image:
+		linear-gradient(currentColor, currentColor),
+		linear-gradient(currentColor, currentColor);
+	background-size:
+		12px 2px,
+		2px 12px;
+	background-position: center;
+	background-repeat: no-repeat;
 }
 
 /* Paramètres */
@@ -671,31 +690,6 @@ main {
 .bloc h2 {
 	margin: 0 0 8px;
 	font-size: 18px;
-}
-
-.liste-projets {
-	display: grid;
-	gap: 8px;
-	margin: 12px 0;
-	padding: 0;
-	list-style: none;
-}
-
-.choix-liste {
-	display: flex;
-	justify-content: space-between;
-	width: 100%;
-	text-align: left;
-}
-
-.choix-liste[aria-pressed="true"] {
-	border-color: var(--accent);
-	color: var(--accent);
-	font-weight: 700;
-}
-
-.choix-liste[aria-pressed="true"]::after {
-	content: "✓";
 }
 
 #parents-projet p {
