@@ -9,7 +9,6 @@ import {
 	estSessionRefusee,
 	invitationDuLien,
 	lireSession,
-	modifierPrenom,
 	oublierConnexion,
 	ouvrirInvitation,
 } from "../shared/connexion.js";
@@ -22,8 +21,8 @@ import {
 	normaliser,
 	notifier,
 	remplacerContenu,
-	remplirCarteMenu,
 } from "../shared/dom.js";
+import { afficherProfil, brancherProfil } from "../shared/profil.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -59,6 +58,11 @@ const app = {
 	masquerPris: lireStockage(CLES.masquerPris) === "oui",
 	horsLigne: false,
 	occupe: false,
+	/**
+	 * Modifications affichées avant la réponse de l'API (voir modifierEnFond) : chacune transforme
+	 * l'état du serveur en l'état affiché.
+	 */
+	provisoires: [],
 	/** Version de l'API, renvoyée avec chaque réponse (affichée avec celle de l'app). */
 	versionApi: lireStockage(CLES.versionApi),
 };
@@ -72,6 +76,10 @@ if (
 ) {
 	app.etat = etatEnCache;
 }
+/** État renvoyé par l'API, sans les modifications en attente (app.etat les ajoute). */
+let etatServeur = app.etat;
+/** Modifications en attente de l'API, envoyées une à une dans l'ordre (voir modifierEnFond). */
+let fileModifications = Promise.resolve();
 
 // ---------------------------------------------------------------------------
 // API (Web App Apps Script, projet voyage)
@@ -89,7 +97,7 @@ const appelerApi = creerApi({
 });
 
 function enregistrerEtat() {
-	ecrireStockage(CLES.etat, JSON.stringify(app.etat));
+	ecrireStockage(CLES.etat, JSON.stringify(etatServeur));
 }
 
 function passerHorsLigne() {
@@ -97,8 +105,16 @@ function passerHorsLigne() {
 	afficherBandeauHorsLigne();
 }
 
+/** Plus d'état (déconnexion) : les modifications en attente ne s'affichent plus. */
+function oublierEtat() {
+	etatServeur = null;
+	app.etat = null;
+	app.provisoires = [];
+}
+
 function appliquerEtat(etat) {
-	app.etat = etat;
+	etatServeur = etat;
+	app.etat = avecProvisoires(etat);
 	app.horsLigne = false;
 	enregistrerEtat();
 	afficherBandeauHorsLigne();
@@ -150,6 +166,8 @@ async function modifier(
 	app.occupe = true;
 	document.body.style.cursor = "progress";
 	try {
+		// Les modifications en arrière-plan passent d'abord.
+		await fileModifications;
 		const { resultat, etat } = await appelerApi(action, parametres);
 		appliquerEtat(etat);
 		if (messageSucces) notifier(messageSucces);
@@ -166,6 +184,85 @@ async function modifier(
 		app.occupe = false;
 		document.body.style.cursor = "";
 	}
+}
+
+const avecProvisoires = (etat) =>
+	app.provisoires.reduce((affiche, provisoire) => provisoire(affiche), etat);
+
+function afficherProvisoires() {
+	if (!etatServeur) return;
+	app.etat = avecProvisoires(etatServeur);
+	rendre();
+}
+
+/** Transformation de l'état qui change un voyage (supprimé si `changer` renvoie null). */
+const avecVoyage = (voyageId, changer) => (etat) => ({
+	...etat,
+	voyages: etat.voyages.flatMap((v) => {
+		if (v.id !== voyageId) return [v];
+		const change = changer(v);
+		return change ? [change] : [];
+	}),
+});
+
+/** Transformation de l'état qui change un objet de la liste (retiré si `changer` renvoie null). */
+const avecBagage = (bagageId, changer) => (etat) => ({
+	...etat,
+	voyages: etat.voyages.map((v) =>
+		v.bagages.some((b) => b.id === bagageId)
+			? {
+					...v,
+					bagages: v.bagages.flatMap((b) => {
+						if (b.id !== bagageId) return [b];
+						const change = changer(b);
+						return change ? [change] : [];
+					}),
+				}
+			: v,
+	),
+});
+
+/**
+ * Modification affichée aussitôt, puis envoyée à l'API en arrière-plan : l'app n'attend pas les
+ * quelques secondes de la Web App. Les envois partent un à un, dans l'ordre ; chaque réponse
+ * remplace l'affichage provisoire par l'état du serveur. En cas d'échec, la modification disparaît
+ * et un message l'explique (skill enregistrement-en-fond).
+ * @param provisoire (etat) => l'état avec la modification, affiché en attendant
+ * @param echec début du message d'erreur (ex : « Crème solaire n'a pas été ajoutée : »)
+ * @return Faux si l'app est hors ligne (rien n'est fait)
+ */
+function modifierEnFond(action, parametres, provisoire, echec) {
+	if (app.horsLigne) {
+		notifier(
+			"Hors ligne : les modifications reviendront avec la connexion.",
+			true,
+		);
+		rendre();
+		return false;
+	}
+	app.provisoires.push(provisoire);
+	afficherProvisoires();
+	const retirer = () => {
+		app.provisoires = app.provisoires.filter((p) => p !== provisoire);
+	};
+	fileModifications = fileModifications.then(async () => {
+		try {
+			const { etat } = await appelerApi(action, parametres, { discret: true });
+			retirer();
+			// Déconnecté entre-temps : rien à afficher.
+			if (etatServeur) appliquerEtat(etat);
+		} catch (erreur) {
+			retirer();
+			afficherProvisoires();
+			if (estSessionRefusee(erreur)) {
+				deconnecter(erreur.message);
+				return;
+			}
+			notifier(`${echec} ${erreur.message}`, true);
+			if (erreur instanceof ErreurReseau) passerHorsLigne();
+		}
+	});
+	return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -347,6 +444,7 @@ function ligneObjet(bagage) {
 			el("input", {
 				type: "checkbox",
 				checked: bagage.pris,
+				disabled: bagage.provisoire,
 				onchange: (e) => cocher(bagage, e.target.checked),
 			}),
 			el(
@@ -373,6 +471,7 @@ function ligneObjet(bagage) {
 				class: "retirer",
 				"aria-label": `Retirer ${bagage.objet} de la liste`,
 				title: "Retirer de la liste",
+				disabled: bagage.provisoire,
 				onclick: () => retirer(bagage),
 			},
 			"×",
@@ -703,16 +802,20 @@ async function ouvrirPartage(voyage, nouveau = false) {
 	});
 }
 
-/** @return Vrai si la personne a été retirée */
-async function retirerParticipant(voyage, participant) {
+/** Retire une personne d'un voyage partagé : aussitôt, en arrière-plan. @return Vrai si c'est lancé */
+function retirerParticipant(voyage, participant) {
 	if (!confirm(`Retirer ${nomDe(participant)} de ce voyage ?`)) return false;
-	return Boolean(
-		await modifier(
-			"retirer-partage",
-			{ voyageId: voyage.id, compteId: participant.id },
-			`${nomDe(participant)} ne voit plus ce voyage.`,
-		),
+	const lance = modifierEnFond(
+		"retirer-partage",
+		{ voyageId: voyage.id, compteId: participant.id },
+		avecVoyage(voyage.id, (v) => ({
+			...v,
+			participants: v.participants.filter((p) => p.id !== participant.id),
+		})),
+		`${nomDe(participant)} n'a pas été retiré du voyage :`,
 	);
+	if (lance) notifier(`${nomDe(participant)} ne voit plus ce voyage.`);
+	return lance;
 }
 
 /**
@@ -731,71 +834,64 @@ async function rejoindreEnAttente() {
 	if (voyageId) ouvrirVoyage(voyageId);
 }
 
-async function quitterVoyage(voyage) {
+/** Quitte un voyage partagé : il disparaît aussitôt, le départ est enregistré en arrière-plan. */
+function quitterVoyage(voyage) {
 	if (
 		!confirm(`Quitter le voyage ${voyage.destination} ? Tu ne le verras plus.`)
 	) {
 		return;
 	}
-	const fait = await modifier(
+	const lance = modifierEnFond(
 		"retirer-partage",
 		{ voyageId: voyage.id, compteId: app.etat.moi.id },
-		"Tu as quitté le voyage.",
+		avecVoyage(voyage.id, () => null),
+		`Tu n'as pas quitté le voyage ${voyage.destination} :`,
 	);
-	if (fait) fermerVoyage();
+	if (!lance) return;
+	fermerVoyage();
+	notifier("Tu as quitté le voyage.");
 }
 
 // ---------------------------------------------------------------------------
 // Actions sur la liste
 // ---------------------------------------------------------------------------
 
-/**
- * Coche un objet : affiché tout de suite, envoyé ensuite. En cas d'échec, la case revient à son
- * état d'avant.
- */
-async function cocher(bagage, pris) {
-	if (app.horsLigne) {
-		notifier("Hors ligne : les cases reviendront avec la connexion.", true);
-		rendre();
-		return;
-	}
-	// L'état a pu être rechargé pendant l'appel : l'objet est cherché dans l'état en cours.
-	const changer = (valeur) => {
-		const actuel = app.etat?.voyages
-			.flatMap((v) => v.bagages)
-			.find((b) => b.id === bagage.id);
-		if (actuel) actuel.pris = valeur;
-		enregistrerEtat();
-		rendre();
-	};
-	changer(pris);
-	try {
-		await appelerApi("cocher", { bagageId: bagage.id, pris });
-	} catch (erreur) {
-		if (estSessionRefusee(erreur)) {
-			deconnecter(erreur.message);
-			return;
-		}
-		changer(!pris);
-		notifier(erreur.message, true);
-		if (erreur instanceof ErreurReseau) passerHorsLigne();
-	}
+/** Coche un objet : affiché tout de suite, envoyé en arrière-plan ; en cas d'échec, la case revient. */
+function cocher(bagage, pris) {
+	modifierEnFond(
+		"cocher",
+		{ bagageId: bagage.id, pris },
+		avecBagage(bagage.id, (b) => ({ ...b, pris })),
+		`${bagage.objet} n'a pas été ${pris ? "coché" : "décoché"} :`,
+	);
 }
 
+/** Retire un objet de la liste (supprime un objet ajouté à la main) : aussitôt, en arrière-plan. */
 function retirer(bagage) {
-	const message =
-		bagage.statut === "ajouté"
+	const ajoute = bagage.statut === "ajouté";
+	const lance = modifierEnFond(
+		"retirer-bagage",
+		{ bagageId: bagage.id },
+		avecBagage(bagage.id, (b) => (ajoute ? null : { ...b, statut: "retiré" })),
+		`${bagage.objet} n'a pas été retiré :`,
+	);
+	if (!lance) return;
+	notifier(
+		ajoute
 			? `${bagage.objet} supprimé.`
-			: `${bagage.objet} retiré (à remettre en bas de la liste).`;
-	modifier("retirer-bagage", { bagageId: bagage.id }, message);
+			: `${bagage.objet} retiré (à remettre en bas de la liste).`,
+	);
 }
 
+/** Remet dans la liste un objet du catalogue retiré à la main : aussitôt, en arrière-plan. */
 function remettre(bagage) {
-	modifier(
+	const lance = modifierEnFond(
 		"remettre-bagage",
 		{ bagageId: bagage.id },
-		`${bagage.objet} remis dans la liste.`,
+		avecBagage(bagage.id, (b) => ({ ...b, statut: "" })),
+		`${bagage.objet} n'a pas été remis dans la liste :`,
 	);
+	if (lance) notifier(`${bagage.objet} remis dans la liste.`);
 }
 
 function recalculer(voyage) {
@@ -806,24 +902,35 @@ function recalculer(voyage) {
 	);
 }
 
+/** Décoche tous les objets d'un voyage (valise du retour) : aussitôt, en arrière-plan. */
 function toutDecocher(voyage) {
 	if (!confirm("Tout décocher, pour refaire la valise au retour ?")) return;
-	modifier("decocher-tout", { voyageId: voyage.id }, "Tout est décoché.");
+	const lance = modifierEnFond(
+		"decocher-tout",
+		{ voyageId: voyage.id },
+		avecVoyage(voyage.id, (v) => ({
+			...v,
+			bagages: v.bagages.map((b) => ({ ...b, pris: false })),
+		})),
+		"La liste n'a pas été décochée :",
+	);
+	if (lance) notifier("Tout est décoché.");
 }
 
-async function supprimerVoyage(voyage) {
+/** Supprime un voyage et sa liste : il disparaît aussitôt, la suppression part en arrière-plan. */
+function supprimerVoyage(voyage) {
 	if (!confirm(`Supprimer le voyage ${voyage.destination} et sa liste ?`)) {
 		return;
 	}
-	if (
-		await modifier(
-			"supprimer-voyage",
-			{ voyageId: voyage.id },
-			"Voyage supprimé.",
-		)
-	) {
-		fermerVoyage();
-	}
+	const lance = modifierEnFond(
+		"supprimer-voyage",
+		{ voyageId: voyage.id },
+		avecVoyage(voyage.id, () => null),
+		`Le voyage ${voyage.destination} n'a pas été supprimé :`,
+	);
+	if (!lance) return;
+	fermerVoyage();
+	notifier("Voyage supprimé.");
 }
 
 function ouvrirFormulaireObjet() {
@@ -834,7 +941,8 @@ function ouvrirFormulaireObjet() {
 	$("#champ-objet").focus();
 }
 
-async function enregistrerObjet(evenement) {
+/** Objet ajouté à la main à la liste : affiché aussitôt, enregistré en arrière-plan. */
+function enregistrerObjet(evenement) {
 	evenement.preventDefault();
 	const erreur = evenement.target.querySelector(".erreur");
 	erreur.textContent = "";
@@ -844,20 +952,47 @@ async function enregistrerObjet(evenement) {
 		categorie: $("#champ-categorie").value,
 		quantite: Number($("#champ-quantite").value),
 	};
-	const resultat = await modifier(
-		"ajouter-bagage",
-		{ voyageId: app.voyageId, bagage, catalogue },
-		null,
-		(message) => {
-			erreur.textContent = message;
-		},
-	);
-	if (resultat) {
-		$("#dialogue-objet").close();
-		notifier(
-			`${resultat.objet} ajouté${catalogue ? " (et au catalogue)" : ""}.`,
-		);
+	const objet = bagage.objet.trim();
+	if (!objet) {
+		erreur.textContent = "Indique l'objet.";
+		return;
 	}
+	const categorie = bagage.categorie.trim();
+	const affiche = {
+		id: `provisoire-${Date.now()}`,
+		categorie,
+		objet,
+		quantite: bagage.quantite > 0 ? bagage.quantite : 1,
+		note: "",
+		pris: false,
+		statut: "ajouté",
+		provisoire: true,
+	};
+	const voyageId = app.voyageId;
+	const lance = modifierEnFond(
+		"ajouter-bagage",
+		{ voyageId, bagage, catalogue },
+		(etat) => ({
+			...avecVoyage(voyageId, (v) => ({
+				...v,
+				bagages: [...v.bagages, affiche],
+			}))(etat),
+			options: {
+				...etat.options,
+				categories:
+					categorie &&
+					!etat.options.categories.some(
+						(c) => normaliser(c) === normaliser(categorie),
+					)
+						? [...etat.options.categories, categorie]
+						: etat.options.categories,
+			},
+		}),
+		`${objet} n'a pas été ajouté :`,
+	);
+	if (!lance) return;
+	$("#dialogue-objet").close();
+	notifier(`${objet} ajouté${catalogue ? " (et au catalogue)" : ""}.`);
 }
 
 // ---------------------------------------------------------------------------
@@ -990,13 +1125,24 @@ async function enregistrerVoyage(evenement) {
 	bouton.disabled = true;
 	try {
 		if (app.edition) {
-			const fait = await modifier(
+			// En-tête aussitôt ; la liste, recalculée par l'API, arrive avec sa réponse.
+			const lance = modifierEnFond(
 				"modifier-voyage",
 				{ voyageId: app.edition.id, voyage },
-				"Voyage modifié, liste mise à jour.",
-				surErreur,
+				avecVoyage(app.edition.id, (v) => ({
+					...v,
+					...voyage,
+					destination: voyage.destination.trim() || v.destination,
+					jours:
+						voyage.depart && voyage.retour
+							? joursEntre(versDate(voyage.depart), versDate(voyage.retour)) + 1
+							: v.jours,
+				})),
+				`Le voyage ${voyage.destination.trim()} n'a pas été modifié :`,
 			);
-			if (fait) $("#dialogue-voyage").close();
+			if (!lance) return;
+			$("#dialogue-voyage").close();
+			notifier("Voyage modifié : la liste se met à jour.");
 			return;
 		}
 		const id = await modifier("creer-voyage", { voyage }, null, surErreur);
@@ -1051,7 +1197,7 @@ function afficherConnexion(message = "", invitation = null) {
 
 /** Premier chargement des voyages du compte qui vient de se connecter. */
 async function chargerApresConnexion() {
-	app.etat = null;
+	oublierEtat();
 	ecrireStockage(CLES.etat, null);
 	try {
 		appliquerEtat(await appelerApi("etat"));
@@ -1065,15 +1211,14 @@ async function chargerApresConnexion() {
 
 /** Prénom du compte, en tête du menu. */
 function afficherCompte() {
-	const compte = app.etat?.moi ?? compteConnecte();
-	remplirCarteMenu(compte?.prenom ?? "");
+	afficherProfil();
 }
 
 /** Oublie la connexion de l'appareil et ses données, puis affiche la connexion. */
 function deconnecter(message = "") {
 	fermerMenu();
 	oublierConnexion();
-	app.etat = null;
+	oublierEtat();
 	app.voyageId = null;
 	ecrireStockage(CLES.etat, null);
 	afficherConnexion(message);
@@ -1084,20 +1229,6 @@ async function seDeconnecter() {
 	if (!confirm("Te déconnecter de cet appareil ?")) return;
 	await deconnecterAppareil();
 	deconnecter();
-}
-
-async function changerPrenom() {
-	fermerMenu();
-	const prenom = prompt("Ton prénom :", app.etat?.moi?.prenom ?? "");
-	if (prenom === null) return;
-	try {
-		await modifierPrenom(prenom);
-		await actualiser();
-		afficherCompte();
-		notifier("Prénom changé.");
-	} catch (erreur) {
-		notifier(erreur.message, true);
-	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1176,7 +1307,6 @@ function brancherEvenements() {
 	document.addEventListener("keydown", (e) => {
 		if (e.key === "Escape") fermerMenu();
 	});
-	$("#menu-prenom").addEventListener("click", changerPrenom);
 	$("#menu-inviter").addEventListener("click", () => {
 		fermerMenu();
 		ouvrirInvitation("Voyage");
@@ -1210,6 +1340,7 @@ function demarrer() {
 	afficherVersions();
 	brancherEvenements();
 	enregistrerServiceWorker();
+	brancherProfil({ apresEnregistrement: actualiser });
 	brancherBoutonPortail();
 	// Liens ouverts dans l'app, retirés aussitôt de l'adresse : connexion d'un appareil
 	// (…#invitation=<code>), ou partage d'un voyage (…#rejoindre=<Id>:<code>), gardé jusqu'à la

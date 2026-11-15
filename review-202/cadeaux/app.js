@@ -1,6 +1,7 @@
 import { creerApi, ErreurReseau } from "../shared/api.js";
 import { brancherBalayage, voisin } from "../shared/balayage.js";
 import {
+	accesDuCompte,
 	afficherConnexion as afficherFormulaireConnexion,
 	brancherBiometrie,
 	brancherBoutonPortail,
@@ -26,6 +27,7 @@ import {
 	remplacerContenu,
 } from "../shared/dom.js";
 import { reduireImageSous } from "../shared/image.js";
+import { choixPhotoProfil } from "../shared/profil.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -66,12 +68,6 @@ const REDUCTIONS_PHOTO = [
 	[320, 0.5],
 	[240, 0.4],
 ];
-/** Photo de profil : affichée en petit (en-tête, onglet Famille), elle reste plus légère. */
-const REDUCTIONS_PROFIL = [
-	[256, 0.8],
-	[192, 0.7],
-	[128, 0.6],
-];
 /** Une photo est gardée dans une cellule du classeur (limite vérifiée aussi par l'API). */
 const LONGUEUR_MAX_PHOTO = 45000;
 
@@ -100,9 +96,16 @@ const app = {
 	filtreDisponibles: "",
 	triDisponibles: "priorite",
 	filtreHistorique: "",
+	/** Cadeau offert en cours de modification (null : un nouveau). */
+	entreeEditee: null,
 	selection: new Set(),
 	/** Idée en cours d'édition : { cadeau, pourIds }. */
 	edition: null,
+	/**
+	 * Modifications affichées avant la réponse de l'API (voir modifierEnFond) : chacune transforme
+	 * l'état reçu du serveur en état affiché.
+	 */
+	provisoires: [],
 	/** Photo prise ou choisie dans le formulaire d'une idée, pas encore envoyée. */
 	photoSaisie: null,
 	/** Vrai quand le formulaire demande de retirer la photo de l'idée. */
@@ -120,6 +123,11 @@ const app = {
 	visite: false,
 };
 
+/** Dernier état reçu de l'API ; app.etat y ajoute les modifications provisoires. */
+let etatServeur = null;
+/** Modifications en attente de l'API, envoyées une à une dans l'ordre (voir modifierEnFond). */
+let fileModifications = Promise.resolve();
+
 const etatEnCache = lireStockageJson(CLES.etat);
 if (
 	etatEnCache?.moi &&
@@ -128,6 +136,7 @@ if (
 	Array.isArray(etatEnCache.secretSantas)
 ) {
 	app.etat = etatEnCache;
+	etatServeur = etatEnCache;
 }
 
 // ---------------------------------------------------------------------------
@@ -183,13 +192,14 @@ function traiterErreurConnexion(erreur) {
 }
 
 function appliquerEtat(etat) {
-	app.etat = etat;
+	etatServeur = etat;
+	app.etat = avecProvisoires(etat);
 	app.horsLigne = false;
 	ecrireStockage(CLES.etat, JSON.stringify(etat));
 	ecrireStockage(CLES.compte, compteConnecte()?.id ?? null);
 	// La clé d'invitation a servi (ou le compte était déjà lié) : plus besoin de l'envoyer.
 	if (app.cle) garderCle(null);
-	const ids = new Set(etat.cadeaux.map((c) => c.id));
+	const ids = new Set(app.etat.cadeaux.map((c) => c.id));
 	for (const id of app.selection) if (!ids.has(id)) app.selection.delete(id);
 	afficherBandeauHorsLigne();
 	rendre();
@@ -293,6 +303,8 @@ async function modifier(
 	app.occupe = true;
 	document.body.style.cursor = "progress";
 	try {
+		// Les modifications en arrière-plan passent d'abord.
+		await fileModifications;
 		const { resultat, etat } = await appelerApi(action, parametres);
 		appliquerEtat(etat);
 		if (messageSucces) notifier(messageSucces);
@@ -309,6 +321,78 @@ async function modifier(
 		app.occupe = false;
 		document.body.style.cursor = "";
 	}
+}
+
+const avecProvisoires = (etat) =>
+	app.provisoires.reduce((affiche, provisoire) => provisoire(affiche), etat);
+
+function afficherProvisoires() {
+	if (!etatServeur) return;
+	app.etat = avecProvisoires(etatServeur);
+	rendre();
+}
+
+/** Transformation de l'état qui change les cadeaux d'Ids donnés. */
+const avecCadeaux = (ids, changer) => (etat) => ({
+	...etat,
+	cadeaux: etat.cadeaux.flatMap((c) => {
+		if (!ids.includes(c.id)) return [c];
+		const change = changer(c);
+		return change ? [change] : [];
+	}),
+});
+
+/** Messages d'une réservation dont l'API a refusé une partie (réservé entre-temps…). */
+function signalerRefus(resultat) {
+	if (resultat?.refuses?.length) notifier(messageRefus(resultat), true);
+}
+
+/**
+ * Modification affichée aussitôt, puis envoyée à l'API en arrière-plan : l'app n'attend pas les
+ * quelques secondes de la Web App. Les envois partent un à un, dans l'ordre ; chaque réponse
+ * remplace l'affichage provisoire par l'état du serveur. En cas d'échec, la modification disparaît
+ * et un message l'explique.
+ * @param parametres async () => les paramètres de l'appel, préparés en arrière-plan (ex : photo
+ * réduite) ; une erreur annule la modification
+ * @param provisoire (etat) => l'état avec la modification, affiché en attendant
+ * @param echec début du message d'erreur (ex : « « Vélo » n'a pas été enregistrée : »)
+ * @param surSucces (resultat) => …, une fois la modification enregistrée (facultatif)
+ * @return Faux si l'app est hors ligne (rien n'est fait)
+ */
+function modifierEnFond(action, parametres, provisoire, echec, surSucces) {
+	if (app.horsLigne) {
+		notifier(
+			"Hors ligne : les modifications reviendront avec la connexion.",
+			true,
+		);
+		return false;
+	}
+	app.provisoires.push(provisoire);
+	afficherProvisoires();
+	const retirer = () => {
+		app.provisoires = app.provisoires.filter((p) => p !== provisoire);
+	};
+	fileModifications = fileModifications.then(async () => {
+		try {
+			const { resultat, etat } = await appelerApi(action, await parametres(), {
+				discret: true,
+			});
+			retirer();
+			// Déconnecté entre-temps : rien à afficher.
+			if (etatServeur) appliquerEtat(etat);
+			surSucces?.(resultat);
+		} catch (erreur) {
+			retirer();
+			afficherProvisoires();
+			if (traiterErreurConnexion(erreur)) return;
+			notifier(`${echec} ${erreur.message}`, true);
+			if (erreur instanceof ErreurReseau) {
+				app.horsLigne = true;
+				afficherBandeauHorsLigne();
+			}
+		}
+	});
+	return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -453,15 +537,8 @@ function prenoms(ids) {
 const estPourMoi = (cadeau) => cadeau.pourIds.includes(moi());
 const offreurs = (cadeau) => cadeau.reserveParIds ?? [];
 
-/**
- * Même règle que le serveur : ses idées et suggestions, les souhaits communs dont on est
- * destinataire, et les idées des proches sans compte.
- */
-function peutModifier(cadeau) {
-	if (cadeau.ajouteParId === moi()) return true;
-	if (estPourMoi(cadeau)) return cadeau.pourIds.includes(cadeau.ajouteParId);
-	return cadeau.pourIds.every((id) => personne(id)?.compte === false);
-}
+/** Même règle que le serveur : seul l'auteur d'une idée (souhait ou suggestion) la modifie. */
+const peutModifier = (cadeau) => cadeau.ajouteParId === moi();
 
 function parPriorite(a, b) {
 	return a.priorite - b.priorite || a.titre.localeCompare(b.titre, "fr");
@@ -535,27 +612,49 @@ function carteCadeau(cadeau, { pour, selectionnable = false, grise = false }) {
 		ENVIES[cadeau.priorite] ?? "",
 	);
 
-	if (pour === "moi") {
-		actions.append(
-			el(
-				"button",
-				{
-					type: "button",
-					class: "bouton petit",
-					onclick: () => ouvrirFormulaireCadeau(cadeau),
-				},
-				"Modifier",
-			),
-			el(
-				"button",
-				{
-					type: "button",
-					class: "bouton petit danger",
-					onclick: () => supprimer(cadeau),
-				},
-				"Supprimer",
-			),
+	// Les idées qu'il a ajoutées (souhaits et suggestions) : crayon et croix en haut à droite ; pas
+	// tant qu'elles sont en cours d'enregistrement.
+	const icones =
+		pour !== "reservation" &&
+		!retire &&
+		!cadeau.provisoire &&
+		peutModifier(cadeau)
+			? el(
+					"div",
+					{ class: "carte-icones" },
+					el(
+						"button",
+						{
+							type: "button",
+							class: "icone-modifier",
+							"aria-label": `Modifier ${cadeau.titre}`,
+							title: "Modifier",
+							onclick: () => ouvrirFormulaireCadeau(cadeau),
+						},
+						"✎",
+					),
+					el(
+						"button",
+						{
+							type: "button",
+							class: "icone-supprimer",
+							"aria-label": `Supprimer ${cadeau.titre}`,
+							title: "Supprimer",
+							onclick: () => supprimer(cadeau),
+						},
+						"×",
+					),
+				)
+			: null;
+
+	if (cadeau.provisoire) {
+		etiquette = el(
+			"span",
+			{ class: "badge enregistrement" },
+			"Enregistrement…",
 		);
+	} else if (pour === "moi") {
+		// Rien d'autre : sur sa propre liste, ni réservation ni suggestion.
 	} else if (retire) {
 		etiquette = el("span", { class: "badge pris" }, "Retiré de la liste");
 		actions.append(
@@ -570,29 +669,6 @@ function carteCadeau(cadeau, { pour, selectionnable = false, grise = false }) {
 			),
 		);
 	} else {
-		// Ses suggestions et les idées des proches sans compte : modifiables et supprimables ici.
-		if (pour === "autre" && peutModifier(cadeau)) {
-			actions.append(
-				el(
-					"button",
-					{
-						type: "button",
-						class: "bouton petit",
-						onclick: () => ouvrirFormulaireCadeau(cadeau),
-					},
-					"Modifier",
-				),
-				el(
-					"button",
-					{
-						type: "button",
-						class: "bouton petit danger",
-						onclick: () => supprimer(cadeau),
-					},
-					"Supprimer",
-				),
-			);
-		}
 		const autres = offreurs(cadeau).filter((id) => id !== moi());
 		if (offreurs(cadeau).includes(moi())) {
 			const avec = autres.length ? ` avec ${prenoms(autres)}` : "";
@@ -709,11 +785,15 @@ function carteCadeau(cadeau, { pour, selectionnable = false, grise = false }) {
 					`Ta part ≈ ${prix(cadeau.prix / offreurs(cadeau).length)}`,
 				)
 			: null;
-	const libre = pour !== "moi" && !retire && offreurs(cadeau).length === 0;
+	const libre =
+		pour !== "moi" &&
+		!retire &&
+		!cadeau.provisoire &&
+		offreurs(cadeau).length === 0;
 	return el(
 		"article",
 		{
-			class: `carte${selectionne ? " selectionnee" : ""}${retire ? " retire" : ""}${grise ? " grise" : ""}`,
+			class: `carte${selectionne ? " selectionnee" : ""}${retire ? " retire" : ""}${grise ? " grise" : ""}${cadeau.provisoire ? " provisoire" : ""}`,
 		},
 		selectionnable && libre
 			? el(
@@ -735,6 +815,7 @@ function carteCadeau(cadeau, { pour, selectionnable = false, grise = false }) {
 				{ class: "carte-haut" },
 				el("h3", { class: "carte-titre" }, cadeau.titre),
 				el("span", { class: "carte-prix" }, prix(cadeau.prix)),
+				icones,
 			),
 			photoCadeau(cadeau),
 			cadeau.description
@@ -796,6 +877,8 @@ function rendreMaListe() {
 			),
 		];
 	}
+	// Flottant en bas à droite, au-dessus des idées : toujours à portée, même en bas d'une longue liste.
+	ajouter.classList.add("flottant");
 	return [
 		el(
 			"p",
@@ -810,7 +893,7 @@ function rendreMaListe() {
 				)
 			: null,
 		...miens.map((c) => carteCadeau(c, { pour: "moi" })),
-		el("div", {}, ajouter),
+		ajouter,
 	];
 }
 
@@ -1010,7 +1093,38 @@ function rendreFamille() {
 				: null,
 		),
 		choisies.map((p) => dejaOffertA(p.id, seule ? null : p.prenom)),
+		// Admin seulement (l'API le vérifie) : réparer un doublon.
+		seule && app.etat.admin
+			? el(
+					"button",
+					{
+						type: "button",
+						class: "lien-bouton danger",
+						onclick: () => supprimerPersonne(seule),
+					},
+					`Supprimer ${seule.prenom} de Cadeaux`,
+				)
+			: null,
 	];
+}
+
+/** Admin : supprime une personne qui n'a encore rien dans Cadeaux (l'API refuse sinon). */
+async function supprimerPersonne(personne) {
+	const nom = personne.nom
+		? `${personne.prenom} ${personne.nom}`
+		: personne.prenom;
+	if (
+		!confirm(
+			`Supprimer ${nom} de Cadeaux ? Possible seulement sans idée, réservation, historique ni Secret Santa.`,
+		)
+	) {
+		return;
+	}
+	await modifier(
+		"supprimer-personne",
+		{ personneId: personne.id },
+		`${nom} ne fait plus partie de Cadeaux.`,
+	);
 }
 
 function rendreDisponibles() {
@@ -1354,7 +1468,7 @@ function rendreHistorique() {
 		{
 			type: "button",
 			class: "bouton principal",
-			onclick: ouvrirFormulaireHistorique,
+			onclick: () => ouvrirFormulaireHistorique(),
 		},
 		"+ Ajouter",
 	);
@@ -1419,7 +1533,7 @@ function rendreHistorique() {
 			),
 			ajouter,
 		),
-		el("p", { class: "discret" }, "Visible de toi seul."),
+		el("p", { class: "discret" }, "Visible par toi seul."),
 		[...annees].map(([annee, liste]) =>
 			el(
 				"section",
@@ -1460,8 +1574,20 @@ function rendreHistorique() {
 							"button",
 							{
 								type: "button",
+								class: "icone-modifier",
+								"aria-label": `Modifier ${e.details}`,
+								title: "Modifier",
+								onclick: () => ouvrirFormulaireHistorique(e),
+							},
+							"✎",
+						),
+						el(
+							"button",
+							{
+								type: "button",
 								class: "icone-supprimer",
 								"aria-label": `Supprimer ${e.details}`,
+								title: "Supprimer",
 								onclick: () => supprimerEntree(e),
 							},
 							"×",
@@ -1509,13 +1635,21 @@ function rendreEntete() {
 				f.nom,
 			),
 		),
-		el("button", {
-			type: "button",
-			class: "puce-ajout",
-			"aria-label": "Rejoindre ou créer une famille",
-			onclick: () => $("#dialogue-ajout-famille").showModal(),
-		}),
+		boutonAjoutFamille(),
 	);
+}
+
+const ouvrirAjoutFamille = () => $("#dialogue-ajout-famille").showModal();
+
+/** « + » rond pour rejoindre ou créer une famille (en-tête, Mon profil), dans des `.puces`. */
+function boutonAjoutFamille(onclick = ouvrirAjoutFamille) {
+	return el("button", {
+		type: "button",
+		class: "puce-ajout",
+		"aria-label": "Rejoindre ou créer une famille",
+		title: "Rejoindre ou créer une famille",
+		onclick,
+	});
 }
 
 function rendre() {
@@ -1531,7 +1665,15 @@ function rendre() {
 	pastille.hidden = nbReservations === 0;
 	pastille.textContent = String(nbReservations);
 
-	remplacerContenu($("#contenu"), ...RENDUS[app.onglet]());
+	const elements = RENDUS[app.onglet]().flat();
+	remplacerContenu(
+		$("#contenu"),
+		elements.filter((e) => !e?.classList?.contains("flottant")),
+	);
+	remplacerContenu(
+		$("#flottant"),
+		elements.filter((e) => e?.classList?.contains("flottant")),
+	);
 	rendreSelection();
 }
 
@@ -1609,59 +1751,103 @@ function messageRefus(resultat) {
 	return resultat.refuses.map((r) => `${titre(r.id)} : ${r.raison}`).join("\n");
 }
 
-async function reserver(ids) {
-	const resultat = await modifier("reserver", { cadeauIds: ids });
-	if (!resultat) return;
+/** Réservation : affichée aussitôt, envoyée en arrière-plan ; l'API peut en refuser une partie. */
+function reserver(ids) {
+	const lance = modifierEnFond(
+		"reserver",
+		async () => ({ cadeauIds: ids }),
+		avecCadeaux(ids, (c) => ({
+			...c,
+			reserveParIds: [...new Set([...(c.reserveParIds ?? []), moi()])],
+			dateReservation: c.dateReservation ?? new Date().toISOString(),
+		})),
+		ids.length > 1 ? "Réservation non enregistrée :" : "Cadeau non réservé :",
+		signalerRefus,
+	);
+	if (!lance) return;
 	for (const id of ids) app.selection.delete(id);
 	rendre();
-	if (resultat.faits.length)
-		notifier(
-			resultat.faits.length > 1
-				? `${resultat.faits.length} cadeaux réservés. 🎁`
-				: "Cadeau réservé. 🎁",
-		);
-	if (resultat.refuses.length) notifier(messageRefus(resultat), true);
+	notifier(
+		ids.length > 1
+			? `${ids.length} cadeaux réservés. 🎁`
+			: "Cadeau réservé. 🎁",
+	);
 }
 
-/** Rejoindre ceux qui offrent déjà un cadeau (cadeau groupé). */
-async function participer(ids) {
-	const resultat = await modifier("reserver", {
-		cadeauIds: ids,
-		participer: true,
-	});
-	if (!resultat) return;
-	if (resultat.faits.length) notifier("Tu participes à ce cadeau. 🎁");
-	if (resultat.refuses.length) notifier(messageRefus(resultat), true);
+/** Participation à un cadeau partagé : affichée aussitôt, envoyée en arrière-plan. */
+function participer(ids) {
+	const lance = modifierEnFond(
+		"reserver",
+		async () => ({ cadeauIds: ids, participer: true }),
+		avecCadeaux(ids, (c) => ({
+			...c,
+			reserveParIds: [...new Set([...(c.reserveParIds ?? []), moi()])],
+		})),
+		"Participation non enregistrée :",
+		signalerRefus,
+	);
+	if (lance) notifier("Tu participes à ce cadeau. 🎁");
 }
 
-async function partager(cadeau, partage) {
-	const reussi = await modifier(
+/** Case « Partager » d'un cadeau réservé : aussitôt, envoyée en arrière-plan. */
+function partager(cadeau, partage) {
+	const lance = modifierEnFond(
 		"partager-cadeau",
-		{ cadeauId: cadeau.id, partage },
+		async () => ({ cadeauId: cadeau.id, partage }),
+		avecCadeaux([cadeau.id], (c) => ({ ...c, partage })),
+		partage ? "Cadeau non partagé :" : "Cadeau toujours partagé :",
+	);
+	if (!lance) {
+		rendre();
+		return;
+	}
+	notifier(
 		partage
 			? "Cadeau partagé : d'autres peuvent participer."
 			: "Cadeau plus partagé.",
 	);
-	if (!reussi) rendre();
 }
 
-async function annuler(ids, message) {
-	const resultat = await modifier("annuler-reservation", { cadeauIds: ids });
-	if (!resultat) return;
-	if (resultat.faits.length) notifier(message);
-	if (resultat.refuses.length) notifier(messageRefus(resultat), true);
+/**
+ * Annulation de réservation : aussitôt, envoyée en arrière-plan. Un cadeau retiré par son
+ * destinataire disparaît quand plus personne ne le réserve.
+ */
+function annuler(ids, message) {
+	const lance = modifierEnFond(
+		"annuler-reservation",
+		async () => ({ cadeauIds: ids }),
+		avecCadeaux(ids, (c) => {
+			const restants = (c.reserveParIds ?? []).filter((id) => id !== moi());
+			if (restants.length === 0 && c.statut === "retiré") return null;
+			return {
+				...c,
+				reserveParIds: restants,
+				dateReservation: restants.length ? c.dateReservation : null,
+				partage: restants.length > 0 && c.partage,
+			};
+		}),
+		"Réservation non annulée :",
+		signalerRefus,
+	);
+	if (lance) notifier(message);
 }
 
 // ---------------------------------------------------------------------------
 // Idées : ajout (pour soi ou pour un proche), modification, suppression
 // ---------------------------------------------------------------------------
 
-function afficherApercuPhoto(source) {
+/**
+ * Avec une photo : l'aperçu, la croix pour la retirer et le crayon pour la changer ; sans photo,
+ * les boutons pour en prendre ou en choisir une.
+ * @param avecPhoto vrai aussi quand l'idée a une photo pas encore reçue (sans aperçu)
+ */
+function afficherApercuPhoto(source, avecPhoto = Boolean(source)) {
 	const apercu = $("#apercu-photo");
 	apercu.hidden = !source;
 	if (source) apercu.src = source;
 	else apercu.removeAttribute("src");
-	$("#bouton-retirer-photo").hidden = !source;
+	$("#cadre-photo").hidden = !avecPhoto;
+	$("#choix-photo").hidden = avecPhoto;
 }
 
 function photoChoisieDansFormulaire(evenement) {
@@ -1680,15 +1866,39 @@ function retirerPhotoDuFormulaire() {
 	afficherApercuPhoto(null);
 }
 
-/** La photo à envoyer : l'image réduite, "" pour la retirer, undefined si elle ne change pas. */
-async function photoDuFormulaire() {
-	if (app.photoRetiree) return "";
-	if (!app.photoSaisie) return undefined;
-	return reduireImageSous(
-		app.photoSaisie,
+/**
+ * La photo à envoyer, d'après le formulaire tel qu'il était à l'enregistrement : l'image réduite,
+ * "" pour la retirer, undefined si elle ne change pas. Une nouvelle photo est gardée sur l'appareil
+ * sous son empreinte (la même que celle du serveur) : l'app n'a pas à la redemander.
+ */
+async function photoAEnvoyer({ photoSaisie, photoRetiree }) {
+	if (photoRetiree) return "";
+	if (!photoSaisie) return undefined;
+	const photo = await reduireImageSous(
+		photoSaisie,
 		REDUCTIONS_PHOTO,
 		LONGUEUR_MAX_PHOTO,
 	);
+	app.photos[await empreinteSha256(photo)] = photo;
+	ecrireStockage(CLES.photos, JSON.stringify(app.photos));
+	return photo;
+}
+
+/** Empreinte SHA-256 en hexadécimal, comme empreinteSha256 du projet shared (Apps Script). */
+async function empreinteSha256(texte) {
+	const octets = await crypto.subtle.digest(
+		"SHA-256",
+		new TextEncoder().encode(texte),
+	);
+	return [...new Uint8Array(octets)]
+		.map((octet) => octet.toString(16).padStart(2, "0"))
+		.join("");
+}
+
+/** Prix saisi, tel que l'app l'affiche en attendant le serveur (null s'il est vide ou illisible). */
+function prixSaisi(texte) {
+	const prix = Number(String(texte).replace(",", ".").trim());
+	return String(texte).trim() && Number.isFinite(prix) ? prix : null;
 }
 
 /** @param pourIds destinataires de l'idée (plusieurs : idée commune) */
@@ -1699,8 +1909,10 @@ function ouvrirFormulaireCadeau(cadeau, pourIds = cadeau?.pourIds ?? [moi()]) {
 	app.photoSaisie = null;
 	app.photoRetiree = false;
 	const photoActuelle = cadeau?.photo && app.photos[cadeau.photo];
-	afficherApercuPhoto(photoActuelle ? urlPhoto(photoActuelle) : null);
-	$("#bouton-retirer-photo").hidden = !cadeau?.photo;
+	afficherApercuPhoto(
+		photoActuelle ? urlPhoto(photoActuelle) : null,
+		Boolean(cadeau?.photo),
+	);
 	const pourMoi = pourIds.includes(moi());
 	const comptes = pourIds.filter((id) => id !== moi() && personne(id)?.compte);
 	$("#titre-dialogue").textContent = cadeau
@@ -1715,11 +1927,9 @@ function ouvrirFormulaireCadeau(cadeau, pourIds = cadeau?.pourIds ?? [moi()]) {
 				? `${prenoms(comptes)} ne ${comptes.length > 1 ? "verront" : "verra"} pas cette idée ; les autres pourront la réserver.`
 				: "Personne sans compte : l'idée rejoint sa liste.";
 	$("#erreur-cadeau").textContent = "";
-	$("#bouton-supprimer-cadeau").hidden = !cadeau;
-	// Seul l'auteur choisit les familles qui voient l'idée, parmi les siennes qui comptent un
+	// L'auteur choisit les familles qui voient l'idée, parmi les siennes qui comptent un
 	// destinataire (toutes cochées quand il n'en a limité aucune).
-	const possibles =
-		!cadeau || cadeau.ajouteParId === moi() ? famillesPossibles(pourIds) : [];
+	const possibles = famillesPossibles(pourIds);
 	const choisies = cadeau?.familleIds ?? [];
 	$("#champ-visible-par").hidden = possibles.length < 2;
 	$("#cadeau-familles").replaceChildren(
@@ -1768,71 +1978,121 @@ async function enregistrerCadeau(evenement) {
 		}
 	}
 	const { cadeau: existant, pourIds } = app.edition;
-	$("#erreur-cadeau").textContent = "";
-	try {
-		cadeau.photo = await photoDuFormulaire();
-	} catch (erreur) {
-		$("#erreur-cadeau").textContent = erreur.message;
-		return;
-	}
-	const reussi = await modifier(
+	// Le formulaire se ferme aussitôt : sa photo est lue maintenant, réduite en arrière-plan.
+	const photo = {
+		photoSaisie: app.photoSaisie,
+		photoRetiree: app.photoRetiree,
+	};
+	const parametres = async () => {
+		const envoi = { ...cadeau, photo: await photoAEnvoyer(photo) };
+		return existant
+			? { cadeauId: existant.id, cadeau: envoi }
+			: { cadeau: envoi, pourIds };
+	};
+	// Carte affichée en attendant le serveur (« Enregistrement… »).
+	const affiche = {
+		...cadeau,
+		prix: prixSaisi(cadeau.prix),
+		familleIds: cadeau.familleIds ?? existant?.familleIds ?? [],
+		photo: photo.photoRetiree ? "" : (existant?.photo ?? ""),
+		provisoire: true,
+	};
+	const nouveau = {
+		...affiche,
+		id: `provisoire-${Date.now()}`,
+		pourIds,
+		ajouteParId: moi(),
+		statut: "actif",
+		reserveParIds: [],
+	};
+	const lance = modifierEnFond(
 		existant ? "modifier-cadeau" : "ajouter-cadeau",
-		existant ? { cadeauId: existant.id, cadeau } : { cadeau, pourIds },
-		existant
-			? "Idée modifiée."
-			: pourIds.length === 1 && pourIds[0] === moi()
-				? "Idée ajoutée à ta liste."
-				: `Idée ajoutée pour ${prenoms(pourIds)}.`,
-		(message) => {
-			$("#erreur-cadeau").textContent = message;
-		},
+		parametres,
+		(etat) => ({
+			...etat,
+			cadeaux: existant
+				? etat.cadeaux.map((c) =>
+						c.id === existant.id ? { ...c, ...affiche } : c,
+					)
+				: [...etat.cadeaux, nouveau],
+		}),
+		`« ${cadeau.titre} » n'a pas été enregistrée :`,
 	);
-	if (reussi) $("#dialogue-cadeau").close();
+	if (lance) $("#dialogue-cadeau").close();
 }
 
-async function supprimer(cadeau) {
-	if (!confirm(`Supprimer « ${cadeau.titre} » ?`)) return false;
-	return Boolean(
-		await modifier(
-			"supprimer-cadeau",
-			{ cadeauId: cadeau.id },
-			"Idée supprimée.",
-		),
+function supprimer(cadeau) {
+	if (!confirm(`Supprimer « ${cadeau.titre} » ?`)) return;
+	modifierEnFond(
+		"supprimer-cadeau",
+		async () => ({ cadeauId: cadeau.id }),
+		(etat) => ({
+			...etat,
+			cadeaux: etat.cadeaux.filter((c) => c.id !== cadeau.id),
+		}),
+		`« ${cadeau.titre} » n'a pas été supprimée :`,
 	);
-}
-
-async function supprimerDepuisFormulaire() {
-	const { cadeau } = app.edition;
-	if (cadeau && (await supprimer(cadeau))) $("#dialogue-cadeau").close();
 }
 
 // ---------------------------------------------------------------------------
 // Historique
 // ---------------------------------------------------------------------------
 
-function ouvrirFormulaireHistorique() {
+/** @param entree cadeau offert à modifier ; absent pour en ajouter un */
+function ouvrirFormulaireHistorique(entree = null) {
+	app.entreeEditee = entree;
 	const form = $("#form-historique");
 	form.reset();
+	$("#titre-historique").textContent = entree
+		? "Modifier le cadeau offert"
+		: "Cadeau offert";
 	$("#erreur-historique").textContent = "";
-	form.date.value = versChampDate(aujourdhui());
-	const proches = app.etat.personnes
-		.filter((p) => p.id !== moi())
-		.sort((a, b) => a.prenom.localeCompare(b.prenom, "fr"));
-	$("#historique-personnes").replaceChildren(
-		...proches.map((p) =>
-			el(
-				"label",
-				{ class: "case-texte" },
-				el("input", { type: "checkbox", name: "destinataire", value: p.id }),
-				p.prenom,
-			),
-		),
+	const coches = new Set(
+		(entree?.destinataires ?? []).map((d) => d.id).filter(Boolean),
 	);
+	// Les proches, et les destinataires déjà là qui ne le sont plus (ils restent cochés).
+	const proches = new Map(
+		app.etat.personnes
+			.filter((p) => p.id !== moi())
+			.map((p) => [p.id, p.prenom]),
+	);
+	for (const d of entree?.destinataires ?? [])
+		if (d.id && !proches.has(d.id)) proches.set(d.id, d.nom);
+	$("#historique-personnes").replaceChildren(
+		...[...proches]
+			.sort((a, b) => a[1].localeCompare(b[1], "fr"))
+			.map(([id, prenom]) =>
+				el(
+					"label",
+					{ class: "case-texte" },
+					el("input", {
+						type: "checkbox",
+						name: "destinataire",
+						value: id,
+						checked: coches.has(id),
+					}),
+					prenom,
+				),
+			),
+	);
+	if (entree) {
+		form.details.value = entree.details;
+		form.date.value = versChamp(entree.date);
+		form.occasion.value = entree.occasion;
+		form.autres.value = entree.destinataires
+			.filter((d) => !d.id)
+			.map((d) => d.nom)
+			.join(", ");
+		form.prix.value = entree.prix ?? "";
+	} else {
+		form.date.value = versChampDate(aujourdhui());
+	}
 	$("#dialogue-historique").showModal();
 	form.details.focus();
 }
 
-async function enregistrerHistorique(evenement) {
+/** Cadeau offert, ajouté ou modifié : affiché aussitôt, enregistré en arrière-plan. */
+function enregistrerHistorique(evenement) {
 	evenement.preventDefault();
 	const form = evenement.target;
 	const entree = {
@@ -1845,24 +2105,69 @@ async function enregistrerHistorique(evenement) {
 		autresDestinataires: form.autres.value,
 		prix: form.prix.value,
 	};
-	const reussi = await modifier(
-		"ajouter-historique",
-		{ entree },
-		"Ajouté à ton historique.",
-		(message) => {
-			$("#erreur-historique").textContent = message;
-		},
+	const autres = entree.autresDestinataires
+		.split(",")
+		.map((nom) => nom.trim())
+		.filter(Boolean);
+	if (!entree.details.trim()) {
+		$("#erreur-historique").textContent = "Indique le cadeau.";
+		return;
+	}
+	if (entree.destinataireIds.length + autres.length === 0) {
+		$("#erreur-historique").textContent =
+			"Indique à qui le cadeau a été offert.";
+		return;
+	}
+	const existante = app.entreeEditee;
+	const prix = Number(String(entree.prix).replace(",", "."));
+	const affichee = {
+		...(existante ?? { avec: [] }),
+		id: existante?.id ?? `provisoire-${Date.now()}`,
+		details: entree.details.trim(),
+		date: entree.date
+			? new Date(`${entree.date}T12:00:00`).toISOString()
+			: new Date().toISOString(),
+		occasion: entree.occasion,
+		destinataires: [
+			...entree.destinataireIds.map((id) => ({
+				id,
+				nom: app.etat.personnes.find((p) => p.id === id)?.prenom ?? "?",
+			})),
+			...autres.map((nom) => ({ nom })),
+		],
+		prix: String(entree.prix).trim() === "" || Number.isNaN(prix) ? null : prix,
+		provisoire: true,
+	};
+	const lance = modifierEnFond(
+		existante ? "modifier-historique" : "ajouter-historique",
+		async () => (existante ? { entreeId: existante.id, entree } : { entree }),
+		(etat) => ({
+			...etat,
+			historique: [
+				...etat.historique.filter((e) => e.id !== affichee.id),
+				affichee,
+			].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")),
+		}),
+		`« ${affichee.details} » n'a pas été enregistré :`,
 	);
-	if (reussi) $("#dialogue-historique").close();
+	if (!lance) return;
+	$("#dialogue-historique").close();
+	notifier(existante ? "Cadeau offert modifié." : "Ajouté à ton historique.");
 }
 
-async function supprimerEntree(entree) {
+/** Retrait d'un cadeau offert de l'historique : aussitôt, enregistré en arrière-plan. */
+function supprimerEntree(entree) {
 	if (!confirm(`Retirer « ${entree.details} » de ton historique ?`)) return;
-	await modifier(
+	const lance = modifierEnFond(
 		"supprimer-historique",
-		{ entreeId: entree.id },
-		"Retiré de ton historique.",
+		async () => ({ entreeId: entree.id }),
+		(etat) => ({
+			...etat,
+			historique: etat.historique.filter((e) => e.id !== entree.id),
+		}),
+		`« ${entree.details} » n'a pas été retiré :`,
 	);
+	if (lance) notifier("Retiré de ton historique.");
 }
 
 // ---------------------------------------------------------------------------
@@ -2013,13 +2318,19 @@ async function relancerTirage(s) {
 	);
 }
 
-async function supprimerSecretSanta(s) {
+/** Suppression d'un Secret Santa : aussitôt, enregistrée en arrière-plan. */
+function supprimerSecretSanta(s) {
 	if (!confirm(`Supprimer « ${s.nom} » et son tirage ?`)) return;
-	await modifier(
+	const lance = modifierEnFond(
 		"supprimer-secret-santa",
-		{ secretSantaId: s.id },
-		"Secret Santa supprimé.",
+		async () => ({ secretSantaId: s.id }),
+		(etat) => ({
+			...etat,
+			secretSantas: etat.secretSantas.filter((x) => x.id !== s.id),
+		}),
+		`« ${s.nom} » n'a pas été supprimé :`,
 	);
+	if (lance) notifier("Secret Santa supprimé.");
 }
 
 // ---------------------------------------------------------------------------
@@ -2033,9 +2344,11 @@ async function supprimerSecretSanta(s) {
  * @param valider (valeurs, afficherErreur) => Promise<boolean> : vrai pour fermer
  * @param bas éléments affichés sous les champs
  */
+/** @param entete élément affiché à droite du titre et de l'aide (ex : la photo du profil) */
 function ouvrirDialogueSimple({
 	titre,
 	aide = "",
+	entete = null,
 	champs,
 	bas = [],
 	bouton = "Valider",
@@ -2044,6 +2357,7 @@ function ouvrirDialogueSimple({
 	fermerMenu();
 	$("#simple-titre").textContent = titre;
 	$("#simple-aide").textContent = aide;
+	remplacerContenu($("#simple-entete-droite"), entete);
 	$("#simple-valider").textContent = bouton;
 	$("#erreur-simple").textContent = "";
 	$("#simple-champs").replaceChildren(
@@ -2175,95 +2489,6 @@ function ouvrirAjoutPersonne() {
 	});
 }
 
-/**
- * Choix de la photo de profil dans « Mon profil » : prise avec l'appareil, choisie, ou retirée.
- * @return Les éléments à afficher, et `photo()` : l'image réduite à envoyer, "" pour la retirer,
- * undefined si elle ne change pas
- */
-function choixPhotoProfil(membre) {
-	let fichier = null;
-	let retiree = false;
-	const actuelle = membre.photo && app.photos[membre.photo];
-	const apercu = el("img", {
-		class: "apercu-photo apercu-profil",
-		alt: "",
-		src: actuelle ? urlPhoto(actuelle) : null,
-		hidden: !actuelle,
-	});
-	const retirer = el(
-		"button",
-		{
-			type: "button",
-			class: "bouton petit danger",
-			hidden: !membre.photo,
-			onclick: () => {
-				fichier = null;
-				retiree = Boolean(membre.photo);
-				apercu.hidden = true;
-				apercu.removeAttribute("src");
-				retirer.hidden = true;
-			},
-		},
-		"Retirer",
-	);
-	const champ = (attributs) =>
-		el("input", {
-			type: "file",
-			accept: "image/*",
-			hidden: true,
-			...attributs,
-			onchange: (evenement) => {
-				const choisi = evenement.target.files[0];
-				if (!choisi) return;
-				fichier = choisi;
-				retiree = false;
-				apercu.src = URL.createObjectURL(choisi);
-				apercu.hidden = false;
-				retirer.hidden = false;
-				// Vidé aussitôt : la même image peut être choisie de nouveau.
-				evenement.target.value = "";
-			},
-		});
-	const camera = champ({ capture: "user" });
-	const galerie = champ({});
-	return {
-		elements: [
-			el("p", { class: "sous-titre" }, "Ma photo"),
-			apercu,
-			el(
-				"div",
-				{ class: "choix-photo" },
-				el(
-					"button",
-					{
-						type: "button",
-						class: "bouton petit bouton-camera",
-						onclick: () => camera.click(),
-					},
-					"Prendre une photo",
-				),
-				el(
-					"button",
-					{
-						type: "button",
-						class: "bouton petit",
-						onclick: () => galerie.click(),
-					},
-					"Choisir une image",
-				),
-				retirer,
-			),
-			camera,
-			galerie,
-		],
-		photo: async () => {
-			if (retiree) return "";
-			if (!fichier) return undefined;
-			return reduireImageSous(fichier, REDUCTIONS_PROFIL, LONGUEUR_MAX_PHOTO);
-		},
-	};
-}
-
 function ouvrirProfil() {
 	const membre = app.etat.moi;
 	// Ferme le profil avant une autre action : le petit formulaire ne s'ouvre pas deux fois, et la
@@ -2272,11 +2497,22 @@ function ouvrirProfil() {
 		$("#dialogue-simple").close();
 		action();
 	};
-	const choixPhoto = choixPhotoProfil(membre);
+	// Photo du compte, la même dans toutes les apps (shared/profil.js).
+	const choixPhoto = choixPhotoProfil({
+		prenom: membre.prenom,
+		photo: (membre.photo && app.photos[membre.photo]) || null,
+	});
 	ouvrirDialogueSimple({
-		titre: `Mon profil : ${membre.prenom}`,
+		titre: "Mon profil",
 		aide: "Ton anniversaire et ta photo s'affichent pour les membres de tes familles.",
+		entete: choixPhoto.element,
 		champs: [
+			{
+				nom: "prenom",
+				libelle: "Prénom",
+				maxlength: 40,
+				valeur: membre.prenom,
+			},
 			{
 				nom: "nom",
 				libelle: "Nom (facultatif)",
@@ -2293,37 +2529,49 @@ function ouvrirProfil() {
 			},
 		],
 		bas: [
-			...choixPhoto.elements,
-			el("p", { class: "sous-titre" }, "Mes familles"),
-			...app.etat.familles.map((f) =>
-				el(
-					"button",
-					{
-						type: "button",
-						class: "code-famille",
-						"aria-label": `Copier le code de la famille ${f.nom}`,
-						onclick: puis(() => copierCode(f)),
-					},
-					el("span", {}, f.nom),
-					el("strong", {}, f.code),
-				),
-			),
 			el(
 				"div",
-				{ class: "ligne deux" },
+				{ class: "titre-familles" },
+				el("p", { class: "sous-titre" }, "Mes familles"),
 				el(
-					"button",
-					{ type: "button", class: "bouton", onclick: puis(ouvrirRejoindre) },
-					"Rejoindre",
+					"div",
+					{ class: "puces" },
+					boutonAjoutFamille(puis(ouvrirAjoutFamille)),
 				),
+			),
+			...app.etat.familles.map((f) =>
 				el(
-					"button",
-					{ type: "button", class: "bouton", onclick: puis(ouvrirCreer) },
-					"Créer",
+					"div",
+					{ class: "ligne-famille" },
+					el(
+						"button",
+						{
+							type: "button",
+							class: "code-famille",
+							"aria-label": `Copier le code de la famille ${f.nom}`,
+							onclick: puis(() => copierCode(f)),
+						},
+						el("span", {}, f.nom),
+						el("strong", {}, f.code),
+					),
+					// On ne quitte pas sa seule famille.
+					app.etat.familles.length > 1 &&
+						el(
+							"button",
+							{
+								type: "button",
+								class: "lien-bouton",
+								"aria-label": `Quitter la famille ${f.nom}`,
+								onclick: puis(() => quitterFamille(f)),
+							},
+							"Quitter",
+						),
 				),
 			),
 		],
 		bouton: "Enregistrer",
+		// Affiché aussitôt et enregistré en arrière-plan (modifierEnFond) : seule la réduction de la
+		// photo, rapide, se fait avant de fermer.
 		valider: async (profil, erreur) => {
 			try {
 				profil.photo = await choixPhoto.photo();
@@ -2331,16 +2579,88 @@ function ouvrirProfil() {
 				erreur(e.message);
 				return false;
 			}
-			return Boolean(
-				await modifier(
-					"modifier-profil",
-					{ profil },
-					"Profil enregistré.",
-					erreur,
-				),
+			return modifierEnFond(
+				"modifier-profil",
+				async () => ({ profil }),
+				(etat) => avecProfilProvisoire(etat, profil),
+				"Ton profil n'a pas été enregistré :",
+				// Prénom, nom et photo du compte, gardés pour les autres apps.
+				() => accesDuCompte().catch(() => {}),
 			);
 		},
 	});
+}
+
+/** Photo choisie dans « Mon profil », affichée avant la réponse de l'API. */
+const PHOTO_PROFIL_PROVISOIRE = "provisoire-profil";
+
+/**
+ * L'état avec le profil saisi, en attendant l'API : prénom, nom, anniversaire et photo de moi, et
+ * de moi parmi les personnes des familles.
+ * @param profil Saisie de « Mon profil » ; photo : réduite, "" pour la retirer, undefined si
+ * inchangée
+ */
+function avecProfilProvisoire(etat, { prenom, nom, naissance, photo }) {
+	if (photo) app.photos[PHOTO_PROFIL_PROVISOIRE] = photo;
+	const modifie = (personne) => ({
+		...personne,
+		prenom: prenom.trim() || personne.prenom,
+		nom: nom.trim(),
+		naissance: naissance
+			? new Date(`${naissance}T12:00:00`).toISOString()
+			: null,
+		photo:
+			photo === undefined
+				? personne.photo
+				: photo
+					? PHOTO_PROFIL_PROVISOIRE
+					: "",
+	});
+	return {
+		...etat,
+		moi: modifie(etat.moi),
+		personnes: etat.personnes.map((p) =>
+			p.id === etat.moi.id ? modifie(p) : p,
+		),
+	};
+}
+
+/**
+ * Quitte une famille, après confirmation : ce qui disparaît (ses réservations d'idées qu'on ne verra
+ * plus, son tirage d'un Secret Santa de cette famille) est annoncé. L'historique ne change pas.
+ */
+async function quitterFamille(famille) {
+	const restantes = app.etat.familles.filter((f) => f.id !== famille.id);
+	const proches = new Set(restantes.flatMap((f) => f.membreIds));
+	const dansRestantes = (ids) => restantes.some((f) => ids.includes(f.id));
+	// Comme l'API (estVisibleDe) : un destinataire encore proche, et une des familles choisies.
+	const reservations = app.etat.cadeaux.filter(
+		(c) =>
+			c.reserveParIds?.includes(moi()) &&
+			(!c.pourIds.some((id) => proches.has(id)) ||
+				(c.ajouteParId !== moi() &&
+					c.familleIds?.length > 0 &&
+					!dansRestantes(c.familleIds))),
+	);
+	const secretSantas = app.etat.secretSantas.filter(
+		(s) => s.participantIds.includes(moi()) && !dansRestantes(s.familleIds),
+	);
+	const message = [
+		`Quitter la famille ${famille.nom} ?`,
+		"Ta liste n'y sera plus visible et tu ne verras plus celles de ses membres. Ton historique ne change pas.",
+		reservations.length > 0 &&
+			`Tes réservations seront annulées : ${reservations.map((c) => `« ${c.titre} »`).join(", ")}.`,
+		secretSantas.length > 0 &&
+			`Tu ne verras plus ton tirage : ${secretSantas.map((s) => `« ${s.nom} »`).join(", ")}.`,
+	]
+		.filter(Boolean)
+		.join("\n\n");
+	if (!confirm(message)) return;
+	await modifier(
+		"quitter-famille",
+		{ familleId: famille.id },
+		`Tu as quitté la famille ${famille.nom}.`,
+	);
 }
 
 async function copierCode(famille) {
@@ -2395,6 +2715,8 @@ function afficherConnexionCompte(message = "", invitation = null) {
 /** Compte sans accès à Cadeaux : la session est gardée (elle sert aux autres apps). */
 function afficherRefus(message) {
 	app.etat = null;
+	etatServeur = null;
+	app.provisoires = [];
 	ecrireStockage(CLES.etat, null);
 	afficherPartieConnexion("refus");
 	$("#message-refus").textContent = message;
@@ -2477,6 +2799,8 @@ async function ajouterMoi(evenement) {
 /** Premier chargement, une fois l'appareil connecté (ou une invitation reçue). */
 async function chargerApresConnexion() {
 	app.etat = null;
+	etatServeur = null;
+	app.provisoires = [];
 	ecrireStockage(CLES.etat, null);
 	afficherAttente();
 	try {
@@ -2698,6 +3022,8 @@ function deconnecter(message = "") {
 	fermerMenu();
 	oublierConnexion();
 	app.etat = null;
+	etatServeur = null;
+	app.provisoires = [];
 	app.photos = {};
 	app.photosDemandees.clear();
 	// La version de l'API et la visite guidée déjà vue restent : elles ne disent rien du membre.
@@ -2877,10 +3203,6 @@ function brancherEvenements() {
 	$("#bouton-scanner").addEventListener("click", ouvrirScanner);
 	$("#bouton-fermer-scanner").addEventListener("click", arreterScanner);
 	$("#dialogue-scanner").addEventListener("cancel", arreterScanner);
-	$("#bouton-supprimer-cadeau").addEventListener(
-		"click",
-		supprimerDepuisFormulaire,
-	);
 	$("#form-cadeau").addEventListener("submit", enregistrerCadeau);
 	$("#bouton-camera").addEventListener("click", () =>
 		$("#champ-camera").click(),
@@ -2894,6 +3216,10 @@ function brancherEvenements() {
 	$("#bouton-retirer-photo").addEventListener(
 		"click",
 		retirerPhotoDuFormulaire,
+	);
+	// Sur téléphone, le sélecteur propose aussi l'appareil photo.
+	$("#bouton-changer-photo").addEventListener("click", () =>
+		$("#champ-photo").click(),
 	);
 	$("#form-historique").addEventListener("submit", enregistrerHistorique);
 	$("#form-secret-santa").addEventListener("submit", enregistrerSecretSanta);

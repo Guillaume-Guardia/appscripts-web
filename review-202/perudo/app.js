@@ -4,7 +4,8 @@ import {
 	connecterUnAutreAppareil,
 	exigerAccesApp,
 } from "../shared/connexion.js";
-import { $, notifier, remplirCarteMenu } from "../shared/dom.js";
+import { $, notifier } from "../shared/dom.js";
+import { afficherProfil, brancherProfil } from "../shared/profil.js";
 import {
 	brancherInstallation,
 	chercherMiseAJour,
@@ -454,9 +455,10 @@ afficherVersion();
 afficher();
 enregistrerServiceWorker();
 // Réservée aux comptes qui ont accès à Perudo (onglet Droits du projet droits).
+brancherProfil();
 const acces = exigerAccesApp({
 	cle: "perudo",
 	nomApp: "Perudo",
-	surOuverte: (compte) => remplirCarteMenu(compte?.prenom ?? ""),
+	surOuverte: () => afficherProfil(),
 });
 brancherEvenements();
