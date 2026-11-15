@@ -92,13 +92,14 @@ main {
 	align-items: center;
 	gap: 2px;
 	min-height: 52px;
-	padding: 4px;
+	padding: 4px 2px;
 	border: 0;
 	border-radius: 12px;
 	background: transparent;
 	color: var(--texte-doux);
 	font-size: 12px;
 	font-weight: 600;
+	white-space: nowrap;
 }
 
 .onglets button[aria-pressed="true"] {
@@ -623,4 +624,80 @@ main {
 	background: var(--non);
 	border-color: var(--non);
 	color: var(--surface);
+}
+
+/* En-tête : le nom du projet ouvre les paramètres, « + » en crée un autre */
+
+.titre-projet {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	min-width: 0;
+}
+
+.choix-projet {
+	min-width: 0;
+	min-height: 0;
+	margin-left: -8px;
+	padding: 6px 8px;
+	overflow: hidden;
+	border: 0;
+	border-radius: 10px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.choix-projet:not(:disabled)::after {
+	content: " ▾";
+	font-size: 14px;
+	opacity: 0.8;
+}
+
+.choix-projet:disabled {
+	opacity: 1;
+	cursor: default;
+}
+
+/* Paramètres */
+
+.bloc {
+	margin-bottom: 16px;
+	padding: 16px;
+}
+
+.bloc h2 {
+	margin: 0 0 8px;
+	font-size: 18px;
+}
+
+.liste-projets {
+	display: grid;
+	gap: 8px;
+	margin: 12px 0;
+	padding: 0;
+	list-style: none;
+}
+
+.choix-liste {
+	display: flex;
+	justify-content: space-between;
+	width: 100%;
+	text-align: left;
+}
+
+.choix-liste[aria-pressed="true"] {
+	border-color: var(--accent);
+	color: var(--accent);
+	font-weight: 700;
+}
+
+.choix-liste[aria-pressed="true"]::after {
+	content: "✓";
+}
+
+#parents-projet p {
+	margin: 0 0 12px;
 }

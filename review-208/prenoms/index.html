@@ -16,7 +16,13 @@
 	</head>
 	<body>
 		<header class="entete">
-			<h1 id="titre">Prénoms</h1>
+			<h1 class="titre-projet">
+				<button type="button" id="titre" class="choix-projet" disabled>Prénoms</button>
+				<button type="button" id="bouton-nouveau-projet" class="bouton-icone" aria-label="Nouveau projet" hidden>
+					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+					<span class="infobulle">Nouveau projet</span>
+				</button>
+			</h1>
 			<a href="../" class="bouton-icone" aria-label="Mes apps">
 				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" /></svg>
 				<span class="infobulle">Mes apps</span>
@@ -39,10 +45,8 @@
 					<span class="menu-carte-texte"><strong id="menu-compte"></strong><span>Mon profil</span></span>
 				</button>
 				<div class="menu-section">
-					<p class="menu-titre">Notre projet</p>
-					<button type="button" id="menu-projet" hidden>Nom, nom de famille, sexe</button>
-					<button type="button" id="menu-partager" hidden>Inviter l'autre parent</button>
-					<button type="button" id="menu-inviter">Inviter quelqu'un dans l'app</button>
+					<p class="menu-titre">Prénoms</p>
+					<button type="button" id="menu-projet" hidden>Mon projet</button>
 				</div>
 				<div class="menu-section">
 					<p class="menu-titre">Cet appareil</p>
@@ -86,11 +90,12 @@
 				</form>
 				<div class="carte">
 					<h3>Rejoindre l'autre parent</h3>
-					<p class="aide">L'autre parent a déjà créé votre projet ? Ouvre le lien ou scanne le QR code envoyé depuis son app (menu → Inviter l'autre parent).</p>
+					<p class="aide">L'autre parent a déjà créé votre projet ? Ouvre le lien ou scanne le QR code envoyé depuis son app (bouton « Inviter » de la sélection).</p>
 				</div>
 			</section>
 
 			<div id="ecran-app" hidden>
+				<p id="chargement-projet" class="aide centre" hidden>Chargement du projet…</p>
 				<section id="vue-selection" hidden>
 					<div id="invitation-parent"></div>
 					<div class="barre-selection">
@@ -113,6 +118,25 @@
 				<section id="vue-classement" hidden>
 					<div id="choix-sexe-classement" class="puces choix-sexe"></div>
 					<div id="contenu-classement"></div>
+				</section>
+
+				<section id="vue-parametres" hidden>
+					<div class="carte bloc">
+						<h2>Mes projets</h2>
+						<p class="aide">Le projet choisi filtre toute l'app : sa sélection, ses matchs, ses duels et son classement.</p>
+						<ul id="liste-projets" class="liste-projets"></ul>
+						<button type="button" id="bouton-ajouter-projet">+ Nouveau projet</button>
+					</div>
+					<form id="form-parametres-projet" class="carte bloc formulaire">
+						<h2>Ce projet</h2>
+						<div data-champs-projet></div>
+						<p class="erreur" role="alert"></p>
+						<button type="submit" class="bouton-principal">Enregistrer</button>
+					</form>
+					<div class="carte bloc">
+						<h2>L'autre parent</h2>
+						<div id="parents-projet"></div>
+					</div>
 				</section>
 
 				<section id="vue-liste" hidden>
@@ -143,6 +167,10 @@
 			<button type="button" data-vue="liste" aria-pressed="false">
 				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" /></svg>
 				Ma sélection
+			</button>
+			<button type="button" data-vue="parametres" aria-pressed="false">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></svg>
+				Paramètres
 			</button>
 		</nav>
 
@@ -211,12 +239,13 @@
 
 		<dialog id="dialogue-projet" class="dialogue" aria-labelledby="titre-dialogue-projet">
 			<form id="form-projet" class="formulaire">
-				<h2 id="titre-dialogue-projet">Notre projet</h2>
+				<h2 id="titre-dialogue-projet">Nouveau projet</h2>
+				<p class="aide">Un projet par enfant : chacun a sa sélection, ses matchs et ses duels.</p>
 				<div data-champs-projet></div>
 				<p class="erreur" role="alert"></p>
 				<div class="boutons">
 					<button type="button" data-fermer>Annuler</button>
-					<button type="submit" class="bouton-principal">Enregistrer</button>
+					<button type="submit" class="bouton-principal">Créer</button>
 				</div>
 			</form>
 		</dialog>

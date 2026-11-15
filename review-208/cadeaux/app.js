@@ -946,22 +946,36 @@ function rendreFamille() {
 			),
 		];
 	}
-	// Une ou plusieurs personnes : leurs listes réunies, et une idée commune possible.
+	// Une ou plusieurs personnes : leurs listes réunies, et une idée commune possible. On peut
+	// s'y ajouter soi-même (« Moi »), avec au moins un proche : l'idée commune devient un souhait.
 	const selection = new Set(
-		[...app.personnesFamille].filter((id) => autres.some((p) => p.id === id)),
+		[...app.personnesFamille].filter(
+			(id) => id === moi() || autres.some((p) => p.id === id),
+		),
 	);
-	if (selection.size === 0) selection.add(autres[0].id);
+	if (!autres.some((p) => selection.has(p.id))) selection.add(autres[0].id);
 	app.personnesFamille = selection;
+	const avecMoi = selection.has(moi());
 	const choisies = autres.filter((p) => selection.has(p.id));
 	const ids = choisies.map((p) => p.id);
 	const basculer = (id) => {
-		if (selection.has(id)) {
-			if (selection.size > 1) selection.delete(id);
-		} else {
-			selection.add(id);
-		}
+		if (!selection.has(id)) selection.add(id);
+		else if (id === moi() || choisies.length > 1) selection.delete(id);
 		rendre();
 	};
+	const puce = (p, libelle) =>
+		el(
+			"button",
+			{
+				type: "button",
+				"aria-pressed": String(selection.has(p.id)),
+				onclick: () => basculer(p.id),
+			},
+			// Sa photo devant le prénom ; sans photo, le prénom seul.
+			p.photo ? avatar(p) : null,
+			libelle,
+		);
+	const moiPersonne = personne(moi());
 	const puces = el(
 		"div",
 		{
@@ -969,19 +983,8 @@ function rendreFamille() {
 			role: "group",
 			"aria-label": "Personnes (une ou plusieurs)",
 		},
-		autres.map((p) =>
-			el(
-				"button",
-				{
-					type: "button",
-					"aria-pressed": String(selection.has(p.id)),
-					onclick: () => basculer(p.id),
-				},
-				// Sa photo devant le prénom ; sans photo, le prénom seul.
-				p.photo ? avatar(p) : null,
-				p.prenom,
-			),
-		),
+		moiPersonne ? puce(moiPersonne, "Moi") : null,
+		autres.map((p) => puce(p, p.prenom)),
 		el("button", {
 			type: "button",
 			class: "puce-ajout",
@@ -999,6 +1002,18 @@ function rendreFamille() {
 		)
 		.sort(parPriorite);
 	const libres = leursCadeaux.filter((c) => offreurs(c).length === 0).length;
+	// Avec « Moi » : ses idées communes avec l'un d'eux (souhaits, les suggestions restent cachées).
+	const communs = avecMoi
+		? app.etat.cadeaux
+				.filter(
+					(c) =>
+						estPourMoi(c) &&
+						c.pourIds.some((id) => selection.has(id) && id !== moi()) &&
+						c.statut !== "retiré" &&
+						!horsFamillesAffichees(c),
+				)
+				.sort(parPriorite)
+		: [];
 	const seule = choisies.length === 1 ? choisies[0] : null;
 	const avecCompte = choisies.filter((p) => p.compte);
 	const ajouter = el(
@@ -1006,13 +1021,16 @@ function rendreFamille() {
 		{
 			type: "button",
 			class: "bouton",
-			onclick: () => ouvrirFormulaireCadeau(null, ids),
+			onclick: () =>
+				ouvrirFormulaireCadeau(null, avecMoi ? [moi(), ...ids] : ids),
 		},
-		seule
-			? seule.compte
-				? `+ Suggérer une idée pour ${seule.prenom}`
-				: `+ Ajouter une idée pour ${seule.prenom}`
-			: `+ Idée commune pour ${prenoms(ids)}`,
+		avecMoi
+			? `+ Idée commune avec ${prenoms(ids)}`
+			: seule
+				? seule.compte
+					? `+ Suggérer une idée pour ${seule.prenom}`
+					: `+ Ajouter une idée pour ${seule.prenom}`
+				: `+ Idée commune pour ${prenoms(ids)}`,
 	);
 	return [
 		puces,
@@ -1068,11 +1086,13 @@ function rendreFamille() {
 				),
 			),
 		leursCadeaux.length === 0
-			? vide(
-					seule
-						? `${seule.prenom} n'a encore rien demandé.`
-						: "Rien de demandé pour l'instant.",
-				)
+			? communs.length
+				? null
+				: vide(
+						seule
+							? `${seule.prenom} n'a encore rien demandé.`
+							: "Rien de demandé pour l'instant.",
+					)
 			: el(
 					"div",
 					{ class: "groupe" },
@@ -1080,6 +1100,20 @@ function rendreFamille() {
 						carteCadeau(c, { pour: "autre", selectionnable: true }),
 					),
 				),
+		communs.length
+			? [
+					el(
+						"div",
+						{ class: "groupe-titre" },
+						el("h2", {}, "Vos idées communes"),
+					),
+					el(
+						"div",
+						{ class: "groupe" },
+						communs.map((c) => carteCadeau(c, { pour: "moi" })),
+					),
+				]
+			: null,
 		el(
 			"div",
 			{ class: "pile" },
@@ -1088,7 +1122,9 @@ function rendreFamille() {
 				? el(
 						"p",
 						{ class: "discret" },
-						`${prenoms(avecCompte.map((p) => p.id))} ne ${avecCompte.length > 1 ? "verront" : "verra"} pas tes suggestions.`,
+						avecMoi
+							? `${prenoms(avecCompte.map((p) => p.id))} ${avecCompte.length > 1 ? "verront" : "verra"} aussi cette idée commune.`
+							: `${prenoms(avecCompte.map((p) => p.id))} ne ${avecCompte.length > 1 ? "verront" : "verra"} pas tes suggestions.`,
 					)
 				: null,
 		),
@@ -1913,24 +1949,36 @@ function ouvrirFormulaireCadeau(cadeau, pourIds = cadeau?.pourIds ?? [moi()]) {
 		photoActuelle ? urlPhoto(photoActuelle) : null,
 		Boolean(cadeau?.photo),
 	);
-	const pourMoi = pourIds.includes(moi());
-	const comptes = pourIds.filter((id) => id !== moi() && personne(id)?.compte);
+	const autresIds = pourIds.filter((id) => id !== moi());
+	const pourMoi = autresIds.length < pourIds.length;
+	// Souhait commun : une idée pour soi et des proches (ex. un couple).
+	const souhaitCommun = pourMoi && autresIds.length > 0;
+	const comptes = autresIds.filter((id) => personne(id)?.compte);
 	$("#titre-dialogue").textContent = cadeau
 		? "Modifier l'idée"
-		: pourIds.length === 1 && pourMoi
-			? "Nouvelle idée"
-			: `Idée pour ${prenoms(pourIds)}`;
+		: souhaitCommun
+			? `Idée commune avec ${prenoms(autresIds)}`
+			: pourMoi
+				? "Nouvelle idée"
+				: `Idée pour ${prenoms(pourIds)}`;
 	$("#aide-dialogue").textContent =
-		cadeau || pourMoi
+		cadeau || autresIds.length === 0
 			? ""
-			: comptes.length
-				? `${prenoms(comptes)} ne ${comptes.length > 1 ? "verront" : "verra"} pas cette idée ; les autres pourront la réserver.`
-				: "Personne sans compte : l'idée rejoint sa liste.";
+			: souhaitCommun
+				? comptes.length
+					? `${prenoms(comptes)} ${comptes.length > 1 ? "la verront aussi sur leur liste" : "la verra aussi sur sa liste"}, sans savoir qui l'offre.`
+					: "Les autres pourront la réserver."
+				: comptes.length
+					? `${prenoms(comptes)} ne ${comptes.length > 1 ? "verront" : "verra"} pas cette idée ; les autres pourront la réserver.`
+					: "Personne sans compte : l'idée rejoint sa liste.";
 	$("#erreur-cadeau").textContent = "";
 	// L'auteur choisit les familles qui voient l'idée, parmi les siennes qui comptent un
-	// destinataire (toutes cochées quand il n'en a limité aucune).
+	// destinataire (toutes cochées quand il n'en a limité aucune). Un nouveau souhait commun ne
+	// coche d'abord que celles de ses proches : ses autres familles ne les connaissent pas.
 	const possibles = famillesPossibles(pourIds);
-	const choisies = cadeau?.familleIds ?? [];
+	const choisies =
+		cadeau?.familleIds ??
+		(souhaitCommun ? famillesPossibles(autresIds).map((f) => f.id) : []);
 	$("#champ-visible-par").hidden = possibles.length < 2;
 	$("#cadeau-familles").replaceChildren(
 		...possibles.map((f) =>

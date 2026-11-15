@@ -11,7 +11,6 @@ import {
 	invitationDuLien,
 	lireSession,
 	oublierConnexion,
-	ouvrirInvitation,
 } from "../shared/connexion.js";
 import { pluriel } from "../shared/dates.js";
 import {
@@ -53,7 +52,10 @@ import { essai, remplirFiche, texteFete, texteTendance } from "./fiche.js";
 // ---------------------------------------------------------------------------
 
 const CLES = {
-	etat: "prenoms.etat",
+	/** États reçus de l'API, un par projet : { <Id du projet>: état }. */
+	etats: "prenoms.etats",
+	/** Projet affiché (son Id) : le filtre de toute l'app. */
+	projet: "prenoms.projet",
 	versionApi: "prenoms.versionApi",
 	/** Lien de l'autre parent ouvert avant d'être connecté : { projetId, code }. */
 	rejoindre: "prenoms.rejoindre",
@@ -65,7 +67,7 @@ const CLES = {
 	sexe: "prenoms.sexe",
 };
 
-const VUES = ["selection", "duels", "classement", "liste"];
+const VUES = ["selection", "duels", "classement", "liste", "parametres"];
 /** Attente après un vote avant d'envoyer le lot, en millisecondes : les votes suivants s'y ajoutent. */
 const DELAI_ENVOI_MS = 2000;
 /** Au-delà, le lot part sans attendre. */
@@ -73,9 +75,19 @@ const VOTES_PAR_LOT = 25;
 /** Nombre maximal d'éléments par appel (LOT_MAX de l'API). */
 const LOT_MAX = 300;
 
+/** Clé d'un vote en attente : son projet et son prénom. */
+function cleAttente(projetId, prenom, sexe) {
+	return `${projetId}|${clePrenom(prenom, sexe)}`;
+}
+
 const app = {
-	/** État renvoyé par l'API : { moi, projet, votes, matchs, duels, ajouts }. */
+	/**
+	 * État renvoyé par l'API pour le projet affiché : { moi, projets, projet, votes, matchs, duels,
+	 * ajouts }.
+	 */
 	etat: null,
+	/** Projet affiché : votes, matchs, duels et classement sont les siens. */
+	projetId: lireStockage(CLES.projet),
 	/** Prénoms de l'INSEE (donnees.js), null tant qu'ils ne sont pas chargés. */
 	donnees: null,
 	vue: VUES.includes(lireStockage(CLES.vue))
@@ -91,23 +103,32 @@ const app = {
 	recherche: "",
 	horsLigne: false,
 	versionApi: lireStockage(CLES.versionApi),
-	/** Votes pas encore enregistrés : Map(clé → { prenom, sexe, vote }), gardés sur l'appareil. */
+	/**
+	 * Votes pas encore enregistrés, de tous les projets : Map(cleAttente → { projetId, prenom, sexe,
+	 * vote }), gardés sur l'appareil.
+	 */
 	votesEnAttente: new Map(
-		(lireStockageJson(CLES.votes) ?? []).map((v) => [
-			clePrenom(v.prenom, v.sexe),
-			v,
-		]),
+		(lireStockageJson(CLES.votes) ?? [])
+			.filter((v) => v.projetId)
+			.map((v) => [cleAttente(v.projetId, v.prenom, v.sexe), v]),
 	),
-	/** Duels pas encore enregistrés, dans l'ordre : [{ id, gagnant, perdant, sexe }]. */
-	duelsEnAttente: lireStockageJson(CLES.duels) ?? [],
+	/** Duels pas encore enregistrés, dans l'ordre : [{ projetId, id, gagnant, perdant, sexe }]. */
+	duelsEnAttente: (lireStockageJson(CLES.duels) ?? []).filter(
+		(d) => d.projetId,
+	),
 	envoiEnCours: false,
 };
 
-// État en cache : seulement celui du compte connecté sur l'appareil.
-const etatEnCache = lireStockageJson(CLES.etat);
-if (lireSession() && etatEnCache?.moi?.id === compteConnecte()?.id) {
-	app.etat = etatEnCache;
+// États en cache, un par projet : seulement ceux du compte connecté sur l'appareil.
+const etatsEnCache = lireStockageJson(CLES.etats) ?? {};
+
+/** L'état gardé d'un projet, ou null. */
+function etatGarde(projetId) {
+	const etat = etatsEnCache[projetId];
+	return lireSession() && etat?.moi?.id === compteConnecte()?.id ? etat : null;
 }
+
+app.etat = etatGarde(app.projetId);
 
 // ---------------------------------------------------------------------------
 // API (Web App Apps Script, projet prenoms)
@@ -115,7 +136,8 @@ if (lireSession() && etatEnCache?.moi?.id === compteConnecte()?.id) {
 
 const appelerApi = creerApi({
 	url: window.API_URL,
-	identifiants: () => ({ session: lireSession() }),
+	// Le projet affiché, sauf pour les envois en arrière-plan qui précisent le leur.
+	identifiants: () => ({ session: lireSession(), projetId: app.projetId }),
 	surVersion: (version) => {
 		if (version === app.versionApi) return;
 		app.versionApi = version;
@@ -131,7 +153,7 @@ function passerHorsLigne() {
 
 /** Nouveaux matchs de l'état reçu : annoncés, sauf au premier chargement. */
 function annoncerMatchs(avant, apres) {
-	if (!avant?.projet || !apres.projet) return;
+	if (!avant?.projet || avant.projet.id !== apres.projet?.id) return;
 	const connus = new Set(avant.matchs.map((m) => clePrenom(m.prenom, m.sexe)));
 	const nouveaux = apres.matchs.filter(
 		(m) => !connus.has(clePrenom(m.prenom, m.sexe)),
@@ -145,28 +167,57 @@ function annoncerMatchs(avant, apres) {
 	);
 }
 
+/** Garde l'état d'un projet sur l'appareil ; les projets quittés sont oubliés. */
+function garderEtat(etat) {
+	if (etat.projet) etatsEnCache[etat.projet.id] = etat;
+	for (const id of Object.keys(etatsEnCache)) {
+		if (!etat.projets.some((p) => p.id === id)) delete etatsEnCache[id];
+	}
+	ecrireStockage(CLES.etats, JSON.stringify(etatsEnCache));
+}
+
+/** Affiche l'état reçu : son projet devient celui de l'app (création, lien rejoint, premier chargement). */
 function appliquerEtat(etat) {
 	const avant = app.etat;
+	const projetId = etat.projet?.id ?? null;
+	if (projetId !== app.projetId) {
+		app.projetId = projetId;
+		ecrireStockage(CLES.projet, projetId);
+		app.pile = [];
+		app.duel = null;
+	}
 	app.etat = etat;
 	app.horsLigne = false;
-	ecrireStockage(CLES.etat, JSON.stringify(etat));
+	garderEtat(etat);
 	afficherBandeauHorsLigne();
 	annoncerMatchs(avant, etat);
 	rendre();
+}
+
+/**
+ * État reçu après un envoi en arrière-plan : affiché s'il est celui du projet affiché, sinon
+ * seulement gardé (on a changé de projet entre-temps).
+ */
+function recevoirEtat(etat) {
+	if (!app.etat) return;
+	if (etat.projet && etat.projet.id === app.projetId) appliquerEtat(etat);
+	else garderEtat(etat);
 }
 
 async function actualiser({ silencieux = false } = {}) {
 	if (!lireSession()) return;
 	const bouton = $("#bouton-actualiser");
 	bouton.classList.add("tourne");
+	const demande = app.projetId;
 	try {
-		appliquerEtat(
-			await appelerApi(
-				"etat",
-				{},
-				{ discret: silencieux && Boolean(app.etat) },
-			),
+		const etat = await appelerApi(
+			"etat",
+			{},
+			{ discret: silencieux && Boolean(app.etat) },
 		);
+		// On a changé de projet pendant l'appel : l'état est seulement gardé.
+		if (app.projetId !== demande) garderEtat(etat);
+		else appliquerEtat(etat);
 		envoyer();
 	} catch (erreur) {
 		if (erreur instanceof ErreurReseau) {
@@ -238,16 +289,24 @@ function planifierEnvoi() {
  * @param surRefus appelée avec le lot si l'API le refuse, pour remettre l'écran comme avant
  * @return Faux si l'envoi s'est arrêté (hors ligne, déconnecté)
  */
-async function envoyerLot(action, parametre, lot, retirer, echec, surRefus) {
+async function envoyerLot(
+	action,
+	parametre,
+	projetId,
+	lot,
+	retirer,
+	echec,
+	surRefus,
+) {
 	try {
 		const { etat } = await appelerApi(
 			action,
-			{ [parametre]: lot },
+			{ projetId, [parametre]: lot },
 			{ discret: true },
 		);
 		retirer(lot);
 		garderEnAttente();
-		if (app.etat) appliquerEtat(etat);
+		recevoirEtat(etat);
 		return true;
 	} catch (erreur) {
 		if (erreur instanceof ErreurReseau) {
@@ -269,7 +328,7 @@ async function envoyerLot(action, parametre, lot, retirer, echec, surRefus) {
 
 const retirerVotes = (lot) => {
 	for (const vote of lot) {
-		const cle = clePrenom(vote.prenom, vote.sexe);
+		const cle = cleAttente(vote.projetId, vote.prenom, vote.sexe);
 		if (app.votesEnAttente.get(cle) === vote) app.votesEnAttente.delete(cle);
 	}
 };
@@ -279,39 +338,56 @@ const retirerDuels = (lot) => {
 	app.duelsEnAttente = app.duelsEnAttente.filter((d) => !ids.has(d.id));
 };
 
-/** Envoie ce qui attend : les votes d'abord (un duel porte sur des matchs), puis les duels. */
+/** Les éléments du même projet que le premier, LOT_MAX au plus : un appel par projet. */
+function lotDuPremierProjet(elements) {
+	const { projetId } = elements[0];
+	return {
+		projetId,
+		lot: elements.filter((e) => e.projetId === projetId).slice(0, LOT_MAX),
+	};
+}
+
+/**
+ * Envoie ce qui attend, projet par projet : les votes d'abord (un duel porte sur des matchs), puis
+ * les duels.
+ */
 async function envoyer() {
 	clearTimeout(minuteurEnvoi);
-	if (
-		app.envoiEnCours ||
-		app.horsLigne ||
-		!lireSession() ||
-		!app.etat?.projet
-	) {
-		return;
-	}
+	if (app.envoiEnCours || app.horsLigne || !lireSession()) return;
 	app.envoiEnCours = true;
 	try {
 		while (app.votesEnAttente.size || app.duelsEnAttente.length) {
-			const continuer = app.votesEnAttente.size
-				? await envoyerLot(
-						"voter",
-						"votes",
-						[...app.votesEnAttente.values()].slice(0, LOT_MAX),
-						retirerVotes,
-						(n) => `${pluriel(n, "vote")} non enregistré(s) :`,
-						// Les cartes refusées reviennent sur le dessus de la pile.
-						(lot) => {
-							app.pile.unshift(...lot.map((v) => clePrenom(v.prenom, v.sexe)));
-						},
-					)
-				: await envoyerLot(
-						"enregistrer-duels",
-						"duels",
-						app.duelsEnAttente.slice(0, LOT_MAX),
-						retirerDuels,
-						(n) => `${pluriel(n, "duel")} non enregistré(s) :`,
-					);
+			let continuer;
+			if (app.votesEnAttente.size) {
+				const { projetId, lot } = lotDuPremierProjet([
+					...app.votesEnAttente.values(),
+				]);
+				continuer = await envoyerLot(
+					"voter",
+					"votes",
+					projetId,
+					lot,
+					retirerVotes,
+					(n) => `${pluriel(n, "vote")} non enregistré(s) :`,
+					// Les cartes refusées reviennent sur le dessus de la pile.
+					(refuses) => {
+						if (projetId !== app.projetId) return;
+						app.pile.unshift(
+							...refuses.map((v) => clePrenom(v.prenom, v.sexe)),
+						);
+					},
+				);
+			} else {
+				const { projetId, lot } = lotDuPremierProjet(app.duelsEnAttente);
+				continuer = await envoyerLot(
+					"enregistrer-duels",
+					"duels",
+					projetId,
+					lot,
+					retirerDuels,
+					(n) => `${pluriel(n, "duel")} non enregistré(s) :`,
+				);
+			}
 			if (!continuer) break;
 		}
 	} finally {
@@ -336,7 +412,11 @@ function mesVotes() {
 	const votes = new Map(
 		(app.etat?.votes ?? []).map((v) => [clePrenom(v.prenom, v.sexe), v]),
 	);
-	for (const [cle, vote] of app.votesEnAttente) votes.set(cle, vote);
+	for (const vote of app.votesEnAttente.values()) {
+		if (vote.projetId === app.projetId) {
+			votes.set(clePrenom(vote.prenom, vote.sexe), vote);
+		}
+	}
 	return votes;
 }
 
@@ -353,7 +433,9 @@ function duels() {
 	const connus = new Set((app.etat?.duels ?? []).map((d) => d.id));
 	return [
 		...(app.etat?.duels ?? []),
-		...app.duelsEnAttente.filter((d) => !connus.has(d.id)),
+		...app.duelsEnAttente.filter(
+			(d) => d.projetId === app.projetId && !connus.has(d.id),
+		),
 	];
 }
 
@@ -367,7 +449,12 @@ const sexeAffiche = () => projet()?.sexe ?? app.sexe;
 /** Enregistre mon vote sur un prénom, aussitôt affiché, puis envoyé en arrière-plan. */
 function voter(prenom, sexe, vote) {
 	const cle = clePrenom(prenom, sexe);
-	app.votesEnAttente.set(cle, { prenom, sexe, vote });
+	app.votesEnAttente.set(cleAttente(app.projetId, prenom, sexe), {
+		projetId: app.projetId,
+		prenom,
+		sexe,
+		vote,
+	});
 	app.pile = app.pile.filter((c) => c !== cle);
 	garderEnAttente();
 	planifierEnvoi();
@@ -771,6 +858,7 @@ function choisir(gagnant, perdant, sexe, bouton) {
 	bouton.closest(".duel")?.classList.add("choisi");
 	bouton.classList.add("gagnant");
 	app.duelsEnAttente.push({
+		projetId: app.projetId,
 		id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
 		gagnant: gagnant.prenom,
 		perdant: perdant.prenom,
@@ -907,6 +995,8 @@ async function ajouterPrenom(prenom, sexe) {
 		notifier("Hors ligne : réessaie avec la connexion.", true);
 		return;
 	}
+	// Le projet de l'ajout, même si on en change pendant l'appel.
+	const { projetId } = app;
 	voter(prenom, sexe, "oui");
 	app.recherche = "";
 	$("#champ-recherche").value = "";
@@ -914,17 +1004,17 @@ async function ajouterPrenom(prenom, sexe) {
 	try {
 		const { etat } = await appelerApi(
 			"ajouter-prenom",
-			{ prenom: { prenom, sexe } },
+			{ projetId, prenom: { prenom, sexe } },
 			{ discret: true },
 		);
-		if (app.etat) appliquerEtat(etat);
+		recevoirEtat(etat);
 		notifier(`${prenom} est ajouté : l'autre parent le verra passer.`);
 	} catch (erreur) {
 		if (estSessionRefusee(erreur)) {
 			deconnecter(erreur.message);
 			return;
 		}
-		app.votesEnAttente.delete(clePrenom(prenom, sexe));
+		app.votesEnAttente.delete(cleAttente(projetId, prenom, sexe));
 		garderEnAttente();
 		if (erreur instanceof ErreurReseau) passerHorsLigne();
 		notifier(`${prenom} n'a pas été ajouté : ${erreur.message}`, true);
@@ -1101,6 +1191,10 @@ function lireChampsProjet(formulaire) {
 	};
 }
 
+/**
+ * Crée un projet (écran sans projet, ou « + » de l'en-tête) : il devient le projet affiché, et l'app
+ * propose d'inviter l'autre parent.
+ */
 async function creerProjet(evenement) {
 	evenement.preventDefault();
 	const formulaire = evenement.currentTarget;
@@ -1115,6 +1209,8 @@ async function creerProjet(evenement) {
 			},
 		);
 		if (cree) {
+			formulaire.closest("dialog")?.close();
+			changerVue("selection");
 			notifier("Projet créé : invite l'autre parent.");
 			partagerProjet();
 		}
@@ -1123,12 +1219,14 @@ async function creerProjet(evenement) {
 	}
 }
 
-function ouvrirFormulaireProjet() {
+/** « + » de l'en-tête ou des paramètres : la fenêtre d'un nouveau projet. */
+function ouvrirNouveauProjet() {
 	fermerMenu();
-	preparerChampsProjet($("#form-projet"), projet() ?? {});
+	preparerChampsProjet($("#form-projet"));
 	$("#dialogue-projet").showModal();
 }
 
+/** Enregistre le nom, le nom de famille et le sexe du projet affiché (onglet Paramètres). */
 async function enregistrerProjet(evenement) {
 	evenement.preventDefault();
 	const formulaire = evenement.currentTarget;
@@ -1143,10 +1241,11 @@ async function enregistrerProjet(evenement) {
 			},
 		);
 		if (fait) {
-			$("#dialogue-projet").close();
 			app.pile = [];
 			app.duel = null;
+			formulaire.dataset.projet = "";
 			rendre();
+			notifier("Projet enregistré.");
 		}
 	} finally {
 		bouton.disabled = false;
@@ -1185,10 +1284,83 @@ async function rejoindreEnAttente() {
 	const lien = lireStockageJson(CLES.rejoindre);
 	if (!lien) return;
 	ecrireStockage(CLES.rejoindre, null);
-	if (projet()?.id === lien.projetId) return;
+	if (app.etat?.projets.some((p) => p.id === lien.projetId)) {
+		changerProjet(lien.projetId);
+		return;
+	}
 	if (await modifier("rejoindre-projet", lien)) {
+		changerVue("selection");
 		notifier("Tu as rejoint votre projet : à vous les prénoms !");
 	}
+}
+
+/**
+ * Affiche un autre projet : il filtre toute l'app (sélection, matchs, duels, classement). Son état
+ * gardé s'affiche aussitôt, puis l'API le met à jour.
+ */
+function changerProjet(projetId) {
+	if (projetId !== app.projetId) {
+		app.projetId = projetId;
+		ecrireStockage(CLES.projet, projetId);
+		app.pile = [];
+		app.duel = null;
+		const garde = etatGarde(projetId);
+		if (garde) appliquerEtat(garde);
+		actualiser({ silencieux: Boolean(garde) });
+	}
+	changerVue("selection");
+}
+
+// ---------------------------------------------------------------------------
+// Paramètres : les projets du compte, celui affiché, l'autre parent
+// ---------------------------------------------------------------------------
+
+function rendreParametres() {
+	const p = projet();
+	remplacerContenu(
+		$("#liste-projets"),
+		app.etat.projets.map((autre) =>
+			el(
+				"li",
+				{},
+				el(
+					"button",
+					{
+						type: "button",
+						class: "choix-liste",
+						"aria-pressed": String(autre.id === p.id),
+						onclick: () => changerProjet(autre.id),
+					},
+					autre.nom,
+				),
+			),
+		),
+	);
+	const formulaire = $("#form-parametres-projet");
+	if (formulaire.dataset.projet !== p.id) {
+		preparerChampsProjet(formulaire, p);
+		formulaire.dataset.projet = p.id;
+	}
+	const autre = p.parents.find((parent) => parent.id !== app.etat.moi.id);
+	remplacerContenu(
+		$("#parents-projet"),
+		el(
+			"p",
+			{},
+			autre
+				? `Avec ${autre.prenom} : vos matchs sont communs, vos autres votes restent secrets.`
+				: "L'autre parent n'a pas encore rejoint ce projet.",
+		),
+		el(
+			"button",
+			{
+				type: "button",
+				class: autre ? "" : "bouton-principal",
+				onclick: partagerProjet,
+			},
+			autre ? "Revoir le lien d'invitation" : "Inviter l'autre parent",
+		),
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -1212,11 +1384,14 @@ function changerVueVoisine(sens) {
 function rendre() {
 	if (!app.etat || $("#ecran-connexion").hidden === false) return;
 	const p = projet();
+	// Projet choisi pas encore chargé (ni gardé sur l'appareil) : son nom, et l'attente.
+	const enChargement = Boolean(p && app.projetId && p.id !== app.projetId);
 	$("#ecran-projet").hidden = Boolean(p);
 	$("#ecran-app").hidden = !p;
 	$("#onglets").hidden = !p;
 	$("#menu-projet").hidden = !p;
-	$("#menu-partager").hidden = !p;
+	$("#bouton-nouveau-projet").hidden = !p;
+	$("#titre").disabled = !p;
 	if (!p) {
 		$("#titre").textContent = "Prénoms";
 		const formulaire = $("#form-creer-projet");
@@ -1225,15 +1400,21 @@ function rendre() {
 		}
 		return;
 	}
-	$("#titre").textContent = p.nom;
-	for (const vue of VUES) $(`#vue-${vue}`).hidden = app.vue !== vue;
+	$("#titre").textContent =
+		app.etat.projets.find((autre) => autre.id === app.projetId)?.nom ?? p.nom;
+	$("#chargement-projet").hidden = !enChargement;
+	for (const vue of VUES) {
+		$(`#vue-${vue}`).hidden = enChargement || app.vue !== vue;
+	}
 	for (const bouton of document.querySelectorAll("#onglets button")) {
 		bouton.setAttribute("aria-pressed", String(bouton.dataset.vue === app.vue));
 	}
+	if (enChargement) return;
 	if (app.vue === "selection") rendreSelection();
 	if (app.vue === "duels") rendreDuels();
 	if (app.vue === "classement") rendreClassement();
 	if (app.vue === "liste") rendreListe();
+	if (app.vue === "parametres") rendreParametres();
 }
 
 // ---------------------------------------------------------------------------
@@ -1277,8 +1458,7 @@ function afficherConnexion(message = "", invitation = null) {
 
 /** Premier chargement de l'état du compte qui vient de se connecter. */
 async function chargerApresConnexion() {
-	app.etat = null;
-	ecrireStockage(CLES.etat, null);
+	oublierEtats();
 	try {
 		const etat = await appelerApi("etat");
 		afficherEcran("app");
@@ -1301,8 +1481,17 @@ function deconnecter(message = "") {
 	app.votesEnAttente.clear();
 	app.duelsEnAttente = [];
 	garderEnAttente();
-	ecrireStockage(CLES.etat, null);
+	oublierEtats();
 	afficherConnexion(message);
+}
+
+/** Oublie les états gardés et le projet affiché (autre compte, déconnexion). */
+function oublierEtats() {
+	app.etat = null;
+	app.projetId = null;
+	for (const id of Object.keys(etatsEnCache)) delete etatsEnCache[id];
+	ecrireStockage(CLES.etats, null);
+	ecrireStockage(CLES.projet, null);
 }
 
 async function seDeconnecter() {
@@ -1413,7 +1602,11 @@ function brancherEvenements() {
 		remplirFormulaireFiltres();
 	});
 	$("#form-creer-projet").addEventListener("submit", creerProjet);
-	$("#form-projet").addEventListener("submit", enregistrerProjet);
+	$("#form-projet").addEventListener("submit", creerProjet);
+	$("#form-parametres-projet").addEventListener("submit", enregistrerProjet);
+	$("#titre").addEventListener("click", () => changerVue("parametres"));
+	$("#bouton-nouveau-projet").addEventListener("click", ouvrirNouveauProjet);
+	$("#bouton-ajouter-projet").addEventListener("click", ouvrirNouveauProjet);
 	$("#form-recherche").addEventListener("submit", (e) => e.preventDefault());
 	$("#champ-recherche").addEventListener("input", (e) => {
 		app.recherche = e.target.value;
@@ -1430,11 +1623,9 @@ function brancherEvenements() {
 	document.addEventListener("click", (e) => {
 		if (!$("#menu").hidden && !$("#menu").contains(e.target)) fermerMenu();
 	});
-	$("#menu-projet").addEventListener("click", ouvrirFormulaireProjet);
-	$("#menu-partager").addEventListener("click", partagerProjet);
-	$("#menu-inviter").addEventListener("click", () => {
+	$("#menu-projet").addEventListener("click", () => {
 		fermerMenu();
-		ouvrirInvitation("Prénoms");
+		changerVue("parametres");
 	});
 	$("#menu-autre-appareil").addEventListener("click", async () => {
 		fermerMenu();
