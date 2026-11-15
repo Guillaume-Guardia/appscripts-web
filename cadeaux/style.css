@@ -1151,6 +1151,58 @@ button.menu-carte::after {
 	gap: 4px;
 }
 
+/* Carte compacte : titre et prix, puis l'état et les boutons, sur une ligne quand il y a la place ;
+   toucher la carte la déplie */
+.carte.depliable {
+	cursor: pointer;
+}
+.carte.repliee {
+	padding: 8px 12px;
+	gap: 10px;
+	align-items: center;
+	box-shadow: none;
+}
+.carte.repliee + .carte.repliee {
+	margin-top: -6px;
+}
+.carte.repliee .carte-corps {
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 8px;
+}
+.carte.repliee .carte-haut {
+	flex: 1 1 12rem;
+	align-items: center;
+}
+.carte.repliee .carte-bas {
+	margin: 0 0 0 auto;
+}
+.carte.repliee .carte-icones {
+	margin: -4px -8px -4px 0;
+}
+.carte.repliee .case {
+	place-items: center;
+	padding: 0;
+}
+.titre-deplier {
+	font: inherit;
+	color: inherit;
+	text-align: left;
+	background: none;
+	border: 0;
+	padding: 0;
+	cursor: pointer;
+}
+.titre-deplier::after {
+	content: " ▸";
+	color: var(--texte-doux);
+	font-weight: normal;
+}
+.titre-deplier[aria-expanded="true"]::after {
+	content: " ▾";
+}
+
 /* Historique */
 .carte.compacte {
 	padding: 12px 14px;
