@@ -1364,6 +1364,7 @@ function rendreParametres() {
 		...p.participants.filter((x) => x.id === moi),
 		...p.participants.filter((x) => x.id !== moi),
 	];
+	// Les participants en pastilles, puis « + » pour inviter quelqu'un.
 	remplacerContenu(
 		$("#participants-projet"),
 		el(
@@ -1381,22 +1382,17 @@ function rendreParametres() {
 					x.id === moi ? "Moi" : x.prenom,
 				),
 			),
-		),
-		el(
-			"p",
-			{ class: "aide" },
-			participants.length < 2
-				? "Invite quelqu'un : les prénoms gardés par tous deviennent des matchs."
-				: "Les prénoms gardés par tous sont des matchs ; les autres votes restent secrets.",
-		),
-		el(
-			"button",
-			{
-				type: "button",
-				class: participants.length < 2 ? "bouton-principal" : "",
-				onclick: partagerProjet,
-			},
-			"Inviter quelqu'un",
+			el(
+				"li",
+				{},
+				el("button", {
+					type: "button",
+					class: "puce-ajout",
+					"aria-label": "Inviter quelqu'un",
+					title: "Inviter quelqu'un",
+					onclick: partagerProjet,
+				}),
+			),
 		),
 	);
 }

@@ -692,14 +692,19 @@ main {
 	font-size: 18px;
 }
 
-#participants-projet .aide {
-	margin: 0 0 12px;
+/* Participants de « Mon projet » : des pastilles (initiale et prénom), puis « + » pour inviter */
+.titre-champ {
+	margin: 4px 0 0;
+	font-size: 14px;
+	font-weight: 600;
 }
 
 .participants {
-	display: grid;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
 	gap: 8px;
-	margin: 4px 0 12px;
+	margin: 0 0 8px;
 	padding: 0;
 	list-style: none;
 }
@@ -707,8 +712,32 @@ main {
 .participants li {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: 8px;
 	font-weight: 600;
+}
+
+.participants li:not(:has(.puce-ajout)) {
+	padding: 3px 12px 3px 3px;
+	border: 1px solid var(--bord);
+	border-radius: 999px;
+	background: var(--surface);
+}
+
+/* « + » dans un rond : deux traits dessinés, centrés au pixel près */
+.participants .puce-ajout {
+	width: 40px;
+	height: 40px;
+	min-height: 0;
+	padding: 0;
+	border-radius: 50%;
+	background-image:
+		linear-gradient(currentColor, currentColor),
+		linear-gradient(currentColor, currentColor);
+	background-size:
+		14px 2px,
+		2px 14px;
+	background-position: center;
+	background-repeat: no-repeat;
 }
 
 .rond-initiale {
