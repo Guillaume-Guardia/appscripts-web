@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-	<title>PokTrack</title>
-	<rect width="512" height="512" rx="112" fill="#0f5f66" />
-	<path d="M256 108c-58 62-128 104-128 172a70 70 0 0 0 112 56c-4 34-18 54-40 68h112c-22-14-36-34-40-68a70 70 0 0 0 112-56c0-68-70-110-128-172z" fill="#f4f1ea" />
-	<path d="M176 300l52-44 40 30 70-70" fill="none" stroke="#0f5f66" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" />
-</svg>
