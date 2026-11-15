@@ -47,6 +47,7 @@ import {
 	prenomAjoute,
 } from "./donnees.js";
 import { essai, remplirFiche, texteFete, texteTendance } from "./fiche.js";
+import { parPopularite } from "./ordre.js";
 
 // ---------------------------------------------------------------------------
 // État de l'app
@@ -516,7 +517,12 @@ function preparerPile() {
 		.filter((p) => p.ajoute && !app.pile.includes(p.cle))
 		.map((p) => p.cle);
 	app.pile.unshift(...ajoutes);
-	if (app.pile.length === 0) app.pile = melanger(restants);
+	if (app.pile.length === 0) {
+		app.pile =
+			app.filtres.ordre === "populaire"
+				? parPopularite(restants)
+				: melanger(restants);
+	}
 	return restants.length;
 }
 
