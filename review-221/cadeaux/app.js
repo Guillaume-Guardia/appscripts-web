@@ -1030,7 +1030,7 @@ function rendreFamille() {
 			role: "group",
 			"aria-label": "Personnes (une ou plusieurs)",
 		},
-		moiPersonne ? puce(moiPersonne, "Moi") : null,
+		moiPersonne ? puce(moiPersonne, "Moi", true) : null,
 		autres.map((p) => puce(p, p.prenom, aUnCompte(p))),
 		el("button", {
 			type: "button",
@@ -3200,6 +3200,14 @@ function etapesVisite() {
 			texte:
 				"Les listes de tes proches : réserve un cadeau ou suggère une idée (la personne ne la verra pas). Tu peux ajouter un membre en appuyant sur « + » et l'inviter à rejoindre l'app.",
 		},
+		// Les prénoms de l'onglet Famille n'existent qu'avec au moins un proche.
+		autresDeLaFamille().length > 0 && {
+			cible: "#contenu .puces",
+			avant: () => changerOnglet("famille"),
+			titre: "Cadeaux communs",
+			texte:
+				"Touche plusieurs prénoms pour réunir leurs listes et ajouter une idée commune, un cadeau pour un couple par exemple. Avec « Moi », c'est ton souhait commun avec un proche : il apparaît aussi dans Ma liste.",
+		},
 		{
 			...onglet("disponibles"),
 			titre: "Disponibles",
@@ -3243,7 +3251,7 @@ function etapesVisite() {
 			texte:
 				"Balaie l'écran vers la gauche ou la droite pour passer d'un onglet à l'autre. Pour commencer, ajoute tes idées dans Ma liste !",
 		},
-	];
+	].filter(Boolean);
 }
 
 /** Visite guidée ; à la fin, l'onglet du départ revient. */
