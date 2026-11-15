@@ -47,6 +47,7 @@ import {
 	prenomAjoute,
 } from "./donnees.js";
 import { essai, remplirFiche, texteFete, texteTendance } from "./fiche.js";
+import { parPopularite } from "./ordre.js";
 
 // ---------------------------------------------------------------------------
 // État de l'app
@@ -125,6 +126,8 @@ const app = {
 		(d) => d.projetId,
 	),
 	envoiEnCours: false,
+	/** Projets en cours de suppression (leurs Ids) : cachés aussitôt, sans attendre l'API. */
+	suppressions: new Set(),
 };
 
 // États en cache, un par projet : seulement ceux du compte connecté sur l'appareil.
@@ -175,17 +178,24 @@ function annoncerMatchs(avant, apres) {
 	);
 }
 
-/** Garde l'état d'un projet sur l'appareil ; les projets quittés sont oubliés. */
+/**
+ * Garde l'état d'un projet sur l'appareil ; les projets quittés ou supprimés sont oubliés, avec ce
+ * qui attendait d'être envoyé pour eux (l'API le refuserait).
+ */
 function garderEtat(etat) {
 	if (etat.projet) etatsEnCache[etat.projet.id] = etat;
+	const existe = (id) => etat.projets.some((p) => p.id === id);
 	for (const id of Object.keys(etatsEnCache)) {
-		if (!etat.projets.some((p) => p.id === id)) delete etatsEnCache[id];
+		if (!existe(id)) delete etatsEnCache[id];
 	}
 	ecrireStockage(CLES.etats, JSON.stringify(etatsEnCache));
+	oublierAttenteSauf(existe);
 }
 
 /** Affiche l'état reçu : son projet devient celui de l'app (création, lien rejoint, premier chargement). */
 function appliquerEtat(etat) {
+	// Projet en cours de suppression, lu avant que l'API ne l'ait supprimé : ignoré.
+	if (etat.projet && app.suppressions.has(etat.projet.id)) return;
 	const avant = app.etat;
 	const projetId = etat.projet?.id ?? null;
 	if (projetId !== app.projetId) {
@@ -284,6 +294,18 @@ let minuteurEnvoi = null;
 function garderEnAttente() {
 	ecrireStockage(CLES.votes, JSON.stringify([...app.votesEnAttente.values()]));
 	ecrireStockage(CLES.duels, JSON.stringify(app.duelsEnAttente));
+}
+
+/** Oublie les votes et duels en attente des projets dont l'Id ne vérifie pas `garder`. */
+function oublierAttenteSauf(garder) {
+	const avant = app.votesEnAttente.size + app.duelsEnAttente.length;
+	for (const [cle, vote] of app.votesEnAttente) {
+		if (!garder(vote.projetId)) app.votesEnAttente.delete(cle);
+	}
+	app.duelsEnAttente = app.duelsEnAttente.filter((d) => garder(d.projetId));
+	if (app.votesEnAttente.size + app.duelsEnAttente.length < avant) {
+		garderEnAttente();
+	}
 }
 
 function planifierEnvoi() {
@@ -495,7 +517,12 @@ function preparerPile() {
 		.filter((p) => p.ajoute && !app.pile.includes(p.cle))
 		.map((p) => p.cle);
 	app.pile.unshift(...ajoutes);
-	if (app.pile.length === 0) app.pile = melanger(restants);
+	if (app.pile.length === 0) {
+		app.pile =
+			app.filtres.ordre === "populaire"
+				? parPopularite(restants)
+				: melanger(restants);
+	}
 	return restants.length;
 }
 
@@ -1263,6 +1290,66 @@ async function enregistrerProjet(evenement) {
 	}
 }
 
+/**
+ * Supprime le projet affiché, pour tous ses participants (onglet Paramètres). Il disparaît aussitôt :
+ * l'app passe au plus récent des autres projets, ou à l'écran de création. Si l'API refuse, il
+ * revient, avec un message (skill enregistrement-en-fond).
+ */
+async function supprimerProjet() {
+	const p = projet();
+	if (!p) return;
+	const autres = p.participants
+		.filter((x) => x.id !== app.etat.moi.id)
+		.map((x) => x.prenom);
+	const pourTous = autres.length
+		? ` Il sera aussi supprimé pour ${new Intl.ListFormat("fr").format(autres)}, avec les votes, les matchs et les duels de chacun.`
+		: " Tes votes et tes duels seront perdus.";
+	if (!confirm(`Supprimer le projet « ${p.nom} » ?${pourTous}`)) return;
+	if (app.horsLigne) {
+		notifier("Hors ligne : réessaie avec la connexion.", true);
+		return;
+	}
+	app.suppressions.add(p.id);
+	oublierAttenteSauf((id) => id !== p.id);
+	const suivant = app.etat.projets
+		.filter((x) => !app.suppressions.has(x.id))
+		.at(-1);
+	if (suivant) {
+		changerProjet(suivant.id);
+	} else {
+		app.projetId = null;
+		ecrireStockage(CLES.projet, null);
+		app.etat = { ...app.etat, projets: [], projet: null };
+		rendre();
+	}
+	notifier(`Projet « ${p.nom} » supprimé.`);
+	try {
+		const { etat } = await appelerApi(
+			"supprimer-projet",
+			{ projetId: p.id },
+			{ discret: true },
+		);
+		app.suppressions.delete(p.id);
+		// L'état du plus récent des projets qui restent : affiché si c'est celui de l'app.
+		if ((etat.projet?.id ?? null) === app.projetId) appliquerEtat(etat);
+		else garderEtat(etat);
+	} catch (erreur) {
+		app.suppressions.delete(p.id);
+		if (estSessionRefusee(erreur)) {
+			deconnecter(erreur.message);
+			return;
+		}
+		if (erreur instanceof ErreurReseau) passerHorsLigne();
+		notifier(
+			`Le projet « ${p.nom} » n'a pas été supprimé : ${erreur.message}`,
+			true,
+		);
+		// L'écran revient comme avant, sauf si on a changé de projet entre-temps.
+		if (app.projetId === (suivant?.id ?? null)) changerProjet(p.id);
+		else rendre();
+	}
+}
+
 /** Lien qui fait rejoindre le projet : l'app, avec l'Id et le code après « # » (pas envoyés au site). */
 const lienDuProjet = (p) =>
 	`${location.origin}${location.pathname}#rejoindre=${encodeURIComponent(p.id)}:${p.code}`;
@@ -1326,17 +1413,19 @@ function changerProjet(projetId) {
 function rendreProjetsEntete() {
 	remplacerContenu(
 		$("#projets-entete"),
-		app.etat.projets.map((p) =>
-			el(
-				"button",
-				{
-					type: "button",
-					"aria-pressed": String(p.id === app.projetId),
-					onclick: () => changerProjet(p.id),
-				},
-				p.nom,
+		app.etat.projets
+			.filter((p) => !app.suppressions.has(p.id))
+			.map((p) =>
+				el(
+					"button",
+					{
+						type: "button",
+						"aria-pressed": String(p.id === app.projetId),
+						onclick: () => changerProjet(p.id),
+					},
+					p.nom,
+				),
 			),
-		),
 		el("button", {
 			type: "button",
 			class: "puce-ajout",
@@ -1636,6 +1725,7 @@ function brancherEvenements() {
 	$("#form-creer-projet").addEventListener("submit", creerProjet);
 	$("#form-projet").addEventListener("submit", creerProjet);
 	$("#form-parametres-projet").addEventListener("submit", enregistrerProjet);
+	$("#bouton-supprimer-projet").addEventListener("click", supprimerProjet);
 	$("#form-recherche").addEventListener("submit", (e) => e.preventDefault());
 	$("#champ-recherche").addEventListener("input", (e) => {
 		app.recherche = e.target.value;

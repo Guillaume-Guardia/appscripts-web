@@ -119,7 +119,10 @@
 						<div id="participants-projet"></div>
 						<div data-champs-projet></div>
 						<p class="erreur" role="alert"></p>
-						<button type="submit" class="bouton-principal">Enregistrer</button>
+						<div class="boutons">
+							<button type="button" id="bouton-supprimer-projet" class="danger">Supprimer le projet</button>
+							<button type="submit" class="bouton-principal">Enregistrer</button>
+						</div>
 					</form>
 				</section>
 
@@ -199,6 +202,13 @@
 						<button type="button" class="puce" data-valeur="">Toutes</button>
 						<button type="button" class="puce" data-valeur="recent">Récent <span class="aide">(au plus haut depuis 2000)</span></button>
 						<button type="button" class="puce" data-valeur="classique">Classique</button>
+					</div>
+				</fieldset>
+				<fieldset>
+					<legend>Ordre des cartes</legend>
+					<div class="puces" data-filtre="ordre">
+						<button type="button" class="puce" data-valeur="">Au hasard</button>
+						<button type="button" class="puce" data-valeur="populaire">Du plus donné au moins donné</button>
 					</div>
 				</fieldset>
 				<label for="champ-initiales">Initiales</label>

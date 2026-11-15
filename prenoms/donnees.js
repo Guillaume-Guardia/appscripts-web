@@ -22,6 +22,9 @@ export const FILTRES_PAR_DEFAUT = {
 	initiales: "",
 	longueurMin: null,
 	longueurMax: null,
+	// Ordre des cartes : vide, au hasard (voir melanger) ; « populaire », du plus donné au moins
+	// donné (voir ordre.js).
+	ordre: "",
 };
 
 let chargement = null;
