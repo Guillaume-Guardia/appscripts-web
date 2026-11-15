@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-	<title>Prénoms</title>
-	<rect width="512" height="512" rx="112" fill="#8a3a6b" />
-	<rect x="118" y="112" width="200" height="270" rx="30" fill="#f08bb6" transform="rotate(-12 218 247)" />
-	<rect x="196" y="128" width="200" height="270" rx="30" fill="#fffdf8" transform="rotate(9 296 263)" />
-	<path d="M296 318c-46-30-70-56-70-84a34 34 0 0 1 70-14 34 34 0 0 1 70 14c0 28-24 54-70 84z" fill="#c2457e" transform="rotate(9 296 263)" />
-</svg>
