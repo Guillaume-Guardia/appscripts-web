@@ -1,5 +1,6 @@
 // Suivi des sessions de poker, en consultation : l'API (projet poktrack) lit le classeur que le
-// programme PokTrack du PC remplit. Le filtre par pseudo choisit une des vues de l'état.
+// programme PokTrack du PC remplit. Le filtre par pseudos choisit une des vues de l'état, ou réunit
+// celles des pseudos cochés.
 
 import { creerApi, ErreurReseau } from "../shared/api.js";
 import { brancherBalayage, voisin } from "../shared/balayage.js";
@@ -30,6 +31,7 @@ import {
 	lireStockageJson,
 } from "../shared/stockage.js";
 import { tracerGraphe } from "./graphe.js";
+import { reunirVues } from "./vues.js";
 
 const ECRANS = ["connexion", "refus", "app"];
 const ONGLETS = ["bord", "sessions", "tournois"];
@@ -39,15 +41,27 @@ const NOMS_TYPES = { mtt: "MTT", expresso: "Expresso" };
 const TOUS = "";
 const CLES = {
 	etat: "poktrack.etat",
-	pseudo: "poktrack.pseudo",
+	pseudos: "poktrack.pseudos",
 	onglet: "poktrack.onglet",
 	mesure: "poktrack.mesure",
 };
 
+/** Les pseudos cochés gardés sur l'appareil, ou le pseudo choisi dans l'ancienne liste. */
+function lirePseudosEnStockage() {
+	const pseudos = lireStockageJson(CLES.pseudos);
+	if (Array.isArray(pseudos)) return pseudos;
+	const ancien = lireStockage("poktrack.pseudo");
+	ecrireStockage("poktrack.pseudo", null);
+	return ancien ? [ancien] : [];
+}
+
 const app = {
 	/** { moi, pseudos, vues, tournois, statistiquesTournois } renvoyé par l'API. */
 	etat: null,
-	pseudo: lireStockage(CLES.pseudo) ?? TOUS,
+	/** Pseudos cochés ; aucun : tous les pseudos. */
+	pseudos: lirePseudosEnStockage(),
+	/** Vue des pseudos cochés réunis, gardée pour la coche et l'état qui l'ont donnée. */
+	reunion: null,
 	onglet: ONGLETS.includes(lireStockage(CLES.onglet))
 		? lireStockage(CLES.onglet)
 		: "bord",
@@ -111,13 +125,14 @@ const eurosSignes = (montant) =>
 	`${montant > 0 ? "+" : ""}${EUROS.format(montant)}`;
 const pourcent = (part) => POURCENT.format(part);
 
-/** « 314 h 20 » ou « 17 min ». */
+/** « 13 j 2 h 20 », « 2 h 05 » ou « 17 min ». */
 function duree(secondes) {
 	const minutes = Math.round(secondes / 60);
 	const heures = Math.floor(minutes / 60);
-	return heures > 0
-		? `${heures} h ${String(minutes % 60).padStart(2, "0")}`
-		: `${minutes} min`;
+	const jours = Math.floor(heures / 24);
+	const heuresEtMinutes = `${heures % 24} h ${String(minutes % 60).padStart(2, "0")}`;
+	if (jours > 0) return `${jours} j ${heuresEtMinutes}`;
+	return heures > 0 ? heuresEtMinutes : `${minutes} min`;
 }
 
 /** « octobre 2026 » d'un mois « 2026-10 ». */
@@ -136,7 +151,29 @@ function montantSigne(montant, balise = "span") {
 // Tableau de bord
 // ---------------------------------------------------------------------------
 
-const vueActuelle = () => app.etat.vues[app.pseudo] ?? app.etat.vues[TOUS];
+/** Vrai si la vue réunit plusieurs pseudos : chaque session dit alors le sien. */
+const plusieursPseudos = () => app.pseudos.length !== 1;
+
+/**
+ * La vue des pseudos cochés : celle d'un seul, celle de tous (aucun coché, ou tous), sinon leurs
+ * vues réunies, gardée tant que la coche et l'état ne changent pas.
+ */
+function vueActuelle() {
+	const { vues, pseudos } = app.etat;
+	if (app.pseudos.length === 0 || app.pseudos.length === pseudos.length) {
+		return vues[TOUS];
+	}
+	if (app.pseudos.length === 1) return vues[app.pseudos[0]];
+	const cle = app.pseudos.join("\n");
+	if (app.reunion?.etat !== app.etat || app.reunion.cle !== cle) {
+		app.reunion = {
+			etat: app.etat,
+			cle,
+			vue: reunirVues(app.pseudos.map((pseudo) => vues[pseudo])),
+		};
+	}
+	return app.reunion.vue;
+}
 
 function tuile(libelle, valeur, detail) {
 	return el(
@@ -350,7 +387,7 @@ function rendreSessions() {
 					[
 						session.bankroll !== null && `Bankroll ${euros(session.bankroll)}`,
 						session.luck !== null && `Luck ${LUCK.format(session.luck)}`,
-						app.pseudo === TOUS && session.pseudo,
+						plusieursPseudos() && session.pseudo,
 					]
 						.filter(Boolean)
 						.join(" · "),
@@ -423,20 +460,47 @@ function rendreTournois() {
 // Écrans, onglets, filtre
 // ---------------------------------------------------------------------------
 
-function rendreChoixPseudo() {
+function puce(libelle, coche, surClic) {
+	const bouton = el(
+		"button",
+		{ type: "button", class: "puce", "aria-pressed": String(coche) },
+		libelle,
+	);
+	bouton.addEventListener("click", surClic);
+	return bouton;
+}
+
+/** Coche les pseudos, dans l'ordre de l'état ; aucun, ou tous : « Tous » est coché. */
+function choisirPseudos(pseudos) {
+	app.pseudos = app.etat.pseudos.filter((pseudo) => pseudos.includes(pseudo));
+	ecrireStockage(CLES.pseudos, JSON.stringify(app.pseudos));
+	rendre();
+}
+
+/** « Tous », puis une puce par pseudo, à cocher ou décocher. */
+function rendreChoixPseudos() {
 	const { pseudos } = app.etat;
-	if (!pseudos.includes(app.pseudo)) app.pseudo = TOUS;
+	app.pseudos = app.pseudos.filter((pseudo) => pseudos.includes(pseudo));
+	const tous =
+		app.pseudos.length === 0 || app.pseudos.length === pseudos.length;
 	remplacerContenu(
 		$("#choix-pseudo"),
-		el("option", { value: TOUS }, "Tous les pseudos"),
-		pseudos.map((pseudo) => el("option", { value: pseudo }, pseudo)),
+		puce("Tous", tous, () => choisirPseudos([])),
+		pseudos.map((pseudo) => {
+			const coche = app.pseudos.includes(pseudo);
+			return puce(pseudo, coche, () =>
+				choisirPseudos(
+					coche
+						? app.pseudos.filter((p) => p !== pseudo)
+						: [...app.pseudos, pseudo],
+				),
+			);
+		}),
 	);
-	$("#choix-pseudo").value = app.pseudo;
 }
 
 function rendre() {
 	if (!app.etat) return;
-	rendreChoixPseudo();
 	for (const onglet of ONGLETS) {
 		$(`#onglet-${onglet}`).hidden = onglet !== app.onglet;
 	}
@@ -448,6 +512,7 @@ function rendre() {
 	}
 	// Le filtre par pseudo ne s'applique pas aux tournois (voir la note de l'onglet).
 	$(".filtres").hidden = app.onglet === "tournois";
+	rendreChoixPseudos();
 	if (app.onglet === "bord") rendreBord();
 	else if (app.onglet === "sessions") rendreSessions();
 	else rendreTournois();
@@ -568,11 +633,6 @@ async function lancerDepuisMenu(action) {
 
 function brancherEvenements() {
 	$("#bouton-actualiser").addEventListener("click", actualiser);
-	$("#choix-pseudo").addEventListener("change", (e) => {
-		app.pseudo = e.target.value;
-		ecrireStockage(CLES.pseudo, app.pseudo);
-		rendre();
-	});
 	for (const bouton of document.querySelectorAll("[data-onglet]")) {
 		bouton.addEventListener("click", () =>
 			choisirOnglet(bouton.dataset.onglet),
