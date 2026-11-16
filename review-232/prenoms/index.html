@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="theme-color" content="#7a3160" />
+		<meta name="description" content="Choisir le prénom de bébé ensemble : chacun garde ses prénoms préférés, puis vos matchs s'affrontent en duels." />
+		<title>Prénoms</title>
+		<link rel="manifest" href="manifest.webmanifest" />
+		<link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="Prénoms" />
+		<link rel="stylesheet" href="../shared/base.css" />
+		<link rel="stylesheet" href="style.css" />
+	</head>
+	<body>
+		<header class="entete">
+			<h1 id="titre">Prénoms</h1>
+			<a href="../" class="bouton-icone" aria-label="Mes apps">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" /></svg>
+				<span class="infobulle">Mes apps</span>
+			</a>
+			<button type="button" id="bouton-actualiser" class="bouton-icone" aria-label="Actualiser" hidden>
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" /></svg>
+				<span class="infobulle">Actualiser</span>
+			</button>
+			<button type="button" id="bouton-signalement" class="bouton-icone" aria-label="Suggestion ou bug">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM12 7v4M12 14h.01" /></svg>
+				<span class="infobulle">Suggestion ou bug</span>
+			</button>
+			<button type="button" id="bouton-menu" class="bouton-icone" aria-label="Paramètres" aria-expanded="false" aria-controls="menu" hidden>
+				<span class="avatar" aria-hidden="true"></span>
+				<span class="infobulle">Paramètres</span>
+			</button>
+			<nav id="menu" class="menu" hidden>
+				<button type="button" id="menu-profil" class="menu-carte">
+					<span class="avatar" aria-hidden="true"></span>
+					<span class="menu-carte-texte"><strong id="menu-compte"></strong><span>Mon profil</span></span>
+				</button>
+				<div class="menu-section">
+					<p class="menu-titre">Cet appareil</p>
+					<button type="button" role="switch" aria-checked="false" id="menu-biometrie" class="bascule" hidden>Biométrie</button>
+					<button type="button" id="menu-installer" hidden>Installer l'app</button>
+				</div>
+				<div class="menu-section">
+					<p class="menu-titre">Mes autres appareils</p>
+					<button type="button" id="menu-autre-appareil">Connecter un autre appareil</button>
+				</div>
+				<div class="menu-section">
+					<button type="button" id="menu-deconnecter" class="danger">Se déconnecter</button>
+				</div>
+				<p class="version"></p>
+			</nav>
+			<!-- biome-ignore lint/a11y/useSemanticElements: des pastilles dans l'en-tête, pas un champ de formulaire. -->
+			<div id="projets-entete" class="puces-entete" role="group" aria-label="Projet affiché" hidden></div>
+		</header>
+		<div id="chargement" class="chargement" hidden></div>
+		<div id="bandeau" class="bandeau" hidden></div>
+
+		<main>
+			<section id="ecran-connexion" class="ecran-connexion" hidden>
+				<svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><use href="#berceau" /></svg>
+				<h2>Prénoms</h2>
+				<p>Choisir le prénom de bébé ensemble : chacun garde ses prénoms préférés, puis vos matchs s'affrontent en duels.</p>
+				<p class="aide">Connecte cet appareil à ton compte : QR code, lien ou biométrie.</p>
+				<div id="connexion"></div>
+				<p class="version"></p>
+			</section>
+
+			<section id="ecran-projet" hidden>
+				<div class="carte intro">
+					<h2>Votre projet</h2>
+					<p>Chacun de son côté, vous gardez ou écartez des prénoms. Ceux que vous gardez tous deviennent des <strong>matchs</strong>, qui s'affrontent ensuite en duels : le classement se construit petit à petit.</p>
+				</div>
+				<form id="form-creer-projet" class="carte formulaire">
+					<h3>Créer notre projet</h3>
+					<p class="aide">Tu inviteras ensuite les autres participants avec un lien.</p>
+					<div data-champs-projet></div>
+					<p class="erreur" role="alert"></p>
+					<button type="submit" class="bouton-principal">Créer</button>
+				</form>
+				<div class="carte">
+					<h3>Rejoindre un projet</h3>
+					<p class="aide">Quelqu'un a déjà créé votre projet ? Ouvre le lien ou scanne le QR code envoyé depuis son app (bouton « Inviter » de la sélection).</p>
+				</div>
+			</section>
+
+			<div id="ecran-app" hidden>
+				<p id="chargement-projet" class="aide centre" hidden>Chargement du projet…</p>
+				<section id="vue-selection" hidden>
+					<div id="invitation"></div>
+					<div class="barre-selection">
+						<p id="compteurs" class="aide"></p>
+						<button type="button" id="bouton-filtres" class="puce">Filtres</button>
+					</div>
+					<div id="pile" class="pile" data-sans-balayage></div>
+					<div class="boutons-vote">
+						<button type="button" id="bouton-non" class="rond non" aria-label="Non (flèche gauche)">✕</button>
+						<button type="button" id="bouton-oui" class="rond oui" aria-label="Oui (flèche droite)">✓</button>
+					</div>
+					<p class="aide centre">Glisse la carte : à droite pour oui, à gauche pour non.</p>
+				</section>
+
+				<section id="vue-duels" hidden>
+					<div id="choix-sexe-duels" class="puces choix-sexe"></div>
+					<div id="contenu-duels"></div>
+				</section>
+
+				<section id="vue-classement" hidden>
+					<div id="choix-sexe-classement" class="puces choix-sexe"></div>
+					<div id="contenu-classement"></div>
+				</section>
+
+				<section id="vue-parametres" hidden>
+					<form id="form-parametres-projet" class="carte bloc formulaire">
+						<h2>Mon projet</h2>
+						<p class="titre-champ">Participants</p>
+						<div id="participants-projet"></div>
+						<div data-champs-projet></div>
+						<p class="erreur" role="alert"></p>
+						<div class="boutons">
+							<button type="button" id="bouton-supprimer-projet" class="danger">Supprimer le projet</button>
+							<button type="submit" class="bouton-principal">Enregistrer</button>
+						</div>
+					</form>
+				</section>
+
+				<section id="vue-liste" hidden>
+					<search>
+						<form id="form-recherche" class="recherche">
+							<input id="champ-recherche" type="search" placeholder="Chercher un prénom" autocomplete="off" aria-label="Chercher un prénom" maxlength="40" />
+						</form>
+					</search>
+					<div id="resultats-recherche"></div>
+					<div id="contenu-liste"></div>
+				</section>
+			</div>
+		</main>
+
+		<nav id="onglets" class="onglets" aria-label="Vues" hidden>
+			<button type="button" data-vue="selection" aria-pressed="true">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 10l3 3 3-3" /></svg>
+				Sélection
+			</button>
+			<button type="button" data-vue="duels" aria-pressed="false">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v5H5zM5 14h14v5H5z" /></svg>
+				Duels
+			</button>
+			<button type="button" data-vue="classement" aria-pressed="false">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V12h4v8M10 20V6h4v14M16 20v-5h4v5" /></svg>
+				Classement
+			</button>
+			<button type="button" data-vue="liste" aria-pressed="false">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" /></svg>
+				Ma sélection
+			</button>
+			<button type="button" data-vue="parametres" aria-pressed="false">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></svg>
+				Paramètres
+			</button>
+		</nav>
+
+		<dialog id="dialogue-fiche" class="dialogue fiche" aria-label="Fiche du prénom">
+			<div id="contenu-fiche"></div>
+			<div class="boutons">
+				<button type="button" class="bouton-principal" data-fermer>Fermer</button>
+			</div>
+		</dialog>
+
+		<dialog id="dialogue-filtres" class="dialogue" aria-labelledby="titre-filtres">
+			<form id="form-filtres" class="formulaire">
+				<h2 id="titre-filtres">Filtres</h2>
+				<fieldset id="filtre-sexe">
+					<legend>Sexe</legend>
+					<div class="puces" data-filtre="sexe">
+						<button type="button" class="puce" data-valeur="">Les deux</button>
+						<button type="button" class="puce" data-valeur="f">Fille</button>
+						<button type="button" class="puce" data-valeur="m">Garçon</button>
+					</div>
+				</fieldset>
+				<fieldset>
+					<legend>Popularité <span class="aide">(naissances de la dernière année)</span></legend>
+					<div class="puces" data-filtre="popularites" data-plusieurs>
+						<button type="button" class="puce" data-valeur="rare">Rare</button>
+						<button type="button" class="puce" data-valeur="moyen">Moyen</button>
+						<button type="button" class="puce" data-valeur="courant">Courant</button>
+					</div>
+				</fieldset>
+				<fieldset>
+					<legend>Tendance <span class="aide">(sur 5 ans)</span></legend>
+					<div class="puces" data-filtre="tendance">
+						<button type="button" class="puce" data-valeur="">Toutes</button>
+						<button type="button" class="puce" data-valeur="hausse">En hausse</button>
+						<button type="button" class="puce" data-valeur="stable">Stable</button>
+						<button type="button" class="puce" data-valeur="baisse">En baisse</button>
+					</div>
+				</fieldset>
+				<fieldset>
+					<legend>Période</legend>
+					<div class="puces" data-filtre="periode">
+						<button type="button" class="puce" data-valeur="">Toutes</button>
+						<button type="button" class="puce" data-valeur="recent">Récent <span class="aide">(au plus haut depuis 2000)</span></button>
+						<button type="button" class="puce" data-valeur="classique">Classique</button>
+					</div>
+				</fieldset>
+				<fieldset>
+					<legend>Ordre des cartes</legend>
+					<div class="puces" data-filtre="ordre">
+						<button type="button" class="puce" data-valeur="">Au hasard</button>
+						<button type="button" class="puce" data-valeur="populaire">Du plus donné au moins donné</button>
+					</div>
+				</fieldset>
+				<label for="champ-initiales">Initiales</label>
+				<input id="champ-initiales" maxlength="40" placeholder="Ex : A, L" autocomplete="off" />
+				<div class="dates">
+					<div>
+						<label for="champ-longueur-min">Lettres, au moins</label>
+						<input id="champ-longueur-min" type="number" inputmode="numeric" min="1" max="20" step="1" />
+					</div>
+					<div>
+						<label for="champ-longueur-max">au plus</label>
+						<input id="champ-longueur-max" type="number" inputmode="numeric" min="1" max="20" step="1" />
+					</div>
+				</div>
+				<p id="nombre-filtres" class="aide"></p>
+				<div class="boutons">
+					<button type="button" id="bouton-effacer-filtres">Tout effacer</button>
+					<button type="submit" class="bouton-principal">Appliquer</button>
+				</div>
+			</form>
+		</dialog>
+
+		<dialog id="dialogue-projet" class="dialogue" aria-labelledby="titre-dialogue-projet">
+			<form id="form-projet" class="formulaire">
+				<h2 id="titre-dialogue-projet">Nouveau projet</h2>
+				<p class="aide">Un projet par enfant : chacun a sa sélection, ses matchs et ses duels.</p>
+				<div data-champs-projet></div>
+				<p class="erreur" role="alert"></p>
+				<div class="boutons">
+					<button type="button" data-fermer>Annuler</button>
+					<button type="submit" class="bouton-principal">Créer</button>
+				</div>
+			</form>
+		</dialog>
+
+		<template id="champs-projet">
+			<label>Nom du projet
+				<input name="nom" maxlength="60" placeholder="Bébé" autocomplete="off" />
+			</label>
+			<label>Nom de famille <span class="aide">(pour essayer les prénoms avec)</span>
+				<input name="nomFamille" maxlength="60" autocomplete="off" />
+			</label>
+			<fieldset>
+				<legend>C'est…</legend>
+				<div class="puces" data-sexe-projet>
+					<button type="button" class="puce" data-valeur="">On ne sait pas</button>
+					<button type="button" class="puce" data-valeur="f">Une fille</button>
+					<button type="button" class="puce" data-valeur="m">Un garçon</button>
+				</div>
+			</fieldset>
+		</template>
+
+		<div id="toasts" class="toasts" aria-live="polite"></div>
+
+		<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+			<symbol id="berceau" viewBox="0 0 64 64">
+				<path d="M10 30h44a22 18 0 0 1-44 0z" fill="currentColor" />
+				<path d="M10 30a22 22 0 0 1 22-20v20" fill="currentColor" opacity=".55" />
+				<path d="M20 50l-4 6M44 50l4 6" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+			</symbol>
+		</svg>
+
+		<script src="../shared/config.js"></script>
+		<script src="config.js"></script>
+		<script src="version.js"></script>
+		<script src="../shared/vendor/qrcode.min.js"></script>
+		<script type="module" src="app.js"></script>
+	</body>
+</html>
