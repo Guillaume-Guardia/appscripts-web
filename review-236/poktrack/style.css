@@ -1,0 +1,718 @@
+/* Styles propres à PokTrack ; le reste est dans ../shared/base.css. */
+
+#ecran-app h2 {
+	margin: 20px 0 8px;
+	font-size: 1.05rem;
+}
+
+.filtres {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 12px;
+}
+
+.filtres .puces {
+	flex: 1;
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.onglets {
+	display: flex;
+	gap: 4px;
+	padding: 4px;
+	margin-bottom: 14px;
+	background: var(--surface-2);
+	border-radius: var(--rayon);
+}
+
+.onglets button {
+	flex: 1;
+	min-height: 40px;
+	border: none;
+	background: transparent;
+	color: var(--texte-doux);
+	font-weight: 600;
+}
+
+.onglets button[aria-selected="true"] {
+	background: var(--surface);
+	color: var(--texte);
+	box-shadow: var(--ombre);
+}
+
+/* Montants : le signe porte le sens, la couleur le souligne. */
+
+.montant {
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.montant.gain {
+	color: var(--vert);
+}
+
+.montant.perte {
+	color: var(--danger);
+}
+
+/* Tuiles et indicateurs */
+
+.tuiles {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.tuile,
+.indicateur {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.tuile {
+	padding: 12px 14px;
+}
+
+.tuile strong {
+	font-size: 1.4rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.indicateurs {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+	gap: 14px 12px;
+	padding: 14px;
+}
+
+.indicateur strong {
+	font-size: 1.15rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.carte.vide {
+	margin: 0;
+	padding: 12px 14px;
+}
+
+/* Graphe : une seule série, à la couleur d'accent ; grille et axes en retrait. */
+
+.graphe {
+	padding: 12px 14px;
+}
+
+.graphe-entete {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+#ecran-app .graphe-entete h2 {
+	margin: 0;
+	font-size: 0.95rem;
+}
+
+.choix-mesure {
+	display: flex;
+	gap: 4px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.choix-mesure button {
+	min-height: 32px;
+	padding: 0 10px;
+	border: 1px solid var(--bord);
+	background: transparent;
+	color: var(--texte-doux);
+	font-size: 0.85rem;
+}
+
+.choix-mesure button[aria-pressed="true"] {
+	border-color: var(--accent);
+	color: var(--texte);
+	font-weight: 600;
+}
+
+.graphe-zone {
+	position: relative;
+}
+
+.graphe-zone svg {
+	display: block;
+	width: 100%;
+	height: auto;
+	touch-action: pan-y;
+}
+
+.graphe-zone .courbe {
+	fill: none;
+	stroke: var(--accent);
+	stroke-width: 2;
+	stroke-linejoin: round;
+	stroke-linecap: round;
+}
+
+.graphe-zone .grille {
+	stroke: var(--bord);
+	stroke-width: 1;
+}
+
+.graphe-zone .zero {
+	stroke: var(--texte-doux);
+	stroke-width: 1;
+}
+
+.graphe-zone .axe {
+	fill: var(--texte-doux);
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+}
+
+.graphe-zone .repere {
+	stroke: var(--texte-doux);
+	stroke-width: 1;
+	stroke-dasharray: 3 3;
+}
+
+.graphe-zone .pastille {
+	fill: var(--accent);
+	stroke: var(--surface);
+	stroke-width: 2;
+}
+
+.graphe-infobulle {
+	position: absolute;
+	display: flex;
+	flex-direction: column;
+	padding: 6px 10px;
+	transform: translate(10px, -120%);
+	border: 1px solid var(--bord);
+	border-radius: 8px;
+	background: var(--surface);
+	box-shadow: var(--ombre);
+	font-size: 0.85rem;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+.graphe-infobulle.a-gauche {
+	transform: translate(calc(-100% - 10px), -120%);
+}
+
+.graphe-infobulle span {
+	color: var(--texte-doux);
+}
+
+/* Mois par mois, buy-in par buy-in */
+
+.par-mois {
+	margin-top: 8px;
+	padding: 0;
+}
+
+.par-mois summary {
+	padding: 12px 14px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.tableau {
+	overflow-x: auto;
+}
+
+.tableau table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.9rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.tableau th,
+.tableau td {
+	padding: 8px 14px;
+	border-top: 1px solid var(--bord);
+	text-align: right;
+	white-space: nowrap;
+}
+
+.tableau th {
+	color: var(--texte-doux);
+	font-weight: 600;
+}
+
+.tableau th:first-child,
+.tableau td:first-child {
+	text-align: left;
+}
+
+/* Listes des sessions et des tournois */
+
+.ligne {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 12px 14px;
+	border-bottom: 1px solid var(--bord);
+	overflow-wrap: anywhere;
+}
+
+.ligne:last-child {
+	border-bottom: 0;
+}
+
+.ligne-titre {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.liste .vide {
+	margin: 0;
+	padding: 12px 14px;
+}
+
+/* Onglet Calcul : la table vue de haut, puis une carte par étape. */
+
+:root {
+	--tapis: #1f6b4a;
+	--tapis-fonce: #154d35;
+	--bordure-table: #6b4a2f;
+	--sur-tapis: #f4f1ea;
+	--jeton: #f4f1ea;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--tapis: #1d5a40;
+		--tapis-fonce: #12392a;
+		--bordure-table: #4a3322;
+	}
+}
+
+:root[data-theme="dark"] {
+	--tapis: #1d5a40;
+	--tapis-fonce: #12392a;
+	--bordure-table: #4a3322;
+}
+
+.table-poker {
+	position: relative;
+	aspect-ratio: 16 / 10;
+	margin: 6px 0 14px;
+}
+
+.tapis {
+	position: absolute;
+	inset: 14% 12%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+	border: 8px solid var(--bordure-table);
+	border-radius: 999px;
+	background: radial-gradient(
+		ellipse at center,
+		var(--tapis) 0%,
+		var(--tapis-fonce) 100%
+	);
+	box-shadow:
+		inset 0 0 24px rgb(0 0 0 / 0.35),
+		var(--ombre);
+	color: var(--sur-tapis);
+}
+
+.tapis .aide {
+	color: var(--sur-tapis);
+	opacity: 0.8;
+	font-size: 0.8rem;
+}
+
+.tapis strong {
+	font-size: 1.3rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.siege {
+	position: absolute;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	min-width: 72px;
+	min-height: 0;
+	padding: 4px 8px;
+	transform: translate(-50%, -50%);
+	border: 2px solid var(--bord);
+	border-radius: 12px;
+	background: var(--surface);
+	box-shadow: var(--ombre);
+	line-height: 1.2;
+	transition:
+		border-color 0.15s,
+		opacity 0.15s;
+}
+
+.siege[aria-pressed="true"] {
+	border-color: var(--accent);
+	background: var(--accent);
+	color: var(--sur-accent);
+}
+
+.siege.couche {
+	opacity: 0.5;
+}
+
+.siege-nom {
+	font-size: 0.8rem;
+	font-weight: 600;
+}
+
+.siege-mise {
+	font-size: 0.75rem;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.jeton-bouton {
+	position: absolute;
+	top: -8px;
+	right: -8px;
+	display: grid;
+	place-items: center;
+	width: 20px;
+	height: 20px;
+	border: 2px solid var(--texte);
+	border-radius: 50%;
+	background: var(--jeton);
+	color: #1d2a2c;
+	font-size: 0.7rem;
+	font-weight: 700;
+}
+
+.calcul-carte {
+	margin-top: 10px;
+	padding: 12px 14px;
+}
+
+.calcul-entete {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+#ecran-app .calcul-entete h2 {
+	margin: 0;
+}
+
+.pastille-pot {
+	padding: 2px 10px;
+	border-radius: 999px;
+	background: var(--surface-2);
+	font-size: 0.85rem;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.lien-reinitialiser {
+	min-height: 32px;
+	padding: 0 12px;
+	color: var(--texte-doux);
+	font-size: 0.85rem;
+}
+
+.reglages {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+	gap: 10px;
+}
+
+.champ-nombre {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.champ-unite {
+	position: relative;
+	display: block;
+}
+
+.champ-unite input {
+	padding-right: 74px;
+	font-variant-numeric: tabular-nums;
+}
+
+.champ-unite .unite {
+	position: absolute;
+	top: 50%;
+	right: 12px;
+	transform: translateY(-50%);
+	color: var(--texte-doux);
+	font-size: 0.85rem;
+	pointer-events: none;
+}
+
+/* Boutons à choix unique */
+
+.segments {
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.segments legend {
+	padding: 0;
+	margin-bottom: 4px;
+}
+
+.segments-boutons {
+	display: flex;
+	padding: 3px;
+	border-radius: 999px;
+	background: var(--surface-2);
+}
+
+.segments-boutons button {
+	flex: 1;
+	min-height: 32px;
+	padding: 0 10px;
+	border: 0;
+	background: transparent;
+	color: var(--texte-doux);
+	font-size: 0.85rem;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.segments-boutons button[aria-pressed="true"] {
+	background: var(--surface);
+	color: var(--texte);
+	box-shadow: var(--ombre);
+}
+
+.actions-preflop {
+	display: flex;
+	flex-direction: column;
+}
+
+.action-preflop {
+	display: grid;
+	grid-template-columns: minmax(70px, 1fr) minmax(0, 220px) 72px;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 0;
+	border-top: 1px solid var(--bord);
+}
+
+.action-preflop:first-child {
+	border-top: 0;
+}
+
+.action-nom {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-weight: 600;
+}
+
+.action-preflop .montant {
+	text-align: right;
+}
+
+.badge-moi {
+	padding: 1px 6px;
+	border-radius: 999px;
+	background: var(--accent);
+	color: var(--sur-accent);
+	font-size: 0.7rem;
+	font-weight: 700;
+}
+
+.rue-mise {
+	display: grid;
+	grid-template-columns: minmax(140px, 1.3fr) 1fr 1fr;
+	align-items: end;
+	gap: 12px;
+}
+
+.rue-mise .indicateur {
+	padding-bottom: 8px;
+}
+
+.tirage {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin-top: 14px;
+	padding-top: 12px;
+	border-top: 1px dashed var(--bord);
+}
+
+.tirage-choix {
+	display: grid;
+	grid-template-columns: 0.8fr 1.4fr 1fr;
+	gap: 10px;
+}
+
+/* Verdict : la jauge montre l'équité (barre) face à la cote du pot (trait). */
+
+.verdict {
+	padding: 10px 12px;
+	border-radius: 10px;
+	background: var(--surface-2);
+}
+
+.verdict.rentable {
+	background: var(--vert-fond);
+}
+
+.verdict p {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin: 8px 0 0;
+}
+
+.verdict p span {
+	color: var(--texte-doux);
+	font-size: 0.85rem;
+}
+
+.verdict.rentable p span {
+	color: var(--vert);
+}
+
+.verdict.perdant p span {
+	color: var(--danger);
+}
+
+.verdict-jauge {
+	position: relative;
+	height: 8px;
+	border-radius: 999px;
+	background: var(--surface);
+}
+
+.jauge-equite {
+	position: absolute;
+	inset: 0 auto 0 0;
+	border-radius: 999px;
+	background: var(--accent);
+	transition: width 0.2s;
+}
+
+.jauge-cote {
+	position: absolute;
+	top: -4px;
+	bottom: -4px;
+	width: 3px;
+	margin-left: -1px;
+	border-radius: 2px;
+	background: var(--texte);
+	transition: left 0.2s;
+}
+
+.bouton-equite {
+	align-self: flex-start;
+	min-height: 36px;
+	border-color: var(--accent);
+	color: var(--accent);
+	font-size: 0.85rem;
+	font-weight: 600;
+}
+
+.en-jeu {
+	margin: 14px 0 0;
+	padding: 0;
+	border: 0;
+}
+
+.en-jeu legend {
+	padding: 0;
+	margin-bottom: 6px;
+}
+
+.recapitulatif {
+	padding: 0;
+}
+
+.recapitulatif tr:first-child th,
+.recapitulatif tbody tr:first-child th,
+.recapitulatif tbody tr:first-child td {
+	border-top: 0;
+}
+
+.recapitulatif tbody th {
+	color: var(--texte);
+	text-align: left;
+}
+
+.recapitulatif tfoot th,
+.recapitulatif tfoot td {
+	border-top: 2px solid var(--bord);
+	font-weight: 700;
+	color: var(--texte);
+}
+
+.recapitulatif .moi {
+	background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.recapitulatif th.moi {
+	color: var(--accent);
+}
+
+@media (max-width: 480px) {
+	.table-poker {
+		aspect-ratio: 4 / 3;
+	}
+
+	.siege {
+		min-width: 60px;
+		padding: 3px 6px;
+	}
+
+	.siege-nom {
+		font-size: 0.72rem;
+	}
+
+	.siege-mise {
+		font-size: 0.68rem;
+	}
+
+	.rue-mise {
+		grid-template-columns: 1fr 1fr;
+	}
+
+	.rue-mise .champ-nombre {
+		grid-column: 1 / -1;
+	}
+
+	.tirage-choix {
+		grid-template-columns: 1fr;
+	}
+
+	.action-preflop {
+		grid-template-columns: minmax(0, 1fr) 64px;
+	}
+
+	.action-preflop .segments {
+		grid-column: 1 / -1;
+		grid-row: 2;
+	}
+}
