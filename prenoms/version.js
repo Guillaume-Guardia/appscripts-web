@@ -1,4 +1,4 @@
 // Généré par scripts/publier-web.mjs : version de l'app, affichée dans le menu.
-self.VERSION_APP = "1.56.0";
-self.EMPREINTE_APP = "1277e94f22ab";
+self.VERSION_APP = "1.57.0";
+self.EMPREINTE_APP = "002fd70368b6";
 self.FICHIERS_APP = ["./","app.js","carte.js","classement.js","config.js","donnees.js","donnees/prenoms.json","fiche.js","icons/apple-touch-icon.png","icons/icon-192.png","icons/icon-512.png","icons/icon-maskable-512.png","icons/icon.svg","index.html","manifest.webmanifest","ordre.js","style.css","version.js","wiktionnaire.js","../shared/api.js","../shared/balayage.js","../shared/base.css","../shared/biometrie.js","../shared/config.js","../shared/connexion.js","../shared/dates.js","../shared/dom.js","../shared/file-attente.js","../shared/image.js","../shared/profil.js","../shared/pwa.js","../shared/qr.js","../shared/signalement.js","../shared/signature.js","../shared/stockage.js","../shared/vendor/qrcode.min.js","../shared/visite.js"];

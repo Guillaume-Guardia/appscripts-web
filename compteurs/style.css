@@ -203,7 +203,9 @@
 	opacity: 0.8;
 }
 
+/* flex: none : le flex: 1 de base.css (barre dans une ligne) l'écraserait à 0 px dans la carte en colonne. */
 .barre {
+	flex: none;
 	height: 12px;
 	border-radius: 999px;
 	background: var(--surface-2);

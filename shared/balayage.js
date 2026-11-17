@@ -33,26 +33,23 @@ function defileHorizontalement(cible, zone) {
  * zone par défaut) glisse alors du côté d'où elle vient. Un balayage court ou surtout vertical ne
  * compte pas, ni un balayage parti d'un champ, d'un élément qui défile horizontalement ou d'un
  * élément `[data-sans-balayage]`.
+ * @return Fonction qui débranche le balayage (démontage d'un composant React)
  */
 export function brancherBalayage(zone, changer, { anime = () => zone } = {}) {
 	let depart = null;
-	zone.addEventListener(
-		"touchstart",
-		(evenement) => {
-			const cible = evenement.target;
-			depart =
-				evenement.touches.length === 1 &&
-				!cible.closest(CIBLES_SANS_BALAYAGE) &&
-				!defileHorizontalement(cible, zone)
-					? {
-							x: evenement.touches[0].clientX,
-							y: evenement.touches[0].clientY,
-						}
-					: null;
-		},
-		{ passive: true },
-	);
-	zone.addEventListener("touchend", (evenement) => {
+	const surDebut = (evenement) => {
+		const cible = evenement.target;
+		depart =
+			evenement.touches.length === 1 &&
+			!cible.closest(CIBLES_SANS_BALAYAGE) &&
+			!defileHorizontalement(cible, zone)
+				? {
+						x: evenement.touches[0].clientX,
+						y: evenement.touches[0].clientY,
+					}
+				: null;
+	};
+	const surFin = (evenement) => {
 		if (!depart) return;
 		const fin = evenement.changedTouches[0];
 		const dx = fin.clientX - depart.x;
@@ -66,7 +63,13 @@ export function brancherBalayage(zone, changer, { anime = () => zone } = {}) {
 		}
 		const sens = dx < 0 ? 1 : -1;
 		if (changer(sens)) animerArrivee(anime(), sens);
-	});
+	};
+	zone.addEventListener("touchstart", surDebut, { passive: true });
+	zone.addEventListener("touchend", surFin);
+	return () => {
+		zone.removeEventListener("touchstart", surDebut);
+		zone.removeEventListener("touchend", surFin);
+	};
 }
 
 /**
