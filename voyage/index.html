@@ -73,92 +73,10 @@
 				<p class="version"></p>
 			</section>
 
-			<section id="ecran-voyages" hidden>
-				<div id="liste-voyages"></div>
-				<button type="button" id="bouton-nouveau-voyage" class="bouton-flottant">
-					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-					Nouveau voyage
-				</button>
-			</section>
-
-			<section id="ecran-voyage" hidden>
-				<div id="detail-voyage"></div>
-			</section>
+			<!-- Voyages, une fois connecté : rendus par React (src/App.tsx), comme les dialogues. -->
+			<div id="ecran-app"></div>
 		</main>
 
-		<dialog id="dialogue-voyage" class="dialogue" aria-labelledby="titre-dialogue-voyage">
-			<form id="form-voyage" class="formulaire">
-				<h2 id="titre-dialogue-voyage">Nouveau voyage</h2>
-				<label for="champ-destination">Destination</label>
-				<input id="champ-destination" maxlength="80" autocomplete="off" required />
-				<div class="dates">
-					<div>
-						<label for="champ-depart">Départ</label>
-						<input id="champ-depart" type="date" required />
-					</div>
-					<div>
-						<label for="champ-retour">Retour</label>
-						<input id="champ-retour" type="date" required />
-					</div>
-				</div>
-				<p id="duree-voyage" class="aide"></p>
-				<fieldset>
-					<legend>Climat</legend>
-					<div id="choix-climats" class="puces"></div>
-				</fieldset>
-				<fieldset>
-					<legend>Transport</legend>
-					<div id="choix-transports" class="puces"></div>
-				</fieldset>
-				<fieldset>
-					<legend>Activités</legend>
-					<div id="choix-activites" class="puces"></div>
-					<div class="ajout-activite">
-						<input id="champ-activite" maxlength="40" placeholder="Autre activité" autocomplete="off" aria-label="Autre activité" />
-						<button type="button" id="bouton-ajouter-activite">Ajouter</button>
-					</div>
-				</fieldset>
-				<label class="case">
-					<input id="champ-etranger" type="checkbox" />
-					À l'étranger <span class="aide">(passeport, adaptateur…)</span>
-				</label>
-				<p class="erreur" role="alert"></p>
-				<div class="boutons">
-					<button type="button" data-fermer>Annuler</button>
-					<button type="submit" class="bouton-principal">Enregistrer</button>
-				</div>
-			</form>
-		</dialog>
-
-		<dialog id="dialogue-objet" class="dialogue" aria-labelledby="titre-dialogue-objet">
-			<form id="form-objet" class="formulaire">
-				<h2 id="titre-dialogue-objet">Ajouter un objet</h2>
-				<label for="champ-objet">Objet</label>
-				<input id="champ-objet" maxlength="80" autocomplete="off" required />
-				<div class="dates">
-					<div>
-						<label for="champ-categorie">Catégorie</label>
-						<input id="champ-categorie" list="liste-categories" maxlength="40" placeholder="Divers" autocomplete="off" />
-					</div>
-					<div class="quantite">
-						<label for="champ-quantite">Quantité</label>
-						<input id="champ-quantite" type="number" inputmode="numeric" min="1" max="99" step="1" value="1" required />
-					</div>
-				</div>
-				<label class="case">
-					<input id="champ-catalogue" type="checkbox" />
-					L'ajouter au catalogue <span class="aide">(à chaque voyage)</span>
-				</label>
-				<p class="erreur" role="alert"></p>
-				<div class="boutons">
-					<button type="button" data-fermer>Annuler</button>
-					<button type="submit" class="bouton-principal">Ajouter</button>
-				</div>
-			</form>
-		</dialog>
-
-
-		<datalist id="liste-categories"></datalist>
 		<div id="toasts" class="toasts" aria-live="polite"></div>
 
 		<svg width="0" height="0" style="position: absolute" aria-hidden="true">

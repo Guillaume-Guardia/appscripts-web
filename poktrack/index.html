@@ -71,45 +71,8 @@
 				<button type="button" id="bouton-deconnecter-refus">Se connecter avec un autre compte</button>
 			</section>
 
-			<section id="ecran-app" hidden>
-				<div class="filtres">
-					<fieldset id="choix-pseudo" class="puces" aria-label="Pseudos"></fieldset>
-				</div>
-				<div class="onglets" role="tablist">
-					<button type="button" role="tab" data-onglet="bord">Tableau de bord</button>
-					<button type="button" role="tab" data-onglet="sessions">Sessions</button>
-					<button type="button" role="tab" data-onglet="tournois">Tournois</button>
-				</div>
-
-				<div id="onglet-bord" hidden>
-					<div id="tuiles" class="tuiles"></div>
-					<div class="carte graphe" data-sans-balayage>
-						<div class="graphe-entete">
-							<h2 id="titre-graphe">Gain cumulé, session après session</h2>
-							<fieldset class="choix-mesure" aria-label="Mesure du graphe">
-								<button type="button" data-mesure="cumul">Gain cumulé</button>
-								<button type="button" data-mesure="bankroll">Bankroll</button>
-							</fieldset>
-						</div>
-						<div id="graphe" class="graphe-zone"></div>
-					</div>
-					<h2>Tournois (MTT)</h2>
-					<div id="indicateurs-mtt"></div>
-					<h2>Expressos</h2>
-					<div id="indicateurs-expresso"></div>
-				</div>
-
-				<div id="onglet-sessions" hidden>
-					<div id="liste-sessions" class="carte liste"></div>
-				</div>
-
-				<div id="onglet-tournois" hidden>
-					<p class="aide">Tous pseudos réunis : le classeur ne donne pas le pseudo de chaque tournoi.</p>
-					<div id="par-buyin"></div>
-					<h2>Derniers tournois</h2>
-					<div id="liste-tournois" class="carte liste"></div>
-				</div>
-			</section>
+			<!-- Contenu, une fois connecté : rendu par React (src/App.tsx). -->
+			<section id="ecran-app" hidden></section>
 		</main>
 
 		<div id="toasts" class="toasts" aria-live="polite"></div>
