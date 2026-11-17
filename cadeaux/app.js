@@ -2020,12 +2020,10 @@ function ouvrirFormulaireCadeau(cadeau, pourIds = cadeau?.pourIds ?? [moi()]) {
 					: "Personne sans compte : l'idée rejoint sa liste.";
 	$("#erreur-cadeau").textContent = "";
 	// L'auteur choisit les familles qui voient l'idée, parmi les siennes qui comptent un
-	// destinataire (toutes cochées quand il n'en a limité aucune). Un nouveau souhait commun ne
-	// coche d'abord que celles de ses proches : ses autres familles ne les connaissent pas.
+	// destinataire (toutes cochées quand il n'en a limité aucune, et pour une nouvelle idée, souhait
+	// commun compris : sa famille à lui le voit aussi).
 	const possibles = famillesPossibles(pourIds);
-	const choisies =
-		cadeau?.familleIds ??
-		(souhaitCommun ? famillesPossibles(autresIds).map((f) => f.id) : []);
+	const choisies = cadeau?.familleIds ?? [];
 	$("#champ-visible-par").hidden = possibles.length < 2;
 	$("#cadeau-familles").replaceChildren(
 		...possibles.map((f) =>
