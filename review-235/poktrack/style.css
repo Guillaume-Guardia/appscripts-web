@@ -29,9 +29,16 @@
 	border-radius: var(--rayon);
 }
 
+/* Quatre onglets sur un téléphone : un libellé long passe sur deux lignes, dans un rectangle
+   arrondi (le bouton rond de base deviendrait un cercle). */
 .onglets button {
 	flex: 1;
+	min-width: 0;
 	min-height: 40px;
+	padding: 6px 4px;
+	border-radius: calc(var(--rayon) - 4px);
+	font-size: 14px;
+	line-height: 1.2;
 	border: none;
 	background: transparent;
 	color: var(--texte-doux);
@@ -278,11 +285,62 @@
 	gap: 12px;
 }
 
-/* Lien d'un replay vers le replayer Winamax, à droite de sa date. */
+/* Replays : lien vers le replayer Winamax, puis crayon et croix rouge, à droite de la date. */
 .lien-replay {
 	color: var(--accent);
 	font-weight: 600;
 	white-space: nowrap;
+}
+
+.actions-replay {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin: -6px -8px -6px 0;
+}
+
+.icone-modifier,
+.icone-supprimer {
+	flex: none;
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	border-radius: 50%;
+	border: 0;
+	background: none;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.icone-modifier {
+	color: var(--texte-doux);
+	font-size: 1.1rem;
+}
+
+.icone-supprimer {
+	color: var(--danger);
+	font-size: 1.4rem;
+}
+
+.icone-modifier:hover:not(:disabled),
+.icone-supprimer:hover:not(:disabled) {
+	background: var(--surface-2);
+}
+
+.icone-modifier:disabled,
+.icone-supprimer:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+/* Replay pas encore enregistré. */
+.ligne.provisoire {
+	opacity: 0.6;
+}
+
+/* La place du bouton flottant, sous le dernier replay. */
+.replays {
+	padding-bottom: 76px;
 }
 
 .liste .vide {
