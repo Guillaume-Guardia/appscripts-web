@@ -298,6 +298,11 @@ button:focus-visible {
 	}
 }
 
+/* Conteneurs des composants React (src/) : sans boîte, leurs enfants se placent comme ceux de la page. */
+.racine-react {
+	display: contents;
+}
+
 /* Connexion */
 .connexion {
 	min-height: 100dvh;
