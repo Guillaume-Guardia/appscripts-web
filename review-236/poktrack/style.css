@@ -29,7 +29,7 @@
 	border-radius: var(--rayon);
 }
 
-/* Cinq onglets sur un téléphone : un libellé long passe sur deux lignes, dans un rectangle
+/* Six onglets sur un téléphone : un libellé long passe sur deux lignes, dans un rectangle
    arrondi (le bouton rond de base deviendrait un cercle). */
 .onglets button {
 	flex: 1;
@@ -346,6 +346,45 @@
 .liste .vide {
 	margin: 0;
 	padding: 12px 14px;
+}
+
+/* Bilan financier : lignes à ouvrir, bouton flottant, choix du sens */
+
+button.ligne {
+	width: 100%;
+	min-height: 0;
+	border: 0;
+	border-bottom: 1px solid var(--bord);
+	border-radius: 0;
+	background: transparent;
+	color: inherit;
+	text-align: left;
+}
+
+button.ligne:last-child {
+	border-bottom: 0;
+}
+
+/* La place du bouton flottant, sous la dernière ligne. */
+#onglet-bilan {
+	padding-bottom: 76px;
+}
+
+.choix-sens {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+
+.choix-sens legend {
+	grid-column: 1 / -1;
+}
+
+.choix-sens button[aria-pressed="true"] {
+	border-color: var(--accent);
+	background: var(--accent);
+	color: var(--sur-accent);
+	font-weight: 600;
 }
 
 /* Onglet Calcul : la table vue de haut, puis une carte par étape. */
