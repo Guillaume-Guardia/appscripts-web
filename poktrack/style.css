@@ -263,6 +263,39 @@
 	text-align: left;
 }
 
+/* Récap : choix de la période ; le récap précédent grisé pendant le chargement d'une autre. */
+
+.choix-periode {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 10px;
+}
+
+.choix-periode label {
+	color: var(--texte-doux);
+	font-weight: 600;
+}
+
+.choix-periode select {
+	flex: 1;
+	min-width: 0;
+	max-width: 280px;
+}
+
+.recap.chargement {
+	opacity: 0.55;
+	transition: opacity 0.2s;
+}
+
+.tableau .cartes {
+	font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+.tableau td:has(.cartes) {
+	text-align: left;
+}
+
 /* Listes des sessions et des tournois */
 
 .ligne {
