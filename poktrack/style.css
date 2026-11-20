@@ -1013,3 +1013,867 @@ button.ligne:last-child {
 		padding: 3px 6px;
 	}
 }
+
+/* Onglet Live : en-tête de la session, tapis, tournois terminés, fin de session. Les marques du
+   graphe ont leurs propres classes : .tapis est le tapis de la table de Calcul. */
+
+:root {
+	--partage: #a77b00;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--partage: #f2c94c;
+	}
+}
+
+:root[data-theme="dark"] {
+	--partage: #f2c94c;
+}
+
+.live {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+#ecran-app .live h2 {
+	margin: 0;
+	font-size: 1.05rem;
+}
+
+.live > .carte {
+	padding: 16px 18px;
+}
+
+.live-libelle {
+	color: var(--texte-doux);
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.live-carte-haut {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 8px 12px;
+}
+
+.live-carte-haut > div {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.live-carte-haut .aide {
+	font-size: 13px;
+}
+
+/* États sans session, et bandeau du PC injoignable */
+
+.carte.live-etat {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 20px 18px;
+}
+
+.live-etat-texte {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+}
+
+.live-etat-texte p {
+	margin: 2px 0 0;
+}
+
+.live-etat-icone {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 48px;
+	height: 48px;
+	border-radius: 50%;
+	background: var(--surface-2);
+	color: var(--texte-doux);
+}
+
+.live-etat-icone svg {
+	width: 24px;
+	height: 24px;
+}
+
+.live-etat > button {
+	align-self: flex-start;
+}
+
+.live-alerte {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px 16px;
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+	color: var(--danger);
+	font-size: 14px;
+}
+
+.live-alerte svg {
+	flex: none;
+	width: 20px;
+	height: 20px;
+}
+
+/* Bankroll de départ à saisir */
+
+.live-bankroll {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.live-bankroll label {
+	font-size: 1.05rem;
+	font-weight: 700;
+}
+
+.live-bankroll .aide {
+	font-size: 13px;
+}
+
+.live-ligne-saisie {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.live-champ-montant {
+	display: flex;
+	flex: 1 1 200px;
+	align-items: center;
+	min-height: 52px;
+	padding: 0 14px;
+	border: 2px solid var(--accent);
+	border-radius: 12px;
+	background: var(--surface);
+}
+
+.live-champ-montant input {
+	min-width: 0;
+	min-height: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	font-size: 1.5rem;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	outline: none;
+}
+
+.live-champ-montant:focus-within {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.live-champ-montant span {
+	color: var(--texte-doux);
+	font-size: 1.25rem;
+	font-weight: 600;
+}
+
+.live-ligne-saisie button {
+	min-height: 52px;
+	padding: 0 22px;
+	border-radius: 12px;
+}
+
+/* En-tête de la session : résultat en grand, puis bankroll, ITM, meilleur gain */
+
+.live-session {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.live-session-haut {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.live-session-haut .aide {
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-pastille {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 10px;
+	border-radius: 999px;
+	background: var(--vert-fond);
+	color: var(--vert);
+	font-size: 13px;
+	font-weight: 700;
+}
+
+.live-point {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: currentColor;
+}
+
+.live-resultat {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.live-resultat .aide {
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-resultat .montant {
+	font-size: 2.75rem;
+	line-height: 1.05;
+	letter-spacing: -0.01em;
+}
+
+.live-chiffres {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 8px;
+	padding-top: 14px;
+	border-top: 1px solid var(--bord);
+}
+
+.live-chiffres > div {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.live-chiffres strong {
+	font-size: 1.2rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-chiffres .aide,
+.live-session > .aide {
+	font-size: 13px;
+}
+
+.live-coupe {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+button.live-lien {
+	min-height: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--accent);
+	font-weight: 600;
+	text-decoration: underline;
+}
+
+@media (max-width: 420px) {
+	.live-chiffres {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		row-gap: 14px;
+	}
+}
+
+/* Tapis : luck, graphe, chiffres de la session, comparaison à l'historique */
+
+.live-tapis {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.live-tapis > p.aide {
+	margin: 0;
+}
+
+.live-luck {
+	align-items: flex-end;
+}
+
+.live-luck strong {
+	font-size: 1.6rem;
+	line-height: 1.1;
+}
+
+.live-luck .aide {
+	font-size: 12px;
+}
+
+.live-graphe svg {
+	display: block;
+	width: 100%;
+	height: auto;
+	touch-action: pan-y;
+}
+
+.live-graphe .grille {
+	stroke: var(--bord);
+	stroke-width: 1;
+}
+
+.live-graphe .milieu {
+	stroke: var(--texte-doux);
+	stroke-width: 1;
+	stroke-dasharray: 4 4;
+}
+
+.live-graphe .axe,
+.live-graphe .etiquette {
+	fill: var(--texte-doux);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-graphe .ancien {
+	fill: var(--texte-doux);
+	opacity: 0.3;
+}
+
+.live-graphe .win {
+	fill: var(--vert);
+}
+
+.live-graphe .lose {
+	fill: var(--surface);
+	stroke: var(--danger);
+	stroke-width: 2.5;
+}
+
+.live-graphe .partage {
+	fill: var(--partage);
+}
+
+/* River : affiché, mais hors stats (équité de 0 ou 100 %). */
+.live-graphe circle.river {
+	fill: none;
+	stroke: var(--vert);
+	stroke-width: 2;
+	stroke-dasharray: 3 2.5;
+	opacity: 0.7;
+}
+
+.live-graphe circle.river.lose {
+	stroke: var(--danger);
+}
+
+.live-graphe circle.river.partage {
+	stroke: var(--partage);
+}
+
+.live-legende {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 16px;
+	margin: 6px 0 0;
+	font-size: 13px;
+}
+
+.live-legende span {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.live-legende svg {
+	width: 12px;
+	height: 12px;
+}
+
+.live-legende .lose {
+	stroke-width: 2.2;
+}
+
+.live-legende .legende-river {
+	fill: none;
+	stroke: var(--texte-doux);
+	stroke-width: 1.8;
+	stroke-dasharray: 2.5 2;
+}
+
+.live-legende .legende-ancien {
+	fill: var(--texte-doux);
+	opacity: 0.35;
+}
+
+.live-tuiles {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 8px;
+}
+
+.live-tuiles > div {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+	padding: 10px 12px;
+	border-radius: 10px;
+	background: var(--surface-2);
+}
+
+.live-tuiles .aide {
+	font-size: 12px;
+}
+
+.live-tuiles strong {
+	font-size: 1.15rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-tuiles small {
+	color: var(--texte-doux);
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.live-barre {
+	display: flex;
+	gap: 2px;
+	height: 6px;
+	margin-top: 2px;
+	overflow: hidden;
+	border-radius: 3px;
+}
+
+.live-barre .win {
+	background: var(--vert);
+}
+
+.live-barre .partage {
+	background: var(--partage);
+}
+
+.live-barre .lose {
+	background: var(--danger);
+}
+
+@media (max-width: 520px) {
+	.live-tuiles {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+.live-comparer {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding-top: 12px;
+	border-top: 1px solid var(--bord);
+}
+
+.live-comparer > p {
+	margin: 0;
+}
+
+.live-segments {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 4px;
+	margin: 0;
+	padding: 4px;
+	border: 0;
+	border-radius: 12px;
+	background: var(--surface-2);
+}
+
+.live-segments button {
+	min-height: 40px;
+	padding: 6px 4px;
+	border: 0;
+	border-radius: 9px;
+	background: transparent;
+	color: var(--texte-doux);
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 1.2;
+}
+
+.live-segments button[aria-pressed="true"] {
+	background: var(--surface);
+	color: var(--texte);
+	box-shadow: var(--ombre);
+}
+
+.live-comparaison {
+	overflow-x: auto;
+}
+
+.live-comparaison table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 14px;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-comparaison th,
+.live-comparaison td {
+	padding: 7px 0 7px 12px;
+	text-align: right;
+}
+
+.live-comparaison thead th {
+	color: var(--texte-doux);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.live-comparaison tbody tr {
+	border-top: 1px solid var(--bord);
+}
+
+.live-comparaison tbody th {
+	padding-left: 0;
+	font-weight: 500;
+	text-align: left;
+}
+
+.live-masque {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+/* Tournois terminés */
+
+.live > .live-tournois {
+	padding-bottom: 6px;
+}
+
+.live-tournois .live-carte-haut {
+	align-items: baseline;
+	padding-bottom: 6px;
+}
+
+.live-tournois > .aide {
+	margin: 6px 0 10px;
+}
+
+.live-tournois ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.live-tournois li {
+	display: grid;
+	grid-template-columns: 44px minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 12px;
+	padding: 11px 0;
+	border-top: 1px solid var(--bord);
+}
+
+.live-heure,
+.live-tournoi .aide {
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-tournoi {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	min-width: 0;
+}
+
+.live-tournoi-nom {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.live-tournoi-nom strong {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.live-badge {
+	flex: none;
+	padding: 1px 7px;
+	border-radius: 999px;
+	background: var(--surface-2);
+	color: var(--texte-doux);
+	font-size: 11px;
+	font-weight: 700;
+}
+
+.live-badge.mtt {
+	background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+	color: var(--accent);
+}
+
+.live-badge.victoire {
+	background: var(--vert-fond);
+	color: var(--vert);
+}
+
+/* Fin de session : en-tête à la couleur d'accent, tickets, commentaires, bouton d'envoi */
+
+.live > .live-fin {
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	overflow: hidden;
+	border: 2px solid var(--accent);
+	scroll-margin-top: 80px;
+}
+
+.live-fin-haut {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 16px 18px;
+	background: var(--accent);
+	color: var(--sur-accent);
+}
+
+#ecran-app .live-fin-haut h2 {
+	font-size: 1.35rem;
+}
+
+.live-fin-haut > span:last-child {
+	font-size: 14px;
+	font-variant-numeric: tabular-nums;
+	opacity: 0.92;
+}
+
+.live-surtitre {
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	opacity: 0.85;
+}
+
+.live-fin-chiffres {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+	padding: 16px 18px 0;
+}
+
+.live-fin-chiffres > div {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 10px 12px;
+	border-radius: 10px;
+	background: var(--surface-2);
+}
+
+.live-fin-chiffres > div.gain {
+	background: var(--vert-fond);
+}
+
+.live-fin-chiffres span {
+	color: var(--texte-doux);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.live-fin-chiffres strong {
+	font-size: 1.35rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-fin-note {
+	margin: 12px 18px 0;
+	font-size: 13px;
+}
+
+.live-fin fieldset {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+	margin: 0;
+	padding: 18px 18px 4px;
+	border: 0;
+}
+
+.live-fin legend {
+	float: left;
+	width: 100%;
+	margin-bottom: 2px;
+	padding: 0;
+	font-size: 1rem;
+	font-weight: 700;
+}
+
+.live-fin fieldset > .aide {
+	margin: 0;
+	font-size: 13px;
+}
+
+.live-ticket {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 12px;
+	min-height: 48px;
+	padding: 10px 12px;
+	border: 1px solid var(--bord);
+	border-radius: 10px;
+	box-sizing: border-box;
+}
+
+label.live-ticket {
+	cursor: pointer;
+}
+
+.live-ticket.coche {
+	border-color: var(--accent);
+	background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+
+.live-ticket input[type="checkbox"],
+.live-commentaire input[type="checkbox"] {
+	flex: none;
+	width: 20px;
+	height: 20px;
+	margin: 0;
+	accent-color: var(--accent);
+}
+
+.live-ticket-texte {
+	display: flex;
+	flex: 1 1 200px;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+}
+
+.live-ticket-texte .aide {
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-compteur {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.live-compteur .aide {
+	font-size: 13px;
+}
+
+.live-compteur > div {
+	display: flex;
+	align-items: center;
+	overflow: hidden;
+	border: 1px solid var(--bord);
+	border-radius: 999px;
+	background: var(--surface);
+}
+
+.live-compteur button {
+	width: 44px;
+	min-height: 40px;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: var(--surface-2);
+	font-size: 1.1rem;
+}
+
+.live-compteur output {
+	min-width: 52px;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	text-align: center;
+}
+
+.live-commentaire {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+}
+
+.live-commentaire input[type="checkbox"] {
+	margin-top: 12px;
+}
+
+.live-commentaire textarea {
+	flex: 1;
+	min-width: 0;
+	font-size: 14px;
+}
+
+.live-commentaire.ecartee {
+	opacity: 0.55;
+}
+
+.live-commentaire.ecartee textarea {
+	text-decoration: line-through;
+}
+
+button.live-ajouter {
+	display: inline-flex;
+	align-self: flex-start;
+	align-items: center;
+	gap: 6px;
+	border: 1px dashed var(--texte-doux);
+	background: transparent;
+	color: var(--accent);
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.live-ajouter svg {
+	width: 14px;
+	height: 14px;
+}
+
+.live-fin-pied {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 18px;
+	padding: 14px 18px 16px;
+	border-top: 1px solid var(--bord);
+	background: color-mix(in srgb, var(--surface-2) 40%, var(--surface));
+}
+
+.live-fin-pied .erreur {
+	margin: 0;
+}
+
+.live-fin-pied button[type="submit"] {
+	min-height: 48px;
+	font-size: 1rem;
+}
+
+.live-fin-pied .aide {
+	font-size: 13px;
+	text-align: center;
+}
