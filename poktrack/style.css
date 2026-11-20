@@ -421,7 +421,7 @@ button.plus-de-sessions {
 	max-width: 280px;
 }
 
-.recap.chargement {
+.recap.en-chargement {
 	opacity: 0.55;
 	transition: opacity 0.2s;
 }
