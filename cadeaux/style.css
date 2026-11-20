@@ -234,7 +234,7 @@ button:focus-visible {
 }
 
 /* Icônes de l'en-tête : au trait, sans fond ; seul le profil (photo ou initiale) est un rond plein */
-.icone-bouton {
+.bouton-icone {
 	position: relative;
 	display: grid;
 	place-items: center;
@@ -247,16 +247,16 @@ button:focus-visible {
 	color: inherit;
 	cursor: pointer;
 }
-.icone-bouton svg {
+.bouton-icone svg {
 	width: 22px;
 	height: 22px;
 	stroke-width: 1.75;
 }
-.icone-bouton:active {
+.bouton-icone:active {
 	background: rgb(255 255 255 / 0.18);
 }
 @media (hover: hover) {
-	.icone-bouton:hover {
+	.bouton-icone:hover {
 		background: rgb(255 255 255 / 0.18);
 	}
 }
@@ -289,18 +289,13 @@ button:focus-visible {
 	}
 }
 
-.icone-bouton.tourne svg {
+.bouton-icone.tourne svg {
 	animation: tourne 0.8s linear infinite;
 }
 @keyframes tourne {
 	to {
 		transform: rotate(360deg);
 	}
-}
-
-/* Conteneurs des composants React (src/) : sans boîte, leurs enfants se placent comme ceux de la page. */
-.racine-react {
-	display: contents;
 }
 
 /* Connexion */
@@ -389,7 +384,7 @@ button:focus-visible {
 	margin-left: 6px;
 	border-radius: 50%;
 }
-.icone-bouton .avatar {
+.bouton-icone .avatar {
 	width: 36px;
 	height: 36px;
 	background: var(--sur-entete);
@@ -1086,7 +1081,7 @@ button.menu-carte::after {
 	font-family: ui-monospace, monospace;
 	color: var(--rouge);
 }
-.menu-version {
+.menu .version {
 	padding: 8px 12px 4px;
 	border-top: 1px solid var(--bord);
 	margin-top: 4px;
