@@ -5,19 +5,157 @@
 	font-size: 1.05rem;
 }
 
+/* Filtres du tableau de bord et des sessions : repliés, un résumé ; ouverts, un groupe par filtre. */
+
 .filtres {
-	display: flex;
-	align-items: center;
-	gap: 10px;
 	margin-bottom: 12px;
 }
 
-.filtres .puces {
+.filtres summary {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 12px;
+	min-height: 44px;
+	padding: 8px 14px;
+	cursor: pointer;
+	list-style: none;
+}
+
+.filtres summary::-webkit-details-marker {
+	display: none;
+}
+
+.filtres summary::after {
+	content: "\203A";
+	margin-left: auto;
+	color: var(--texte-doux);
+	font-size: 1.3rem;
+	line-height: 1;
+	transition: transform 0.15s;
+}
+
+.filtres[open] summary::after {
+	transform: rotate(90deg);
+}
+
+.filtres-titre {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-weight: 600;
+}
+
+.filtres-nombre {
+	min-width: 20px;
+	padding: 0 6px;
+	border-radius: 999px;
+	background: var(--accent);
+	color: var(--sur-accent);
+	font-size: 12px;
+	line-height: 20px;
+	text-align: center;
+}
+
+.filtres-resume {
 	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	font-size: 13px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.filtres-contenu {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	padding: 4px 14px 14px;
+	border-top: 1px solid var(--bord);
+}
+
+.filtres-groupe {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
 	min-width: 0;
 	margin: 0;
 	padding: 0;
 	border: 0;
+}
+
+.filtres-groupe legend {
+	float: left;
+	width: 100%;
+	margin: 10px 0 0;
+	padding: 0;
+	color: var(--texte-doux);
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.filtres-segments {
+	display: inline-flex;
+	align-self: flex-start;
+	flex-wrap: wrap;
+	gap: 4px;
+	padding: 4px;
+	border-radius: 12px;
+	background: var(--surface-2);
+}
+
+.filtres-segments button {
+	min-height: 36px;
+	padding: 6px 14px;
+	border: 0;
+	border-radius: 9px;
+	background: transparent;
+	color: var(--texte-doux);
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.filtres-segments button[aria-pressed="true"] {
+	background: var(--surface);
+	color: var(--texte);
+	box-shadow: var(--ombre);
+}
+
+.filtres-jours {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.filtres-jours button {
+	width: 40px;
+	min-height: 40px;
+	padding: 0;
+	font-weight: 600;
+}
+
+.filtres-jours button[aria-pressed="true"] {
+	border-color: var(--accent);
+	background: var(--accent);
+	color: var(--sur-accent);
+}
+
+button.filtres-effacer {
+	align-self: flex-start;
+	min-height: 0;
+	padding: 4px 0;
+	border: 0;
+	background: none;
+	color: var(--accent);
+	font-weight: 600;
+	text-decoration: underline;
+}
+
+button.plus-de-sessions {
+	display: block;
+	margin: 12px auto 0;
 }
 
 .onglets {
@@ -372,6 +510,15 @@
 }
 
 /* La place du bouton flottant, sous le dernier replay. */
+/* Replays sans date : bouton qui lit leurs dates sur Winamax, et son résultat. */
+.replays-dates {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 12px;
+	margin-bottom: 10px;
+}
+
 .replays {
 	padding-bottom: 76px;
 }
@@ -1551,7 +1698,7 @@ button.live-lien {
 	text-align: left;
 }
 
-.live-masque {
+.masque {
 	position: absolute;
 	width: 1px;
 	height: 1px;
