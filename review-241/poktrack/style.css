@@ -1,0 +1,2543 @@
+/* Styles propres à PokTrack ; le reste est dans ../shared/base.css. */
+
+#ecran-app h2 {
+	margin: 20px 0 8px;
+	font-size: 1.05rem;
+}
+
+/* Filtres du tableau de bord et des sessions : repliés, un résumé ; ouverts, un groupe par filtre. */
+
+.filtres {
+	margin-bottom: 12px;
+}
+
+.filtres summary {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 12px;
+	min-height: 44px;
+	padding: 8px 14px;
+	cursor: pointer;
+	list-style: none;
+}
+
+.filtres summary::-webkit-details-marker {
+	display: none;
+}
+
+.filtres summary::after {
+	content: "\203A";
+	margin-left: auto;
+	color: var(--texte-doux);
+	font-size: 1.3rem;
+	line-height: 1;
+	transition: transform 0.15s;
+}
+
+.filtres[open] summary::after {
+	transform: rotate(90deg);
+}
+
+.filtres-titre {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-weight: 600;
+}
+
+.filtres-nombre {
+	min-width: 20px;
+	padding: 0 6px;
+	border-radius: 999px;
+	background: var(--accent);
+	color: var(--sur-accent);
+	font-size: 12px;
+	line-height: 20px;
+	text-align: center;
+}
+
+.filtres-resume {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	font-size: 13px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.filtres-contenu {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	padding: 4px 14px 14px;
+	border-top: 1px solid var(--bord);
+}
+
+.filtres-groupe {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.filtres-groupe legend {
+	float: left;
+	width: 100%;
+	margin: 10px 0 0;
+	padding: 0;
+	color: var(--texte-doux);
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.filtres-segments {
+	display: inline-flex;
+	align-self: flex-start;
+	flex-wrap: wrap;
+	gap: 4px;
+	padding: 4px;
+	border-radius: 12px;
+	background: var(--surface-2);
+}
+
+.filtres-segments button {
+	min-height: 36px;
+	padding: 6px 14px;
+	border: 0;
+	border-radius: 9px;
+	background: transparent;
+	color: var(--texte-doux);
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.filtres-segments button[aria-pressed="true"] {
+	background: var(--surface);
+	color: var(--texte);
+	box-shadow: var(--ombre);
+}
+
+.filtres-jours {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.filtres-jours button {
+	width: 40px;
+	min-height: 40px;
+	padding: 0;
+	font-weight: 600;
+}
+
+.filtres-jours button[aria-pressed="true"] {
+	border-color: var(--accent);
+	background: var(--accent);
+	color: var(--sur-accent);
+}
+
+button.filtres-effacer {
+	align-self: flex-start;
+	min-height: 0;
+	padding: 4px 0;
+	border: 0;
+	background: none;
+	color: var(--accent);
+	font-weight: 600;
+	text-decoration: underline;
+}
+
+.onglets {
+	display: flex;
+	gap: 4px;
+	padding: 4px;
+	margin-bottom: 14px;
+	background: var(--surface-2);
+	border-radius: var(--rayon);
+}
+
+/* Six onglets sur un téléphone : un libellé long passe sur deux lignes, dans un rectangle
+   arrondi (le bouton rond de base deviendrait un cercle). */
+.onglets button {
+	flex: 1;
+	min-width: 0;
+	min-height: 40px;
+	padding: 6px 4px;
+	border-radius: calc(var(--rayon) - 4px);
+	font-size: 14px;
+	line-height: 1.2;
+	border: none;
+	background: transparent;
+	color: var(--texte-doux);
+	font-weight: 600;
+}
+
+.onglets button[aria-selected="true"] {
+	background: var(--surface);
+	color: var(--texte);
+	box-shadow: var(--ombre);
+}
+
+/* Montants : le signe porte le sens, la couleur le souligne. */
+
+.montant {
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.montant.gain {
+	color: var(--vert);
+}
+
+.montant.perte {
+	color: var(--danger);
+}
+
+/* Tuiles (Bilan) */
+
+.tuiles {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.tuile {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.tuile {
+	padding: 12px 14px;
+}
+
+.tuile strong {
+	font-size: 1.4rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.carte.vide {
+	margin: 0;
+	padding: 12px 14px;
+}
+
+/* Graphe : une seule série, à la couleur d'accent ; grille et axes en retrait. */
+
+.graphe {
+	padding: 12px 14px;
+}
+
+.graphe-zone {
+	position: relative;
+}
+
+.graphe-zone svg {
+	display: block;
+	width: 100%;
+	height: auto;
+	touch-action: pan-y;
+}
+
+.graphe-zone .courbe {
+	fill: none;
+	stroke: var(--accent);
+	stroke-width: 2;
+	stroke-linejoin: round;
+	stroke-linecap: round;
+}
+
+.graphe-zone .grille {
+	stroke: var(--bord);
+	stroke-width: 1;
+}
+
+.graphe-zone .zero {
+	stroke: var(--texte-doux);
+	stroke-width: 1;
+}
+
+.graphe-zone .axe {
+	fill: var(--texte-doux);
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+}
+
+.graphe-zone .repere {
+	stroke: var(--texte-doux);
+	stroke-width: 1;
+	stroke-dasharray: 3 3;
+}
+
+.graphe-zone .pastille {
+	fill: var(--accent);
+	stroke: var(--surface);
+	stroke-width: 2;
+}
+
+.graphe-infobulle {
+	position: absolute;
+	display: flex;
+	flex-direction: column;
+	padding: 6px 10px;
+	transform: translate(10px, -120%);
+	border: 1px solid var(--bord);
+	border-radius: 8px;
+	background: var(--surface);
+	box-shadow: var(--ombre);
+	font-size: 0.85rem;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+.graphe-infobulle.a-gauche {
+	transform: translate(calc(-100% - 10px), -120%);
+}
+
+.graphe-infobulle span {
+	color: var(--texte-doux);
+}
+
+/* Tableaux */
+
+.tableau {
+	overflow-x: auto;
+}
+
+.tableau table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.9rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.tableau th,
+.tableau td {
+	padding: 8px 14px;
+	border-top: 1px solid var(--bord);
+	text-align: right;
+	white-space: nowrap;
+}
+
+.tableau th {
+	color: var(--texte-doux);
+	font-weight: 600;
+}
+
+.tableau th:first-child,
+.tableau td:first-child {
+	text-align: left;
+}
+
+/* Lignes de liste (Bilan) */
+
+.ligne {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 12px 14px;
+	border-bottom: 1px solid var(--bord);
+	overflow-wrap: anywhere;
+}
+
+.ligne:last-child {
+	border-bottom: 0;
+}
+
+.ligne-titre {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+/* Replays : lien vers le replayer Winamax, puis crayon et croix rouge, à droite de la date. */
+.lien-replay {
+	color: var(--accent);
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.actions-replay {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin: -6px -8px -6px 0;
+}
+
+.icone-modifier,
+.icone-supprimer {
+	flex: none;
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	border-radius: 50%;
+	border: 0;
+	background: none;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.icone-modifier {
+	color: var(--texte-doux);
+	font-size: 1.1rem;
+}
+
+.icone-supprimer {
+	color: var(--danger);
+	font-size: 1.4rem;
+}
+
+.icone-modifier:hover:not(:disabled),
+.icone-supprimer:hover:not(:disabled) {
+	background: var(--surface-2);
+}
+
+.icone-modifier:disabled,
+.icone-supprimer:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+/* Replay pas encore enregistré. */
+.ligne.provisoire {
+	opacity: 0.6;
+}
+
+/* La place du bouton flottant, sous le dernier replay. */
+/* Replays sans date : bouton qui lit leurs dates sur Winamax, et son résultat. */
+.replays-dates {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 12px;
+	margin-bottom: 10px;
+}
+
+.replays {
+	padding-bottom: 76px;
+}
+
+.liste .vide {
+	margin: 0;
+	padding: 12px 14px;
+}
+
+/* Bilan financier : lignes à ouvrir, bouton flottant, choix du sens */
+
+button.ligne {
+	width: 100%;
+	min-height: 0;
+	border: 0;
+	border-bottom: 1px solid var(--bord);
+	border-radius: 0;
+	background: transparent;
+	color: inherit;
+	text-align: left;
+}
+
+button.ligne:last-child {
+	border-bottom: 0;
+}
+
+/* La place du bouton flottant, sous la dernière ligne. */
+#onglet-bilan {
+	padding-bottom: 76px;
+}
+
+.choix-sens {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+
+.choix-sens legend {
+	grid-column: 1 / -1;
+}
+
+.choix-sens button[aria-pressed="true"] {
+	border-color: var(--accent);
+	background: var(--accent);
+	color: var(--sur-accent);
+	font-weight: 600;
+}
+
+/* Onglet Calcul : réglages repliés, frise des rues, table vue de haut avec la bulle d'actions du
+   joueur à qui c'est le tour, puis ma main. */
+
+:root {
+	--tapis: #1f6b4a;
+	--tapis-fonce: #154d35;
+	--bordure-table: #6b4a2f;
+	--sur-tapis: #f4f1ea;
+	--jeton: #f4f1ea;
+	--jeton-mise: #c9a227;
+	--sur-jeton-mise: #1d2a2c;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--tapis: #1d5a40;
+		--tapis-fonce: #12392a;
+		--bordure-table: #4a3322;
+		--jeton-mise: #d9b440;
+	}
+}
+
+:root[data-theme="dark"] {
+	--tapis: #1d5a40;
+	--tapis-fonce: #12392a;
+	--bordure-table: #4a3322;
+	--jeton-mise: #d9b440;
+}
+
+/* Réglages : deux listes côte à côte, et l'ante qui en découle. */
+
+.reglages {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 4px 10px;
+	margin-bottom: 10px;
+}
+
+.reglages label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.reglages select {
+	min-height: 40px;
+	padding: 6px 10px;
+}
+
+.reglages-ante {
+	grid-column: 1 / -1;
+	margin: 0;
+	font-size: 0.8rem;
+}
+
+/* Frise des rues : le pot de chacune ; une rue passée se touche pour y revenir. */
+
+.frise {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 4px;
+	padding: 4px;
+	border-radius: var(--rayon);
+	background: var(--surface-2);
+}
+
+.frise button {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 1px;
+	min-width: 0;
+	min-height: 0;
+	padding: 6px 4px;
+	border: 0;
+	border-radius: calc(var(--rayon) - 4px);
+	background: transparent;
+	color: var(--texte-doux);
+	line-height: 1.2;
+}
+
+.frise button[aria-selected="true"] {
+	background: var(--accent);
+	color: var(--sur-accent);
+	box-shadow: var(--ombre);
+}
+
+.frise button:disabled {
+	opacity: 0.45;
+}
+
+.frise-nom {
+	font-weight: 700;
+	font-size: 0.9rem;
+}
+
+.frise-pot {
+	font-size: 0.75rem;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+/* La table */
+
+.table-poker {
+	position: relative;
+	aspect-ratio: 16 / 10;
+	margin: 8px 0;
+}
+
+.tapis {
+	position: absolute;
+	inset: 15% 13%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+	border: 8px solid var(--bordure-table);
+	border-radius: 999px;
+	background: radial-gradient(
+		ellipse at center,
+		var(--tapis) 0%,
+		var(--tapis-fonce) 100%
+	);
+	box-shadow:
+		inset 0 0 24px rgb(0 0 0 / 0.35),
+		var(--ombre);
+	color: var(--sur-tapis);
+	text-align: center;
+}
+
+.tapis-etape {
+	font-size: 0.78rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	opacity: 0.85;
+}
+
+.tapis strong {
+	font-size: 1.35rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.siege {
+	position: absolute;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	min-width: 76px;
+	padding: 4px 8px;
+	transform: translate(-50%, -50%);
+	border: 2px solid var(--bord);
+	border-radius: 12px;
+	background: var(--surface);
+	box-shadow: var(--ombre);
+	line-height: 1.2;
+	transition:
+		border-color 0.15s,
+		opacity 0.15s,
+		box-shadow 0.15s;
+}
+
+.siege.moi {
+	border-color: var(--accent);
+}
+
+.siege.couche {
+	opacity: 0.45;
+}
+
+.siege.actif {
+	border-color: var(--jeton-mise);
+	box-shadow:
+		0 0 0 3px color-mix(in srgb, var(--jeton-mise) 45%, transparent),
+		var(--ombre);
+	animation: tour 1.6s ease-in-out infinite;
+}
+
+@keyframes tour {
+	50% {
+		box-shadow:
+			0 0 0 6px color-mix(in srgb, var(--jeton-mise) 20%, transparent),
+			var(--ombre);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.siege.actif {
+		animation: none;
+	}
+}
+
+.siege-nom {
+	font-size: 0.78rem;
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+.siege-detail {
+	color: var(--texte-doux);
+	font-size: 0.7rem;
+	white-space: nowrap;
+}
+
+.jeton-bouton {
+	position: absolute;
+	top: -10px;
+	right: -16px;
+	display: grid;
+	place-items: center;
+	width: 20px;
+	height: 20px;
+	border: 2px solid var(--texte);
+	border-radius: 50%;
+	background: var(--jeton);
+	color: #1d2a2c;
+	font-size: 0.7rem;
+	font-weight: 700;
+}
+
+/* Cartes à jouer : face visible (rouge pour cœur et carreau), dos, ou place vide du tableau */
+
+.carte-jeu {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	width: 1.9em;
+	height: 2.6em;
+	border: 1px solid #c9c2b4;
+	border-radius: 0.28em;
+	background: #fffdf8;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+	color: #1d2a2c;
+	font-weight: 800;
+	line-height: 1;
+}
+
+.carte-jeu small {
+	font-size: 0.9em;
+}
+
+.carte-jeu.rouge {
+	color: #b3261e;
+}
+
+.carte-jeu.dos {
+	border-color: #f4f1ea;
+	background: repeating-linear-gradient(45deg, #7d2b2b 0 3px, #9c3a3a 3px 6px);
+}
+
+.carte-jeu.vide {
+	border: 1px dashed rgb(255 255 255 / 0.35);
+	background: transparent;
+	box-shadow: none;
+}
+
+.board {
+	display: flex;
+	gap: 4px;
+	font-size: 0.95rem;
+}
+
+.siege-cartes {
+	display: flex;
+	gap: 2px;
+	margin: -18px 0 2px;
+	font-size: 0.62rem;
+}
+
+.siege.moi .siege-cartes {
+	font-size: 0.8rem;
+}
+
+.siege.gagnant {
+	border-color: var(--vert);
+	box-shadow:
+		0 0 0 3px color-mix(in srgb, var(--vert) 40%, transparent),
+		var(--ombre);
+}
+
+.siege.gagnant .siege-detail {
+	color: var(--vert);
+	font-weight: 700;
+}
+
+/* Ma bulle, sous la table : sa flèche pointe vers mon siège, en bas au milieu. */
+.bulle.fleche-moi {
+	position: relative;
+	width: min(320px, 100%);
+	margin: 6px auto 10px;
+}
+
+.bulle.fleche-moi::after {
+	top: -7px;
+	left: calc(50% - 6px);
+	transform: rotate(-135deg);
+}
+
+/* Jetons misés sur la rue, devant le siège */
+
+.jetons {
+	position: absolute;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 1px 7px 1px 3px;
+	transform: translate(-50%, -50%);
+	border-radius: 999px;
+	background: rgb(0 0 0 / 0.35);
+	color: var(--sur-tapis);
+	font-size: 0.72rem;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.jetons::before {
+	content: "";
+	width: 12px;
+	height: 12px;
+	border: 2px dashed var(--sur-jeton-mise);
+	border-radius: 50%;
+	background: var(--jeton-mise);
+}
+
+/* Bulle d'actions du joueur à qui c'est le tour ; sa flèche pointe vers son siège. */
+
+.bulle {
+	--demi-largeur: min(108px, 31%);
+	position: absolute;
+	z-index: 2;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	width: calc(2 * var(--demi-largeur));
+	margin: 0;
+	padding: 8px;
+	border: 1px solid var(--bord);
+	border-radius: 12px;
+	background: var(--surface);
+	box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+}
+
+/* Siège en bas : la bulle au-dessus ; en haut : en dessous ; sur un côté : vers le centre. */
+.bulle.fleche-bas,
+.bulle.fleche-haut {
+	left: clamp(var(--demi-largeur), var(--x), calc(100% - var(--demi-largeur)));
+}
+
+.bulle.fleche-bas {
+	top: calc(var(--y) - 28px);
+	transform: translate(-50%, -100%);
+}
+
+.bulle.fleche-haut {
+	top: calc(var(--y) + 28px);
+	transform: translateX(-50%);
+}
+
+.bulle.fleche-droite,
+.bulle.fleche-gauche {
+	top: clamp(90px, var(--y), calc(100% - 160px));
+}
+
+.bulle.fleche-droite {
+	left: calc(var(--x) - 42px);
+	transform: translate(-100%, -50%);
+}
+
+.bulle.fleche-gauche {
+	left: calc(var(--x) + 42px);
+	transform: translateY(-50%);
+}
+
+.bulle::after {
+	content: "";
+	position: absolute;
+	width: 12px;
+	height: 12px;
+	border: solid var(--bord);
+	border-width: 0 1px 1px 0;
+	background: var(--surface);
+}
+
+.bulle.fleche-bas::after {
+	bottom: -7px;
+	left: calc(50% - 6px);
+	transform: rotate(45deg);
+}
+
+.bulle.fleche-haut::after {
+	top: -7px;
+	left: calc(50% - 6px);
+	transform: rotate(-135deg);
+}
+
+.bulle.fleche-droite::after {
+	right: -7px;
+	top: calc(50% - 6px);
+	transform: rotate(-45deg);
+}
+
+.bulle.fleche-gauche::after {
+	left: -7px;
+	top: calc(50% - 6px);
+	transform: rotate(135deg);
+}
+
+.bulle-titre {
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+	font-size: 0.8rem;
+	line-height: 1.25;
+}
+
+.bulle-titre span {
+	color: var(--texte-doux);
+	font-variant-numeric: tabular-nums;
+}
+
+.bulle-verdict {
+	margin: 0;
+	padding: 3px 8px;
+	border-radius: 8px;
+	font-size: 0.75rem;
+	font-weight: 600;
+}
+
+.bulle-verdict.rentable {
+	background: var(--vert-fond);
+	color: var(--vert);
+}
+
+.bulle-verdict.perdant {
+	background: color-mix(in srgb, var(--danger) 14%, transparent);
+	color: var(--danger);
+}
+
+.bulle-actions {
+	display: grid;
+	grid-auto-flow: column;
+	grid-auto-columns: 1fr;
+	gap: 6px;
+}
+
+.bulle button {
+	min-height: 34px;
+	padding: 2px 8px;
+	font-size: 0.82rem;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+
+.action-couche {
+	color: var(--danger);
+}
+
+.action-suit {
+	border-color: var(--accent);
+	background: var(--accent);
+	color: var(--sur-accent);
+}
+
+.bulle-mises {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px;
+}
+
+.bulle-mises .aide {
+	width: 100%;
+	font-size: 0.72rem;
+}
+
+.bulle .action-mise {
+	display: inline-flex;
+	flex: 1;
+	flex-direction: column;
+	align-items: center;
+	min-height: 0;
+	padding: 3px 6px;
+	border-color: var(--jeton-mise);
+	line-height: 1.15;
+}
+
+.action-mise small {
+	color: var(--texte-doux);
+	font-size: 0.68rem;
+	font-weight: 500;
+}
+
+.barre-coup {
+	display: flex;
+	justify-content: center;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.barre-coup button {
+	min-height: 36px;
+	font-size: 0.85rem;
+}
+
+/* Ma main : mes cartes, la main qu'elles font, mon équité */
+
+.calcul-carte {
+	margin-bottom: 10px;
+	padding: 12px 14px;
+}
+
+.ma-main {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+}
+
+.ma-main-cartes {
+	display: flex;
+	gap: 4px;
+	font-size: 1.25rem;
+}
+
+.ma-main-texte {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 0;
+}
+
+.ma-main-titre {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+	margin: 0;
+	font-variant-numeric: tabular-nums;
+}
+
+.ma-main .aide {
+	margin: 0;
+	font-size: 0.8rem;
+}
+
+/* Jauge : mon équité (barre) face à la cote du pot (trait). */
+
+.verdict-jauge {
+	position: relative;
+	height: 8px;
+	margin-bottom: 6px;
+	border-radius: 999px;
+	background: var(--surface-2);
+}
+
+.jauge-equite {
+	position: absolute;
+	inset: 0 auto 0 0;
+	border-radius: 999px;
+	background: var(--accent);
+	transition: width 0.2s;
+}
+
+.jauge-cote {
+	position: absolute;
+	top: -4px;
+	bottom: -4px;
+	width: 3px;
+	margin-left: -1px;
+	border-radius: 2px;
+	background: var(--texte);
+	transition: left 0.2s;
+}
+
+@media (max-width: 480px) {
+	.table-poker {
+		aspect-ratio: 1 / 1;
+	}
+
+	.tapis {
+		inset: 22% 17%;
+		border-width: 6px;
+	}
+
+	.siege {
+		min-width: 62px;
+		padding: 3px 6px;
+	}
+}
+
+/* Onglet Live : en-tête de la session, tapis, tournois terminés, fin de session. Les marques du
+   graphe ont leurs propres classes : .tapis est le tapis de la table de Calcul. */
+
+:root {
+	--partage: #a77b00;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--partage: #f2c94c;
+	}
+}
+
+:root[data-theme="dark"] {
+	--partage: #f2c94c;
+}
+
+.live {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+#ecran-app .live h2 {
+	margin: 0;
+	font-size: 1.05rem;
+}
+
+.live > .carte,
+.live-brique > .carte {
+	padding: 16px 18px;
+}
+
+/* Onglet Live plus large que les autres : ses briques s'y rangent en colonnes. */
+main:has(#onglet-live) {
+	max-width: 1400px;
+}
+
+@media (max-width: 520px) {
+	main:has(#onglet-live) {
+		padding-right: 10px;
+		padding-left: 10px;
+	}
+
+	.live {
+		gap: 10px;
+	}
+}
+
+/* Avec Live : dans une fenêtre étroite, la barre défile au lieu de tasser les libellés. */
+@media (max-width: 560px) {
+	.onglets-defilants .onglets {
+		margin-bottom: 10px;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+
+	.onglets-defilants .onglets button {
+		flex: none;
+		padding: 6px 12px;
+		font-size: 13px;
+		white-space: nowrap;
+	}
+}
+
+/* Briques : en colonnes (Briques.tsx). Chacune est un conteneur : son contenu se resserre selon sa
+   propre largeur (@container brique, plus bas), qu'elle soit étroite par la fenêtre ou par la colonne. */
+
+.live-briques {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.live-colonnes {
+	display: grid;
+	align-items: start;
+	gap: 12px;
+}
+
+.live-colonne {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-width: 0;
+}
+
+.live-brique {
+	container: brique / inline-size;
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+button.live-disposer {
+	display: inline-flex;
+	align-items: center;
+	align-self: center;
+	gap: 8px;
+	min-height: 40px;
+	padding: 6px 16px;
+	border: 1px solid var(--bord);
+	border-radius: 999px;
+	background: transparent;
+	color: var(--texte-doux);
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.live-disposer svg {
+	width: 18px;
+	height: 18px;
+}
+
+/* Mode Disposer : une poignée sur chaque brique, l'emplacement de dépôt en pointillés. */
+
+.live-disposer-barre {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px 12px;
+	padding: 8px 8px 8px 16px;
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+	color: var(--texte);
+	font-size: 14px;
+}
+
+.live-disposer-barre > div {
+	display: flex;
+	gap: 8px;
+	margin-left: auto;
+}
+
+.live-disposer-barre button {
+	min-height: 44px;
+	padding: 0 18px;
+	border-radius: 999px;
+}
+
+.disposer .live-colonnes,
+.disposer .live-colonne {
+	gap: 24px;
+}
+
+.disposer .live-colonnes {
+	padding-top: 14px;
+}
+
+.disposer .live-colonne {
+	min-height: 120px;
+}
+
+.disposer .live-brique {
+	outline: 2px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+	outline-offset: 3px;
+	border-radius: var(--rayon);
+}
+
+.live-poignee {
+	position: absolute;
+	top: -18px;
+	left: 50%;
+	z-index: 2;
+	display: grid;
+	place-items: center;
+	width: 56px;
+	min-height: 32px;
+	margin-left: -28px;
+	padding: 0;
+	border: 0;
+	border-radius: 999px;
+	background: var(--accent);
+	color: var(--sur-accent);
+	cursor: grab;
+	touch-action: none;
+}
+
+.live-poignee svg {
+	width: 18px;
+	height: 18px;
+}
+
+.live-brique.glissee {
+	position: fixed;
+	z-index: 20;
+	transform: rotate(1deg);
+	filter: drop-shadow(0 18px 32px rgb(0 0 0 / 0.25));
+}
+
+.live-brique.glissee .live-poignee {
+	cursor: grabbing;
+}
+
+.live-depot {
+	border: 2px dashed var(--accent);
+	border-radius: var(--rayon);
+	background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.live-brique.glissee {
+		transform: none;
+	}
+}
+
+.live-libelle {
+	color: var(--texte-doux);
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.live-carte-haut {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 8px 12px;
+}
+
+.live-carte-haut > div {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.live-carte-haut .aide {
+	font-size: 13px;
+}
+
+/* États sans session, et bandeau du PC injoignable */
+
+.carte.live-etat {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 20px 18px;
+}
+
+.live-etat-texte {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+}
+
+.live-etat-texte p {
+	margin: 2px 0 0;
+}
+
+.live-etat-icone {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 48px;
+	height: 48px;
+	border-radius: 50%;
+	background: var(--surface-2);
+	color: var(--texte-doux);
+}
+
+.live-etat-icone svg {
+	width: 24px;
+	height: 24px;
+}
+
+.live-etat > button {
+	align-self: flex-start;
+}
+
+.live-alerte {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px 16px;
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+	color: var(--danger);
+	font-size: 14px;
+}
+
+.live-alerte svg {
+	flex: none;
+	width: 20px;
+	height: 20px;
+}
+
+/* Bankroll de départ à saisir */
+
+.live-bankroll {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.live-bankroll label {
+	font-size: 1.05rem;
+	font-weight: 700;
+}
+
+.live-bankroll .aide {
+	font-size: 13px;
+}
+
+.live-ligne-saisie {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.live-champ-montant {
+	display: flex;
+	flex: 1 1 200px;
+	align-items: center;
+	min-height: 52px;
+	padding: 0 14px;
+	border: 2px solid var(--accent);
+	border-radius: 12px;
+	background: var(--surface);
+}
+
+.live-champ-montant input {
+	min-width: 0;
+	min-height: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	font-size: 1.5rem;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	outline: none;
+}
+
+.live-champ-montant:focus-within {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.live-champ-montant span {
+	color: var(--texte-doux);
+	font-size: 1.25rem;
+	font-weight: 600;
+}
+
+.live-ligne-saisie button {
+	min-height: 52px;
+	padding: 0 22px;
+	border-radius: 12px;
+}
+
+/* En-tête de la session : résultat en grand, puis bankroll, ITM, meilleur gain */
+
+.live-session {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.live-session-haut {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.live-session-haut .aide {
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-pastille {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 10px;
+	border-radius: 999px;
+	background: var(--vert-fond);
+	color: var(--vert);
+	font-size: 13px;
+	font-weight: 700;
+}
+
+.live-point {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: currentColor;
+}
+
+.live-resultat {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.live-resultat .aide {
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-resultat .montant {
+	font-size: 2.75rem;
+	line-height: 1.05;
+	letter-spacing: -0.01em;
+}
+
+.live-chiffres {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 8px;
+	padding-top: 14px;
+	border-top: 1px solid var(--bord);
+}
+
+.live-chiffres > div {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.live-chiffres strong {
+	font-size: 1.2rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-chiffres .aide,
+.live-session > .aide {
+	font-size: 13px;
+}
+
+.live-coupe {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+button.live-lien {
+	min-height: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--accent);
+	font-weight: 600;
+	text-decoration: underline;
+}
+
+@container brique (max-width: 250px) {
+	.live-chiffres {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		row-gap: 10px;
+	}
+}
+
+/* Tapis : luck, graphe, chiffres de la session, comparaison à l'historique */
+
+.live-tapis {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.live-tapis > p.aide {
+	margin: 0;
+}
+
+.live-luck {
+	align-items: flex-end;
+}
+
+.live-luck strong {
+	font-size: 1.6rem;
+	line-height: 1.1;
+}
+
+.live-luck .aide {
+	font-size: 12px;
+}
+
+.live-graphe svg {
+	display: block;
+	width: 100%;
+	height: auto;
+	touch-action: pan-y;
+}
+
+.live-graphe .grille {
+	stroke: var(--bord);
+	stroke-width: 1;
+}
+
+.live-graphe .milieu {
+	stroke: var(--texte-doux);
+	stroke-width: 1;
+	stroke-dasharray: 4 4;
+}
+
+.live-graphe .axe,
+.live-graphe .etiquette {
+	fill: var(--texte-doux);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-graphe .ancien {
+	fill: var(--texte-doux);
+	opacity: 0.3;
+}
+
+.live-graphe .win {
+	fill: var(--vert);
+}
+
+.live-graphe .lose {
+	fill: var(--surface);
+	stroke: var(--danger);
+	stroke-width: 2.5;
+}
+
+.live-graphe .partage {
+	fill: var(--partage);
+}
+
+/* River : affiché, mais hors stats (équité de 0 ou 100 %). */
+.live-graphe circle.river {
+	fill: none;
+	stroke: var(--vert);
+	stroke-width: 2;
+	stroke-dasharray: 3 2.5;
+	opacity: 0.7;
+}
+
+.live-graphe circle.river.lose {
+	stroke: var(--danger);
+}
+
+.live-graphe circle.river.partage {
+	stroke: var(--partage);
+}
+
+.live-legende {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 16px;
+	margin: 6px 0 0;
+	font-size: 13px;
+}
+
+.live-legende span {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.live-legende svg {
+	width: 12px;
+	height: 12px;
+}
+
+.live-legende .lose {
+	stroke-width: 2.2;
+}
+
+.live-legende .legende-river {
+	fill: none;
+	stroke: var(--texte-doux);
+	stroke-width: 1.8;
+	stroke-dasharray: 2.5 2;
+}
+
+.live-legende .legende-ancien {
+	fill: var(--texte-doux);
+	opacity: 0.35;
+}
+
+.live-tuiles {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 8px;
+}
+
+.live-tuiles > div {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+	padding: 10px 12px;
+	border-radius: 10px;
+	background: var(--surface-2);
+}
+
+.live-tuiles .aide {
+	font-size: 12px;
+}
+
+.live-tuiles strong {
+	font-size: 1.15rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-tuiles small {
+	color: var(--texte-doux);
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.live-barre {
+	display: flex;
+	gap: 2px;
+	height: 6px;
+	margin-top: 2px;
+	overflow: hidden;
+	border-radius: 3px;
+}
+
+.live-barre .win {
+	background: var(--vert);
+}
+
+.live-barre .partage {
+	background: var(--partage);
+}
+
+.live-barre .lose {
+	background: var(--danger);
+}
+
+@container brique (max-width: 320px) {
+	.live-tuiles {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+.live-comparer {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding-top: 12px;
+	border-top: 1px solid var(--bord);
+}
+
+.live-comparer > p {
+	margin: 0;
+}
+
+.live-segments {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 4px;
+	margin: 0;
+	padding: 4px;
+	border: 0;
+	border-radius: 12px;
+	background: var(--surface-2);
+}
+
+.live-segments button {
+	min-height: 40px;
+	padding: 6px 4px;
+	border: 0;
+	border-radius: 9px;
+	background: transparent;
+	color: var(--texte-doux);
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 1.2;
+}
+
+.live-segments button[aria-pressed="true"] {
+	background: var(--surface);
+	color: var(--texte);
+	box-shadow: var(--ombre);
+}
+
+.live-comparaison {
+	overflow-x: auto;
+}
+
+.live-comparaison table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 14px;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-comparaison th,
+.live-comparaison td {
+	padding: 7px 0 7px 12px;
+	text-align: right;
+}
+
+.live-comparaison thead th {
+	color: var(--texte-doux);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.live-comparaison tbody tr {
+	border-top: 1px solid var(--bord);
+}
+
+.live-comparaison tbody th {
+	padding-left: 0;
+	font-weight: 500;
+	text-align: left;
+}
+
+.masque {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+/* Tournois terminés */
+
+.live-brique > .live-tournois {
+	padding-bottom: 6px;
+}
+
+.live-tournois .live-carte-haut {
+	align-items: baseline;
+	padding-bottom: 6px;
+}
+
+.live-tournois > .aide {
+	margin: 6px 0 10px;
+}
+
+.live-tournois ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.live-tournois li {
+	display: grid;
+	grid-template-columns: 44px minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 12px;
+	padding: 11px 0;
+	border-top: 1px solid var(--bord);
+}
+
+.live-heure,
+.live-tournoi .aide {
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-tournoi {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	min-width: 0;
+}
+
+.live-tournoi-nom {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.live-tournoi-nom strong {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.live-badge {
+	flex: none;
+	padding: 1px 7px;
+	border-radius: 999px;
+	background: var(--surface-2);
+	color: var(--texte-doux);
+	font-size: 11px;
+	font-weight: 700;
+}
+
+.live-badge.mtt {
+	background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+	color: var(--accent);
+}
+
+.live-badge.victoire {
+	background: var(--vert-fond);
+	color: var(--vert);
+}
+
+/* Fin de session : en-tête à la couleur d'accent, tickets, commentaires, bouton d'envoi */
+
+.live > .live-fin {
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	overflow: hidden;
+	border: 2px solid var(--accent);
+	scroll-margin-top: 80px;
+}
+
+.live-fin-haut {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 16px 18px;
+	background: var(--accent);
+	color: var(--sur-accent);
+}
+
+#ecran-app .live-fin-haut h2 {
+	font-size: 1.35rem;
+}
+
+.live-fin-haut > span:last-child {
+	font-size: 14px;
+	font-variant-numeric: tabular-nums;
+	opacity: 0.92;
+}
+
+.live-surtitre {
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	opacity: 0.85;
+}
+
+.live-fin-chiffres {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+	padding: 16px 18px 0;
+}
+
+.live-fin-chiffres > div {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 10px 12px;
+	border-radius: 10px;
+	background: var(--surface-2);
+}
+
+.live-fin-chiffres > div.gain {
+	background: var(--vert-fond);
+}
+
+.live-fin-chiffres span {
+	color: var(--texte-doux);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.live-fin-chiffres strong {
+	font-size: 1.35rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-fin-note {
+	margin: 12px 18px 0;
+	font-size: 13px;
+}
+
+.live-fin fieldset {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+	margin: 0;
+	padding: 18px 18px 4px;
+	border: 0;
+}
+
+.live-fin legend {
+	float: left;
+	width: 100%;
+	margin-bottom: 2px;
+	padding: 0;
+	font-size: 1rem;
+	font-weight: 700;
+}
+
+.live-fin fieldset > .aide {
+	margin: 0;
+	font-size: 13px;
+}
+
+.live-ticket {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 12px;
+	min-height: 48px;
+	padding: 10px 12px;
+	border: 1px solid var(--bord);
+	border-radius: 10px;
+	box-sizing: border-box;
+}
+
+label.live-ticket {
+	cursor: pointer;
+}
+
+.live-ticket.coche {
+	border-color: var(--accent);
+	background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+
+.live-ticket input[type="checkbox"],
+.live-commentaire input[type="checkbox"] {
+	flex: none;
+	width: 20px;
+	height: 20px;
+	margin: 0;
+	accent-color: var(--accent);
+}
+
+.live-ticket-texte {
+	display: flex;
+	flex: 1 1 200px;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+}
+
+.live-ticket-texte .aide {
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+}
+
+.live-compteur {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.live-compteur .aide {
+	font-size: 13px;
+}
+
+.live-compteur > div {
+	display: flex;
+	align-items: center;
+	overflow: hidden;
+	border: 1px solid var(--bord);
+	border-radius: 999px;
+	background: var(--surface);
+}
+
+.live-compteur button {
+	width: 44px;
+	min-height: 40px;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: var(--surface-2);
+	font-size: 1.1rem;
+}
+
+.live-compteur output {
+	min-width: 52px;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	text-align: center;
+}
+
+.live-commentaire {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+}
+
+.live-commentaire input[type="checkbox"] {
+	margin-top: 12px;
+}
+
+.live-commentaire textarea {
+	flex: 1;
+	min-width: 0;
+	font-size: 14px;
+}
+
+.live-commentaire.ecartee {
+	opacity: 0.55;
+}
+
+.live-commentaire.ecartee textarea {
+	text-decoration: line-through;
+}
+
+button.live-ajouter {
+	display: inline-flex;
+	align-self: flex-start;
+	align-items: center;
+	gap: 6px;
+	border: 1px dashed var(--texte-doux);
+	background: transparent;
+	color: var(--accent);
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.live-ajouter svg {
+	width: 14px;
+	height: 14px;
+}
+
+.live-fin-pied {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 18px;
+	padding: 14px 18px 16px;
+	border-top: 1px solid var(--bord);
+	background: color-mix(in srgb, var(--surface-2) 40%, var(--surface));
+}
+
+.live-fin-pied .erreur {
+	margin: 0;
+}
+
+.live-fin-pied button[type="submit"] {
+	min-height: 48px;
+	font-size: 1rem;
+}
+
+.live-fin-pied .aide {
+	font-size: 13px;
+	text-align: center;
+}
+
+/* Brique étroite (fenêtre sur le côté de l'écran, ou colonne) : tout se resserre, les chiffres et les
+   tuiles des tapis restent sur une ligne. */
+@container brique (max-width: 480px) {
+	.live-brique > .carte {
+		padding: 12px 14px;
+	}
+
+	.live-session,
+	.live-tapis {
+		gap: 10px;
+	}
+
+	.live-resultat .montant {
+		font-size: 2.25rem;
+	}
+
+	.live-chiffres {
+		gap: 6px;
+		padding-top: 10px;
+	}
+
+	.live-libelle {
+		font-size: 11px;
+		letter-spacing: 0.03em;
+	}
+
+	.live-chiffres strong {
+		font-size: 1rem;
+	}
+
+	.live-chiffres .aide,
+	.live-session > .aide {
+		font-size: 12px;
+	}
+
+	.live-luck strong {
+		font-size: 1.35rem;
+	}
+
+	.live-tuiles {
+		gap: 6px;
+	}
+
+	.live-tuiles > div {
+		padding: 8px;
+	}
+
+	.live-tuiles .aide {
+		font-size: 11px;
+	}
+
+	.live-tuiles strong {
+		font-size: 0.95rem;
+	}
+
+	.live-segments button {
+		font-size: 12px;
+	}
+
+	.live-tournois li {
+		grid-template-columns: 40px minmax(0, 1fr) auto;
+		gap: 8px;
+		padding: 9px 0;
+	}
+}
+
+/* Très étroite : les tuiles des tapis passent en 2 × 2 (plus haut), les chiffres rapetissent encore. */
+@container brique (max-width: 320px) {
+	.live-brique > .carte {
+		padding: 12px;
+	}
+
+	.live-resultat .montant {
+		font-size: 2rem;
+	}
+
+	.live-chiffres strong {
+		font-size: 0.875rem;
+	}
+
+	.live-luck strong {
+		font-size: 1.25rem;
+	}
+
+	.live-tournois li {
+		grid-template-columns: 36px minmax(0, 1fr) auto;
+	}
+}
+
+/* Onglet Sessions : toute la largeur de l'écran. Fil d'Ariane, carte du niveau ouvert (son détail
+   replié), puis briques des années, mois, jours, sessions ou tournois. */
+main:has(#onglet-sessions) {
+	max-width: none;
+}
+
+.sessions {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.sessions-ariane {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px;
+	font-size: 14px;
+}
+
+.sessions-ariane > span {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.sessions-ariane button {
+	min-height: 32px;
+	padding: 4px 6px;
+	border: 0;
+	background: none;
+	color: var(--accent);
+}
+
+.sessions-ariane [aria-current] {
+	padding: 4px 6px;
+	font-weight: 600;
+}
+
+.sessions-periode {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+	gap: 16px;
+	align-items: center;
+	padding: 16px;
+}
+
+#ecran-app .sessions-periode h2 {
+	margin: 0;
+	color: var(--texte-doux);
+	font-size: 1rem;
+	overflow-wrap: anywhere;
+}
+
+.sessions-periode > div > .montant {
+	display: block;
+	margin: 4px 0 2px;
+	font-size: 2rem;
+}
+
+.sessions-periode-pleine {
+	grid-column: 1 / -1;
+	min-width: 0;
+}
+
+@media (max-width: 640px) {
+	.sessions-periode {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+.sessions-chiffres {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+	gap: 8px 12px;
+	margin: 0;
+}
+
+.sessions-chiffres > div {
+	min-width: 0;
+}
+
+.sessions-chiffres dt {
+	color: var(--texte-doux);
+	font-size: 11px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.sessions-chiffres dd {
+	margin: 0;
+	overflow: hidden;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Précision sous la valeur (re-entries, ABI, % ITM) : à la ligne, jamais coupée. */
+.sessions-precision {
+	display: block;
+	color: var(--texte-doux);
+	font-size: 12px;
+	font-weight: 400;
+	white-space: normal;
+}
+
+.sessions-pastilles {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.sessions-pastilles .pastille {
+	padding: 2px 8px;
+	border: 1px solid var(--bord);
+	border-radius: 999px;
+	background: var(--fond);
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.sessions-pastilles .pastille.bonne {
+	border-color: transparent;
+	background: var(--vert-fond);
+	color: var(--vert);
+	font-weight: 600;
+}
+
+.sessions-barres {
+	display: block;
+	width: 100%;
+	height: 34px;
+}
+
+.sessions-barres line {
+	stroke: var(--bord);
+}
+
+.sessions-barres .gain {
+	fill: var(--vert);
+}
+
+.sessions-barres .perte {
+	fill: var(--danger);
+}
+
+.sessions-commentaire {
+	margin: 0;
+	padding-top: 8px;
+	border-top: 1px solid var(--bord);
+	color: var(--texte-doux);
+	font-size: 13px;
+	font-style: italic;
+	overflow-wrap: anywhere;
+}
+
+.sessions-briques {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+	gap: 12px;
+}
+
+.sessions-briques.compactes {
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: 10px;
+}
+
+.brique-session {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	min-width: 0;
+	padding: 14px;
+	border: 1px solid var(--bord);
+	border-radius: var(--rayon);
+	background: var(--surface);
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.brique-session:hover {
+	border-color: var(--accent);
+}
+
+.brique-session:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.compactes .brique-session {
+	gap: 6px;
+	padding: 10px 12px;
+}
+
+.brique-session-haut {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+	min-width: 0;
+}
+
+.brique-session-haut > strong {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.brique-session-haut small {
+	display: block;
+	margin-top: 2px;
+	font-weight: 400;
+}
+
+.brique-session-haut > .montant {
+	font-size: 1.2rem;
+	white-space: nowrap;
+}
+
+.compactes .brique-session-haut > .montant {
+	font-size: 1rem;
+}
+
+.brique-session .sessions-chiffres {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.brique-session-lignes {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding-top: 8px;
+	border-top: 1px solid var(--bord);
+	font-size: 13px;
+}
+
+.brique-session-lignes > span {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.brique-session-suite {
+	align-self: flex-end;
+	color: var(--accent);
+	font-size: 12px;
+}
+
+.sessions-tournois {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+#ecran-app .sessions-tournois h3 {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: 8px;
+	margin: 6px 0 0;
+	font-size: 0.95rem;
+}
+
+.sessions-vide {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+	margin: 0;
+	padding: 20px;
+	text-align: center;
+}
+
+/* Détail replié de la carte (l'ancien Récap) : des blocs sur plusieurs colonnes si la place le permet. */
+.sessions-detail {
+	padding-top: 10px;
+	border-top: 1px solid var(--bord);
+}
+
+.sessions-detail summary {
+	min-height: 36px;
+	color: var(--accent);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.sessions-detail-grille {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
+	gap: 14px;
+	margin-top: 10px;
+}
+
+.sessions-bloc {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+	padding: 12px;
+	border: 1px solid var(--bord);
+	border-radius: 10px;
+	background: var(--fond);
+}
+
+.sessions-bloc.large {
+	grid-column: 1 / -1;
+}
+
+#ecran-app .sessions-bloc h3 {
+	margin: 0;
+	color: var(--texte-doux);
+	font-size: 13px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.sessions-bloc .tableau th,
+.sessions-bloc .tableau td {
+	padding: 6px 8px;
+}
+
+/* Nom d'un tournoi dans les plus gros gains : sur plusieurs lignes plutôt que d'élargir le tableau. */
+.sessions-bloc .tableau td:first-child {
+	width: 100%;
+	white-space: normal;
+}
+
+.sessions-lien {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--accent);
+	font: inherit;
+	line-height: 1.3;
+	text-align: left;
+	overflow-wrap: anywhere;
+}
+
+.sessions-cartes {
+	display: inline-flex;
+	gap: 4px;
+	font-weight: 600;
+}
+
+.sessions-cartes .rouge {
+	color: var(--danger);
+}

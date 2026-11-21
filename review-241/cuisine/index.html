@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="theme-color" content="#8f3d15" />
+		<meta name="description" content="Le journal alimentaire de la maison : calories, macros, recettes et poids." />
+		<title>Cuisine</title>
+		<link rel="manifest" href="manifest.webmanifest" />
+		<link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="Cuisine" />
+		<link rel="stylesheet" href="../shared/base.css" />
+		<link rel="stylesheet" href="style.css" />
+	</head>
+	<body>
+		<!-- La page entière (en-tête, écrans, notifications) : layout commun
+		     (shared/react/layout.tsx), rendu par React. -->
+		<div id="racine"></div>
+
+		<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+			<symbol id="bol" viewBox="0 0 64 64">
+				<path d="M24 22c-2-3 2-5 0-8M32 22c-2-3 2-5 0-8M40 22c-2-3 2-5 0-8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+				<path d="M10 28h44a22 22 0 0 1-44 0z" fill="currentColor" />
+				<rect x="23" y="50" width="18" height="4" rx="2" fill="currentColor" />
+			</symbol>
+		</svg>
+
+		<script src="../shared/config.js"></script>
+		<script src="config.js"></script>
+		<script src="version.js"></script>
+		<script src="../shared/vendor/qrcode.min.js"></script>
+		<script type="module" src="app.js"></script>
+	</body>
+</html>
