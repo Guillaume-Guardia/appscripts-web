@@ -1,4 +1,4 @@
 // Généré par scripts/publier-web.mjs : version de l'app, affichée dans le menu.
-self.VERSION_APP = "1.83.0";
-self.EMPREINTE_APP = "4957fc45dd3a";
+self.VERSION_APP = "1.84.0";
+self.EMPREINTE_APP = "fa64fd280987";
 self.FICHIERS_APP = ["./","app.js","config.js","icons/apple-touch-icon.png","icons/icon-192.png","icons/icon-512.png","icons/icon-maskable-512.png","icons/icon.svg","index.html","manifest.webmanifest","signer.html","signer.js","style.css","version.js","../shared/base.css","../shared/config.js","../shared/vendor/qrcode.min.js"];
