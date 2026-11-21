@@ -2289,6 +2289,15 @@ main:has(#onglet-sessions) {
 	white-space: nowrap;
 }
 
+/* Précision sous la valeur (re-entries, ABI, % ITM) : à la ligne, jamais coupée. */
+.sessions-precision {
+	display: block;
+	color: var(--texte-doux);
+	font-size: 12px;
+	font-weight: 400;
+	white-space: normal;
+}
+
 .sessions-pastilles {
 	display: flex;
 	flex-wrap: wrap;
