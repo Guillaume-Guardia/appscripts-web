@@ -153,11 +153,6 @@ button.filtres-effacer {
 	text-decoration: underline;
 }
 
-button.plus-de-sessions {
-	display: block;
-	margin: 12px auto 0;
-}
-
 .onglets {
 	display: flex;
 	gap: 4px;
@@ -204,7 +199,7 @@ button.plus-de-sessions {
 	color: var(--danger);
 }
 
-/* Tuiles et indicateurs */
+/* Tuiles (Bilan) */
 
 .tuiles {
 	display: grid;
@@ -213,8 +208,7 @@ button.plus-de-sessions {
 	margin-bottom: 8px;
 }
 
-.tuile,
-.indicateur {
+.tuile {
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
@@ -229,18 +223,6 @@ button.plus-de-sessions {
 	font-variant-numeric: tabular-nums;
 }
 
-.indicateurs {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-	gap: 14px 12px;
-	padding: 14px;
-}
-
-.indicateur strong {
-	font-size: 1.15rem;
-	font-variant-numeric: tabular-nums;
-}
-
 .carte.vide {
 	margin: 0;
 	padding: 12px 14px;
@@ -250,43 +232,6 @@ button.plus-de-sessions {
 
 .graphe {
 	padding: 12px 14px;
-}
-
-.graphe-entete {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	justify-content: space-between;
-	gap: 8px;
-	margin-bottom: 8px;
-}
-
-#ecran-app .graphe-entete h2 {
-	margin: 0;
-	font-size: 0.95rem;
-}
-
-.choix-mesure {
-	display: flex;
-	gap: 4px;
-	margin: 0;
-	padding: 0;
-	border: 0;
-}
-
-.choix-mesure button {
-	min-height: 32px;
-	padding: 0 10px;
-	border: 1px solid var(--bord);
-	background: transparent;
-	color: var(--texte-doux);
-	font-size: 0.85rem;
-}
-
-.choix-mesure button[aria-pressed="true"] {
-	border-color: var(--accent);
-	color: var(--texte);
-	font-weight: 600;
 }
 
 .graphe-zone {
@@ -359,18 +304,7 @@ button.plus-de-sessions {
 	color: var(--texte-doux);
 }
 
-/* Mois par mois, buy-in par buy-in */
-
-.par-mois {
-	margin-top: 8px;
-	padding: 0;
-}
-
-.par-mois summary {
-	padding: 12px 14px;
-	font-weight: 600;
-	cursor: pointer;
-}
+/* Tableaux */
 
 .tableau {
 	overflow-x: auto;
@@ -401,40 +335,7 @@ button.plus-de-sessions {
 	text-align: left;
 }
 
-/* Récap : choix de la période ; le récap précédent grisé pendant le chargement d'une autre. */
-
-.choix-periode {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	margin-bottom: 10px;
-}
-
-.choix-periode label {
-	color: var(--texte-doux);
-	font-weight: 600;
-}
-
-.choix-periode select {
-	flex: 1;
-	min-width: 0;
-	max-width: 280px;
-}
-
-.recap.en-chargement {
-	opacity: 0.55;
-	transition: opacity 0.2s;
-}
-
-.tableau .cartes {
-	font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-}
-
-.tableau td:has(.cartes) {
-	text-align: left;
-}
-
-/* Listes des sessions et des tournois */
+/* Lignes de liste (Bilan) */
 
 .ligne {
 	display: flex;
@@ -1210,7 +1111,7 @@ main:has(#onglet-live) {
 	}
 }
 
-/* Huit onglets avec Live : dans une fenêtre étroite, la barre défile au lieu de tasser les libellés. */
+/* Avec Live : dans une fenêtre étroite, la barre défile au lieu de tasser les libellés. */
 @media (max-width: 560px) {
 	.onglets-defilants .onglets {
 		margin-bottom: 10px;
@@ -2288,4 +2189,346 @@ button.live-ajouter {
 	.live-tournois li {
 		grid-template-columns: 36px minmax(0, 1fr) auto;
 	}
+}
+
+/* Onglet Sessions : toute la largeur de l'écran. Fil d'Ariane, carte du niveau ouvert (son détail
+   replié), puis briques des années, mois, jours, sessions ou tournois. */
+main:has(#onglet-sessions) {
+	max-width: none;
+}
+
+.sessions {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.sessions-ariane {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px;
+	font-size: 14px;
+}
+
+.sessions-ariane > span {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.sessions-ariane button {
+	min-height: 32px;
+	padding: 4px 6px;
+	border: 0;
+	background: none;
+	color: var(--accent);
+}
+
+.sessions-ariane [aria-current] {
+	padding: 4px 6px;
+	font-weight: 600;
+}
+
+.sessions-periode {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+	gap: 16px;
+	align-items: center;
+	padding: 16px;
+}
+
+#ecran-app .sessions-periode h2 {
+	margin: 0;
+	color: var(--texte-doux);
+	font-size: 1rem;
+	overflow-wrap: anywhere;
+}
+
+.sessions-periode > div > .montant {
+	display: block;
+	margin: 4px 0 2px;
+	font-size: 2rem;
+}
+
+.sessions-periode-pleine {
+	grid-column: 1 / -1;
+	min-width: 0;
+}
+
+@media (max-width: 640px) {
+	.sessions-periode {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+.sessions-chiffres {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+	gap: 8px 12px;
+	margin: 0;
+}
+
+.sessions-chiffres > div {
+	min-width: 0;
+}
+
+.sessions-chiffres dt {
+	color: var(--texte-doux);
+	font-size: 11px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.sessions-chiffres dd {
+	margin: 0;
+	overflow: hidden;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sessions-pastilles {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.sessions-pastilles .pastille {
+	padding: 2px 8px;
+	border: 1px solid var(--bord);
+	border-radius: 999px;
+	background: var(--fond);
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.sessions-pastilles .pastille.bonne {
+	border-color: transparent;
+	background: var(--vert-fond);
+	color: var(--vert);
+	font-weight: 600;
+}
+
+.sessions-barres {
+	display: block;
+	width: 100%;
+	height: 34px;
+}
+
+.sessions-barres line {
+	stroke: var(--bord);
+}
+
+.sessions-barres .gain {
+	fill: var(--vert);
+}
+
+.sessions-barres .perte {
+	fill: var(--danger);
+}
+
+.sessions-commentaire {
+	margin: 0;
+	padding-top: 8px;
+	border-top: 1px solid var(--bord);
+	color: var(--texte-doux);
+	font-size: 13px;
+	font-style: italic;
+	overflow-wrap: anywhere;
+}
+
+.sessions-briques {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+	gap: 12px;
+}
+
+.sessions-briques.compactes {
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: 10px;
+}
+
+.brique-session {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	min-width: 0;
+	padding: 14px;
+	border: 1px solid var(--bord);
+	border-radius: var(--rayon);
+	background: var(--surface);
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.brique-session:hover {
+	border-color: var(--accent);
+}
+
+.brique-session:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.compactes .brique-session {
+	gap: 6px;
+	padding: 10px 12px;
+}
+
+.brique-session-haut {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+	min-width: 0;
+}
+
+.brique-session-haut > strong {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.brique-session-haut small {
+	display: block;
+	margin-top: 2px;
+	font-weight: 400;
+}
+
+.brique-session-haut > .montant {
+	font-size: 1.2rem;
+	white-space: nowrap;
+}
+
+.compactes .brique-session-haut > .montant {
+	font-size: 1rem;
+}
+
+.brique-session .sessions-chiffres {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.brique-session-lignes {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding-top: 8px;
+	border-top: 1px solid var(--bord);
+	font-size: 13px;
+}
+
+.brique-session-lignes > span {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.brique-session-suite {
+	align-self: flex-end;
+	color: var(--accent);
+	font-size: 12px;
+}
+
+.sessions-tournois {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+#ecran-app .sessions-tournois h3 {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: 8px;
+	margin: 6px 0 0;
+	font-size: 0.95rem;
+}
+
+.sessions-vide {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+	margin: 0;
+	padding: 20px;
+	text-align: center;
+}
+
+/* Détail replié de la carte (l'ancien Récap) : des blocs sur plusieurs colonnes si la place le permet. */
+.sessions-detail {
+	padding-top: 10px;
+	border-top: 1px solid var(--bord);
+}
+
+.sessions-detail summary {
+	min-height: 36px;
+	color: var(--accent);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.sessions-detail-grille {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
+	gap: 14px;
+	margin-top: 10px;
+}
+
+.sessions-bloc {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+	padding: 12px;
+	border: 1px solid var(--bord);
+	border-radius: 10px;
+	background: var(--fond);
+}
+
+.sessions-bloc.large {
+	grid-column: 1 / -1;
+}
+
+#ecran-app .sessions-bloc h3 {
+	margin: 0;
+	color: var(--texte-doux);
+	font-size: 13px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.sessions-bloc .tableau th,
+.sessions-bloc .tableau td {
+	padding: 6px 8px;
+}
+
+/* Nom d'un tournoi dans les plus gros gains : sur plusieurs lignes plutôt que d'élargir le tableau. */
+.sessions-bloc .tableau td:first-child {
+	width: 100%;
+	white-space: normal;
+}
+
+.sessions-lien {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--accent);
+	font: inherit;
+	line-height: 1.3;
+	text-align: left;
+	overflow-wrap: anywhere;
+}
+
+.sessions-cartes {
+	display: inline-flex;
+	gap: 4px;
+	font-weight: 600;
+}
+
+.sessions-cartes .rouge {
+	color: var(--danger);
 }
