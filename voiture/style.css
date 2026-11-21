@@ -271,13 +271,6 @@ button.ligne-carte.contenu-carte {
 	background: var(--surface);
 }
 
-/* Sur ordinateur, capture est ignoré : le bouton ouvrirait le même sélecteur de fichiers. */
-@media (hover: hover) and (pointer: fine) {
-	#bouton-photo-facture {
-		display: none;
-	}
-}
-
 #bouton-vendue {
 	margin-top: 12px;
 }
