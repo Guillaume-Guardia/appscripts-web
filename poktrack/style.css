@@ -429,6 +429,255 @@ button.filtres-effacer {
 	padding: 12px 14px;
 }
 
+/* Docs : liste (titre et début du texte), lecture mise en forme, formulaire avec aperçu */
+
+/* La place du bouton flottant, sous le dernier doc. */
+.docs {
+	padding-bottom: 76px;
+}
+
+/* Le début du doc, sur deux lignes au plus. */
+.apercu-doc {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.barre-doc {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 10px;
+}
+
+.retour-docs {
+	min-height: 36px;
+	padding: 6px 4px;
+	border: 0;
+	background: none;
+	color: var(--accent);
+	font-weight: 600;
+}
+
+.doc,
+.editeur-doc {
+	padding: 16px 18px;
+	overflow-wrap: anywhere;
+}
+
+.doc > h2,
+.editeur-doc > h2 {
+	margin: 0 0 8px;
+	font-size: 1.3rem;
+}
+
+/* Doc ouvert au lancement de Winamax. */
+.pastille-avant-de-jouer {
+	flex: none;
+	padding: 2px 8px;
+	border-radius: 999px;
+	background: var(--accent);
+	color: var(--sur-accent);
+	font-size: 0.75rem;
+	font-weight: 600;
+}
+
+/* Sommaire d'un long doc : un bouton par partie (#), en retrait pour une sous-partie (##). */
+.sommaire-doc {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	margin: 4px 0 14px;
+	padding: 8px 0;
+	border-top: 1px solid var(--bord);
+	border-bottom: 1px solid var(--bord);
+}
+
+.sommaire-doc button {
+	min-height: 30px;
+	padding: 3px 0;
+	border: 0;
+	background: none;
+	color: var(--accent);
+	font-weight: 600;
+	text-align: left;
+}
+
+.sommaire-doc .sous-partie {
+	padding-left: 16px;
+	color: var(--texte-doux);
+	font-weight: 400;
+}
+
+/* Un titre atteint par le sommaire n'est pas caché sous l'en-tête. */
+.markdown h3,
+.markdown h4 {
+	scroll-margin-top: 80px;
+}
+
+/* Le doc à lire avant de jouer : une grande fenêtre qui défile, le bouton toujours visible en bas. */
+.dialogue-doc {
+	width: min(680px, calc(100vw - 24px));
+	padding: 20px 20px 0;
+	overflow-wrap: anywhere;
+}
+
+.dialogue-doc .markdown h3,
+.dialogue-doc .markdown h4 {
+	scroll-margin-top: 12px;
+}
+
+.surtitre-doc {
+	margin: 0;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	font-size: 0.75rem;
+	font-weight: 600;
+}
+
+.pied-dialogue-doc {
+	position: sticky;
+	bottom: 0;
+	margin: 16px -20px 0;
+	padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+	border-top: 1px solid var(--bord);
+	background: var(--surface);
+}
+
+.doc-modifie {
+	margin: 16px 0 0;
+	padding-top: 10px;
+	border-top: 1px solid var(--bord);
+	font-size: 0.85rem;
+}
+
+/* Texte en Markdown : titres sous celui du doc, listes resserrées, citations en retrait. */
+.markdown {
+	line-height: 1.5;
+}
+
+.markdown > :first-child {
+	margin-top: 0;
+}
+
+.markdown > :last-child {
+	margin-bottom: 0;
+}
+
+.markdown h3 {
+	margin: 1.3em 0 0.4em;
+	font-size: 1.15rem;
+	color: var(--accent);
+}
+
+.markdown h4 {
+	margin: 1.1em 0 0.3em;
+	font-size: 1.02rem;
+}
+
+.markdown h5,
+.markdown h6 {
+	margin: 1em 0 0.2em;
+	font-size: 0.95rem;
+	color: var(--texte-doux);
+}
+
+.markdown p {
+	margin: 0.5em 0;
+}
+
+.markdown ul,
+.markdown ol {
+	margin: 0.4em 0;
+	padding-left: 1.4em;
+}
+
+.markdown li {
+	margin: 0.15em 0;
+}
+
+.markdown li > ul,
+.markdown li > ol {
+	margin: 0.15em 0;
+}
+
+.markdown blockquote {
+	margin: 0.6em 0;
+	padding: 4px 12px;
+	border-left: 3px solid var(--accent);
+	background: var(--surface-2);
+	border-radius: 0 8px 8px 0;
+	font-style: italic;
+}
+
+.markdown hr {
+	margin: 1em 0;
+	border: 0;
+	border-top: 1px solid var(--bord);
+}
+
+.markdown code,
+.editeur-doc code {
+	padding: 1px 5px;
+	border-radius: 5px;
+	background: var(--surface-2);
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size: 0.88em;
+}
+
+.markdown a {
+	color: var(--accent);
+}
+
+.entete-contenu-doc {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.entete-contenu-doc label {
+	margin-top: 0;
+}
+
+.formulaire .choix-vue {
+	display: flex;
+	gap: 4px;
+	margin: 0;
+}
+
+.choix-vue button {
+	min-height: 32px;
+	padding: 4px 12px;
+	font-size: 0.9rem;
+}
+
+.choix-vue button[aria-pressed="true"] {
+	border-color: var(--accent);
+	background: var(--accent);
+	color: var(--sur-accent);
+	font-weight: 600;
+}
+
+.editeur-doc textarea {
+	min-height: 50dvh;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size: 0.9rem;
+	line-height: 1.45;
+}
+
+.apercu-markdown {
+	min-height: 50dvh;
+	padding: 10px 12px;
+	border: 1px dashed var(--bord);
+	border-radius: 10px;
+	overflow-wrap: anywhere;
+}
+
 /* Bilan financier : lignes à ouvrir, bouton flottant, choix du sens */
 
 button.ligne {
@@ -2347,6 +2596,39 @@ main:has(#onglet-sessions) {
 	font-size: 13px;
 	font-style: italic;
 	overflow-wrap: anywhere;
+	/* Un ressenti sur plusieurs lignes, et un commentaire par type de partie. */
+	white-space: pre-line;
+}
+
+/* Dans une brique, un long ressenti tient sur trois lignes : il se lit en entier dans la session. */
+.brique-session .sessions-commentaire {
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+/* Session ouverte : son commentaire en entier, et le crayon à droite. */
+.sessions-commentaire-bloc {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	padding-top: 8px;
+	border-top: 1px solid var(--bord);
+}
+
+.sessions-commentaire-bloc .sessions-commentaire {
+	flex: 1;
+	padding-top: 0;
+	border-top: 0;
+	font-size: 14px;
+}
+
+.sessions-commentaire-vide {
+	flex: 1;
+	margin: 0;
+	font-size: 13px;
 }
 
 .sessions-briques {
