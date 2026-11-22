@@ -563,6 +563,53 @@ main {
 	margin-top: 16px;
 }
 
+/* Façons de se connecter, au même niveau : un onglet chacune (icône et libellé), puis son panneau */
+.onglets-connexion {
+	display: grid;
+	grid-auto-flow: column;
+	grid-auto-columns: minmax(0, 1fr);
+	gap: 4px;
+	padding: 4px;
+	margin-top: 8px;
+	background: var(--surface-2);
+	border-radius: 16px;
+}
+
+.onglets-connexion button {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	min-height: 64px;
+	padding: 8px 4px;
+	border: 1px solid transparent;
+	border-radius: 12px;
+	background: transparent;
+	color: var(--texte-doux);
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.onglets-connexion button[aria-selected="true"] {
+	border-color: var(--bord);
+	background: var(--surface);
+	color: var(--accent);
+	box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+}
+
+.panneau-connexion,
+.champs-connexion {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.panneau-connexion {
+	min-height: 11rem;
+	margin-top: 8px;
+}
+
 /* Formulaires */
 
 .formulaire {

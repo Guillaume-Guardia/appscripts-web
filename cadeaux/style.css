@@ -1147,17 +1147,6 @@ button.menu-carte::after {
 	cursor: pointer;
 	font-weight: 600;
 }
-.lien-recu {
-	text-align: left;
-}
-.lien-recu summary {
-	cursor: pointer;
-	color: var(--texte-doux);
-	text-decoration: underline;
-}
-.lien-recu form {
-	margin-top: 8px;
-}
 .deja-offert ul {
 	margin: 8px 0 0;
 	padding-left: 18px;
@@ -1426,9 +1415,6 @@ input[type="date"] {
 	align-items: baseline;
 	gap: 4px 12px;
 }
-#accueil-connexion .bouton.principal {
-	width: 100%;
-}
 
 /* Fenêtres de web/shared (« Suggestion ou bug » : shared/signalement.js), écrites avec les classes
    de shared/base.css, que cadeaux ne charge pas. */
@@ -1474,20 +1460,16 @@ input[type="date"] {
 	color: var(--texte-doux);
 	font-size: 0.9rem;
 }
+/* Même rendu que l'accueil (#accueil-connexion) : question centrée, onglets, panneau. */
 #connexion-compte .carte {
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
-	text-align: left;
 }
 #connexion-compte .titre-carte {
-	margin: 0;
+	margin: 8px 0 0;
 	font-size: 1rem;
-}
-#connexion-compte .carte + .carte {
-	margin-top: 8px;
-	padding-top: 16px;
-	border-top: 1px solid var(--bord);
+	font-weight: 600;
 }
 .formulaire button,
 .boutons button,
@@ -1506,6 +1488,50 @@ input[type="date"] {
 	background: var(--rouge);
 	border-color: var(--rouge);
 	color: var(--sur-rouge);
+}
+/* Façons de se connecter (compte : shared/react/connexion.tsx ; accueil : features/Connexion.tsx),
+   au même niveau : un onglet chacune, puis son panneau. Après .formulaire button, qu'elles remplacent. */
+.onglets-connexion {
+	display: grid;
+	grid-auto-flow: column;
+	grid-auto-columns: minmax(0, 1fr);
+	gap: 4px;
+	padding: 4px;
+	background: var(--surface-2);
+	border-radius: 16px;
+}
+.onglets-connexion button {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	min-height: 64px;
+	padding: 8px 4px;
+	border: 1px solid transparent;
+	border-radius: 12px;
+	background: transparent;
+	color: var(--texte-doux);
+	font: inherit;
+	font-size: 0.8rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+.onglets-connexion button[aria-selected="true"] {
+	border-color: var(--bord);
+	background: var(--surface);
+	color: var(--rouge);
+	box-shadow: 0 1px 3px rgb(42 31 26 / 0.12);
+}
+.panneau-connexion,
+.champs-connexion {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	text-align: left;
+}
+.panneau-connexion {
+	min-height: 11rem;
 }
 .boutons {
 	display: flex;

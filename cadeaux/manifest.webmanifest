@@ -1,7 +1,7 @@
 {
 	"name": "Cadeaux de Noël",
 	"short_name": "Cadeaux",
-	"description": "Les listes de cadeaux de Noël de la famille, sans gâcher la surprise.",
+	"description": "Les listes de cadeaux de Noël de la famille.",
 	"lang": "fr",
 	"id": "./",
 	"start_url": "./",
