@@ -474,6 +474,86 @@ button.filtres-effacer {
 	font-size: 1.3rem;
 }
 
+/* Journal : brique en haut de la liste des docs, puis les ressentis, chacun relié à sa session. */
+.brique-journal {
+	margin-bottom: 12px;
+	overflow: hidden;
+}
+
+.brique-journal-haut {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 14px 14px 10px;
+}
+
+.brique-journal-haut h2 {
+	margin: 0;
+	font-size: 1.05rem;
+}
+
+.brique-journal-haut > div {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.brique-journal-haut button {
+	flex: none;
+}
+
+.brique-journal > .ligne {
+	width: 100%;
+	border-top: 1px solid var(--bord);
+	border-bottom: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+}
+
+.brique-journal > p.aide {
+	margin: 0;
+	padding: 0 14px 14px;
+}
+
+.entree-journal {
+	padding: 14px 0;
+	border-top: 1px solid var(--bord);
+}
+
+.entree-journal.provisoire {
+	opacity: 0.6;
+}
+
+.entree-journal-haut {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.entree-journal-haut h3 {
+	margin: 0;
+	font-size: 1rem;
+	text-transform: capitalize;
+}
+
+.lien-session {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 8px;
+	min-height: 0;
+	margin: 4px 0 2px;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--accent);
+	font-size: 14px;
+	font-weight: 600;
+}
+
 /* Doc ouvert au lancement de Winamax. */
 .pastille-avant-de-jouer {
 	flex: none;
@@ -2609,6 +2689,47 @@ label.live-ticket {
 	opacity: 0.55;
 }
 
+/* Fin de session : les tournois à commenter, un champ chacun. */
+.live-tournois-fin ul {
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+	padding: 0;
+	border: 1px solid var(--bord);
+	border-radius: 10px;
+	list-style: none;
+}
+
+.live-tournois-fin li {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 10px 12px;
+}
+
+.live-tournois-fin li + li {
+	border-top: 1px solid var(--bord);
+}
+
+.live-tournois-fin .live-tournoi-nom {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 4px 10px;
+	font-size: 14px;
+}
+
+.live-tournois-fin .live-tournoi-nom strong {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.live-tournois-fin input[type="text"] {
+	width: 100%;
+	box-sizing: border-box;
+	font-size: 14px;
+}
+
 .live-commentaire.ecartee textarea {
 	text-decoration: line-through;
 }
@@ -2931,7 +3052,101 @@ main:has(#onglet-sessions) {
 .sessions-commentaire-vide {
 	flex: 1;
 	margin: 0;
+	padding-top: 8px;
+	border-top: 1px solid var(--bord);
 	font-size: 13px;
+}
+
+/* Commentaires d'une session : le ressenti (journal), puis ses tournois commentés. */
+.sessions-commentaires {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.sessions-commentaires > .lien-session {
+	align-self: flex-start;
+}
+
+.sessions-ressenti {
+	flex: 1;
+	min-width: 0;
+	font-size: 14px;
+	overflow-wrap: anywhere;
+}
+
+.sessions-ressenti .markdown > :first-child {
+	margin-top: 0;
+}
+
+.sessions-ressenti .markdown > :last-child {
+	margin-bottom: 0;
+}
+
+.sessions-commentaire-tournoi {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.sessions-commentaire-tournoi .sessions-commentaire,
+.journal-tournois .sessions-commentaire {
+	padding-top: 0;
+	border-top: 0;
+}
+
+.sessions-tournoi-commente {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 2px 8px;
+	font-size: 14px;
+}
+
+.sessions-tournoi-commente strong {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+/* Dans une brique de session : le ressenti en aperçu, puis les tournois commentés. */
+.brique-session .sessions-commentaires.apercu {
+	gap: 6px;
+	padding-top: 8px;
+	border-top: 1px solid var(--bord);
+}
+
+.brique-session .sessions-commentaires.apercu .sessions-commentaire {
+	padding-top: 0;
+	border-top: 0;
+}
+
+.sessions-compteur {
+	align-self: flex-start;
+	padding: 1px 8px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--accent) 14%, transparent);
+	color: var(--accent);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+/* Journal (Docs) : les tournois commentés de la session sous le ressenti. */
+.journal-tournois {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin: 8px 0 0;
+	padding: 8px 0 0 12px;
+	border-left: 3px solid var(--bord);
+	list-style: none;
+}
+
+.journal-tournois li {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
 }
 
 .sessions-briques {
