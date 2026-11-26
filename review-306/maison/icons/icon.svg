@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+	<title>Maison</title>
+	<rect width="512" height="512" rx="112" fill="#0f5f66" />
+	<path d="M256 104L84 248h52v160h240V248h52z" fill="#f4f1ea" />
+	<rect x="222" y="296" width="68" height="112" rx="8" fill="#0f5f66" />
+</svg>
