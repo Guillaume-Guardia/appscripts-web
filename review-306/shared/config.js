@@ -1,6 +1,6 @@
 // Généré par scripts/publier-web.mjs : adresse de l'API de connexion (projet droits).
 window.API_DROITS = "https://script.google.com/macros/s/AKfycbwYlPLC6LTfWJJrQvnAszjxsactOUaTCkj0cVrzR-0avPOv_o-yQGkzVJ8NGX5xpAt7/exec";
-self.REVIEW = "PR #315 @ efd9b87";
+self.REVIEW = "PR #315 @ f6fb473";
 self.REVIEW_DOSSIER = "306";
 if (self.document && !self.BANDEAU_REVIEW) {
 	self.BANDEAU_REVIEW = true;
